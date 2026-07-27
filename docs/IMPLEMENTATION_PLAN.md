@@ -77,9 +77,10 @@ exception instance와 traceback 최종 frame이 동일함을 확인했다.
 
 다음 구현 단계는 Phase 6 release hardening이다.
 
-GitHub owner, PyPI ownership, license는 `docs/DECISIONS.md`에 따라 release 전에
-결정하며 다음 implementation phase를 막지 않는다. Remote CI 자체는 저장소가
-원격에 push된 뒤 별도로 확인한다.
+GitHub repository는 `SungjinWi99/langfeather`로 확정됐다. PyPI ownership,
+license, GHCR publication path는 `docs/DECISIONS.md`에 따라 release 전에 결정하며
+다음 implementation phase를 막지 않는다. Remote CI 자체는 저장소가 원격에
+push된 뒤 별도로 확인한다.
 
 ## Phase 0: Foundation and Contract Baseline
 

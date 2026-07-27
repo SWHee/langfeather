@@ -55,7 +55,7 @@ example을 실행하세요.
 [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-git clone <YOUR-GITHUB-URL>/langfeather.git
+git clone https://github.com/SungjinWi99/langfeather.git
 cd langfeather
 make setup
 ```
@@ -115,7 +115,7 @@ Public PyPI release 전에는 프로젝트의 dependency manager로 SDK source p
 설치합니다. 아래 GitHub 주소는 실제 public 주소로 바꿉니다.
 
 ```bash
-pip install "langfeather[langchain] @ git+https://github.com/<OWNER>/<REPOSITORY>.git#subdirectory=sdk/python"
+pip install "langfeather[langchain] @ git+https://github.com/SungjinWi99/langfeather.git#subdirectory=sdk/python"
 ```
 
 `StateGraph.compile()`의 결과, 즉 실제로 호출되는 compiled graph를 **한 번만**

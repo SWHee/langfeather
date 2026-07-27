@@ -283,7 +283,7 @@ Multi-stage Docker build:
 ```yaml
 services:
   langfeather:
-    image: ghcr.io/<owner>/langfeather:<version>
+    image: ghcr.io/sungjinwi99/langfeather:<version>
     ports:
       - "127.0.0.1:4319:4319"
     volumes:

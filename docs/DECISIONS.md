@@ -113,7 +113,7 @@ object에서 process safety를 위한 예외다.
 
 구현을 시작하기 전에 반드시 막는 항목은 아니지만 release 전에 결정해야 한다.
 
-- GitHub owner와 GHCR image의 최종 경로
+- GHCR image의 publication path와 access policy
 - PyPI `langfeather` 이름의 최종 availability와 ownership
 - license
 - public logo와 visual identity

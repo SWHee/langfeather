@@ -56,7 +56,7 @@ Requirements: Git, Docker Desktop, Python 3.10 or newer, Node.js 24, and
 [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-git clone <YOUR-GITHUB-URL>/langfeather.git
+git clone https://github.com/SungjinWi99/langfeather.git
 cd langfeather
 make setup
 ```
@@ -115,7 +115,7 @@ project's dependency manager. Replace the GitHub address below with the actual
 public address.
 
 ```bash
-pip install "langfeather[langchain] @ git+https://github.com/<OWNER>/<REPOSITORY>.git#subdirectory=sdk/python"
+pip install "langfeather[langchain] @ git+https://github.com/SungjinWi99/langfeather.git#subdirectory=sdk/python"
 ```
 
 Wrap the result of `StateGraph.compile()`—the compiled graph that is actually

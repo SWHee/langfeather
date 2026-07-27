@@ -44,5 +44,5 @@ separate Phase 6 release-hardening step.
 - Trace delivery is bounded in-memory best effort.
 - Raw diagnostic payloads are retained locally without automatic redaction.
 
-[Unreleased]: https://github.com/<OWNER>/<REPOSITORY>/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/<OWNER>/<REPOSITORY>/releases/tag/v0.1.0
+[Unreleased]: https://github.com/SungjinWi99/langfeather/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/SungjinWi99/langfeather/releases/tag/v0.1.0
