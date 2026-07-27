@@ -1,0 +1,15 @@
+services:
+  langfeather:
+    build:
+      context: .
+    image: langfeather:dev
+    ports:
+      - "127.0.0.1:4319:4319"
+    volumes:
+      - langfeather-data:/data
+    environment:
+      LANGFEATHER_DATABASE_URL: sqlite:////data/langfeather.db
+      LANGFEATHER_TRUSTED_HOSTS: localhost,127.0.0.1,langfeather
+
+volumes:
+  langfeather-data:

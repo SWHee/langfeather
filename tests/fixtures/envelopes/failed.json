@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "trace": {
+    "trace_id": "tr_failed_01",
+    "name": "failing-graph",
+    "started_at": "2026-07-25T03:01:00.000000Z",
+    "ended_at": "2026-07-25T03:01:00.250000Z",
+    "duration_us": 250000,
+    "status": "failed",
+    "input": {
+      "question": "실패를 재현해줘"
+    },
+    "output": null,
+    "error": {
+      "__type__": "builtins.ValueError",
+      "message": "fixture failure",
+      "repr": "ValueError('fixture failure')",
+      "traceback": [
+        {
+          "file": "/app/graph.py",
+          "line": 42,
+          "function": "failing_node",
+          "code": "raise ValueError('fixture failure')"
+        }
+      ]
+    },
+    "session_id": null,
+    "user_id": null,
+    "release": null,
+    "environment": "test",
+    "tags": [],
+    "metadata": {}
+  },
+  "observations": [
+    {
+      "observation_id": "obs_failed_root",
+      "trace_id": "tr_failed_01",
+      "parent_observation_id": null,
+      "sequence": 0,
+      "name": "failing-graph",
+      "kind": "chain",
+      "started_at": "2026-07-25T03:01:00.000000Z",
+      "ended_at": "2026-07-25T03:01:00.250000Z",
+      "duration_us": 250000,
+      "time_to_first_token_us": null,
+      "status": "failed",
+      "input": {
+        "question": "실패를 재현해줘"
+      },
+      "output": null,
+      "error": {
+        "__type__": "builtins.ValueError",
+        "message": "fixture failure",
+        "repr": "ValueError('fixture failure')",
+        "traceback": [
+          {
+            "file": "/app/graph.py",
+            "line": 42,
+            "function": "failing_node",
+            "code": "raise ValueError('fixture failure')"
+          }
+        ]
+      },
+      "model": null,
+      "usage": null,
+      "metadata": {
+        "langgraph_node": "failing_node",
+        "langgraph_step": 1
+      }
+    }
+  ]
+}
+

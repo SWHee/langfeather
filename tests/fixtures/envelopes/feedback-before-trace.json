@@ -1,0 +1,13 @@
+{
+  "feedback_id": "fb_before_trace_01",
+  "trace_id": "tr_delayed_01",
+  "name": "user_feedback",
+  "value": false,
+  "comment": "조건이 맞지 않는 정책을 추천함",
+  "metadata": {
+    "source": "fixture"
+  },
+  "created_at": "2026-07-25T03:04:00.000000Z",
+  "updated_at": "2026-07-25T03:04:00.000000Z"
+}
+

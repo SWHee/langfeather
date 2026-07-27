@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "trace": {
+    "trace_id": "tr_parallel_01",
+    "name": "parallel-retrieval",
+    "started_at": "2026-07-25T03:02:00.000000Z",
+    "ended_at": "2026-07-25T03:02:00.700000Z",
+    "duration_us": 700000,
+    "status": "completed",
+    "input": {
+      "query": "청년 주거"
+    },
+    "output": {
+      "documents": 2
+    },
+    "error": null,
+    "session_id": "chat-parallel",
+    "user_id": null,
+    "release": null,
+    "environment": "test",
+    "tags": [
+      "parallel"
+    ],
+    "metadata": {}
+  },
+  "observations": [
+    {
+      "observation_id": "obs_parallel_root",
+      "trace_id": "tr_parallel_01",
+      "parent_observation_id": null,
+      "sequence": 0,
+      "name": "parallel-retrieval",
+      "kind": "chain",
+      "started_at": "2026-07-25T03:02:00.000000Z",
+      "ended_at": "2026-07-25T03:02:00.700000Z",
+      "duration_us": 700000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "query": "청년 주거"
+      },
+      "output": {
+        "documents": 2
+      },
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {}
+    },
+    {
+      "observation_id": "obs_parallel_vector",
+      "trace_id": "tr_parallel_01",
+      "parent_observation_id": "obs_parallel_root",
+      "sequence": 1,
+      "name": "vector_retriever",
+      "kind": "retriever",
+      "started_at": "2026-07-25T03:02:00.100000Z",
+      "ended_at": "2026-07-25T03:02:00.500000Z",
+      "duration_us": 400000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "query": "청년 주거"
+      },
+      "output": [
+        "vector result"
+      ],
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {
+        "langgraph_node": "vector_retriever",
+        "langgraph_step": 1
+      }
+    },
+    {
+      "observation_id": "obs_parallel_keyword",
+      "trace_id": "tr_parallel_01",
+      "parent_observation_id": "obs_parallel_root",
+      "sequence": 2,
+      "name": "keyword_retriever",
+      "kind": "retriever",
+      "started_at": "2026-07-25T03:02:00.120000Z",
+      "ended_at": "2026-07-25T03:02:00.450000Z",
+      "duration_us": 330000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "query": "청년 주거"
+      },
+      "output": [
+        "keyword result"
+      ],
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {
+        "langgraph_node": "keyword_retriever",
+        "langgraph_step": 1
+      }
+    }
+  ]
+}
+

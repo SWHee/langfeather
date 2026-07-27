@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "trace": {
+    "trace_id": "tr_completed_01",
+    "name": "policy-rag",
+    "started_at": "2026-07-25T03:00:00.000000Z",
+    "ended_at": "2026-07-25T03:00:01.500000Z",
+    "duration_us": 1500000,
+    "status": "completed",
+    "input": {
+      "question": "청년 정책을 알려줘"
+    },
+    "output": {
+      "answer": "조건을 확인해볼게요."
+    },
+    "error": null,
+    "session_id": "chat-123",
+    "user_id": null,
+    "release": "0.1.0",
+    "environment": "local",
+    "tags": [
+      "quickstart"
+    ],
+    "metadata": {}
+  },
+  "observations": [
+    {
+      "observation_id": "obs_completed_root",
+      "trace_id": "tr_completed_01",
+      "parent_observation_id": null,
+      "sequence": 0,
+      "name": "policy-rag",
+      "kind": "chain",
+      "started_at": "2026-07-25T03:00:00.000000Z",
+      "ended_at": "2026-07-25T03:00:01.500000Z",
+      "duration_us": 1500000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "question": "청년 정책을 알려줘"
+      },
+      "output": {
+        "answer": "조건을 확인해볼게요."
+      },
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {
+        "langgraph_node": "__start__",
+        "langgraph_step": 0
+      }
+    },
+    {
+      "observation_id": "obs_completed_retrieve",
+      "trace_id": "tr_completed_01",
+      "parent_observation_id": "obs_completed_root",
+      "sequence": 1,
+      "name": "retrieve_documents",
+      "kind": "retriever",
+      "started_at": "2026-07-25T03:00:00.100000Z",
+      "ended_at": "2026-07-25T03:00:00.400000Z",
+      "duration_us": 300000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "query": "청년 정책"
+      },
+      "output": [
+        {
+          "__type__": "langchain_core.documents.base.Document",
+          "page_content": "정책 원문",
+          "metadata": {
+            "source": "fixture"
+          }
+        }
+      ],
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {
+        "langgraph_node": "retrieve_documents",
+        "langgraph_step": 1
+      }
+    }
+  ]
+}

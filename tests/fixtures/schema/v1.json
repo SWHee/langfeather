@@ -1,0 +1,437 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "completed_envelope": {
+    "$defs": {
+      "JsonValue": {},
+      "ObservationContract": {
+        "properties": {
+          "duration_us": {
+            "minimum": 0,
+            "title": "Duration Us",
+            "type": "integer"
+          },
+          "ended_at": {
+            "format": "date-time",
+            "title": "Ended At",
+            "type": "string"
+          },
+          "error": {
+            "$ref": "#/$defs/JsonValue",
+            "default": null
+          },
+          "input": {
+            "$ref": "#/$defs/JsonValue",
+            "default": null
+          },
+          "kind": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Model"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "observation_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/$defs/JsonValue",
+            "default": null
+          },
+          "parent_observation_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Observation Id"
+          },
+          "sequence": {
+            "minimum": 0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/$defs/TraceStatus"
+          },
+          "time_to_first_token_us": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time To First Token Us"
+          },
+          "trace_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UsageContract"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "observation_id",
+          "trace_id",
+          "sequence",
+          "name",
+          "kind",
+          "started_at",
+          "ended_at",
+          "duration_us",
+          "status"
+        ],
+        "title": "ObservationContract",
+        "type": "object"
+      },
+      "TraceContract": {
+        "properties": {
+          "duration_us": {
+            "minimum": 0,
+            "title": "Duration Us",
+            "type": "integer"
+          },
+          "ended_at": {
+            "format": "date-time",
+            "title": "Ended At",
+            "type": "string"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Environment"
+          },
+          "error": {
+            "$ref": "#/$defs/JsonValue",
+            "default": null
+          },
+          "input": {
+            "$ref": "#/$defs/JsonValue",
+            "default": null
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/$defs/JsonValue",
+            "default": null
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Release"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Id"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/$defs/TraceStatus"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "trace_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "trace_id",
+          "name",
+          "started_at",
+          "ended_at",
+          "duration_us",
+          "status"
+        ],
+        "title": "TraceContract",
+        "type": "object"
+      },
+      "TraceStatus": {
+        "enum": [
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "TraceStatus",
+        "type": "string"
+      },
+      "UsageContract": {
+        "properties": {
+          "input_tokens": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Output Tokens"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider"
+          },
+          "raw": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "title": "Raw",
+            "type": "object"
+          },
+          "total_tokens": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total Tokens"
+          }
+        },
+        "title": "UsageContract",
+        "type": "object"
+      }
+    },
+    "properties": {
+      "observations": {
+        "items": {
+          "$ref": "#/$defs/ObservationContract"
+        },
+        "title": "Observations",
+        "type": "array"
+      },
+      "schema_version": {
+        "const": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "trace": {
+        "$ref": "#/$defs/TraceContract"
+      }
+    },
+    "required": [
+      "schema_version",
+      "trace",
+      "observations"
+    ],
+    "title": "CompletedEnvelopeContract",
+    "type": "object"
+  },
+  "feedback": {
+    "$defs": {
+      "JsonValue": {}
+    },
+    "properties": {
+      "comment": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Comment"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "feedback_id": {
+        "maxLength": 128,
+        "minLength": 1,
+        "title": "Feedback Id",
+        "type": "string"
+      },
+      "metadata": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "title": "Metadata",
+        "type": "object"
+      },
+      "name": {
+        "maxLength": 255,
+        "minLength": 1,
+        "title": "Name",
+        "type": "string"
+      },
+      "trace_id": {
+        "maxLength": 128,
+        "minLength": 1,
+        "title": "Trace Id",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "title": "Updated At",
+        "type": "string"
+      },
+      "value": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "title": "Value"
+      }
+    },
+    "required": [
+      "feedback_id",
+      "trace_id",
+      "name",
+      "value",
+      "created_at",
+      "updated_at"
+    ],
+    "title": "FeedbackContract",
+    "type": "object"
+  }
+}

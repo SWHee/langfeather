@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "trace": {
+    "trace_id": "tr_loop_01",
+    "name": "retry-loop",
+    "started_at": "2026-07-25T03:03:00.000000Z",
+    "ended_at": "2026-07-25T03:03:00.900000Z",
+    "duration_us": 900000,
+    "status": "completed",
+    "input": {
+      "query": "조건에 맞는 정책"
+    },
+    "output": {
+      "accepted": true
+    },
+    "error": null,
+    "session_id": "chat-loop",
+    "user_id": null,
+    "release": null,
+    "environment": "test",
+    "tags": [
+      "loop"
+    ],
+    "metadata": {}
+  },
+  "observations": [
+    {
+      "observation_id": "obs_loop_root",
+      "trace_id": "tr_loop_01",
+      "parent_observation_id": null,
+      "sequence": 0,
+      "name": "retry-loop",
+      "kind": "chain",
+      "started_at": "2026-07-25T03:03:00.000000Z",
+      "ended_at": "2026-07-25T03:03:00.900000Z",
+      "duration_us": 900000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "query": "조건에 맞는 정책"
+      },
+      "output": {
+        "accepted": true
+      },
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {}
+    },
+    {
+      "observation_id": "obs_loop_check_1",
+      "trace_id": "tr_loop_01",
+      "parent_observation_id": "obs_loop_root",
+      "sequence": 1,
+      "name": "check_answer",
+      "kind": "runnable",
+      "started_at": "2026-07-25T03:03:00.200000Z",
+      "ended_at": "2026-07-25T03:03:00.300000Z",
+      "duration_us": 100000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "attempt": 1
+      },
+      "output": {
+        "accepted": false
+      },
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {
+        "langgraph_node": "check_answer",
+        "langgraph_step": 2
+      }
+    },
+    {
+      "observation_id": "obs_loop_check_2",
+      "trace_id": "tr_loop_01",
+      "parent_observation_id": "obs_loop_root",
+      "sequence": 2,
+      "name": "check_answer",
+      "kind": "runnable",
+      "started_at": "2026-07-25T03:03:00.600000Z",
+      "ended_at": "2026-07-25T03:03:00.700000Z",
+      "duration_us": 100000,
+      "time_to_first_token_us": null,
+      "status": "completed",
+      "input": {
+        "attempt": 2
+      },
+      "output": {
+        "accepted": true
+      },
+      "error": null,
+      "model": null,
+      "usage": null,
+      "metadata": {
+        "langgraph_node": "check_answer",
+        "langgraph_step": 4
+      }
+    }
+  ]
+}
+
