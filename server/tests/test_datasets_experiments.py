@@ -354,7 +354,7 @@ def _dataset_with_one_example(api: TestClient, name: str) -> dict[str, Any]:
 def _delete(api: TestClient, path: str) -> Response:
     """DELETE with the JSON content type every mutating route requires."""
 
-    return api.delete(path, headers={"content-type": "application/json"})
+    return cast(Response, api.delete(path, headers={"content-type": "application/json"}))
 
 
 def test_dataset_example_edits_advance_the_revision(api: TestClient) -> None:
