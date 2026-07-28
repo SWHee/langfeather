@@ -98,7 +98,7 @@ web/**
 - trace list/detail
 - React Flow layout
 - inspector와 JSON viewer
-- feedback/session/delete/settings UX
+- score/annotation/queue/session/delete/settings UX
 - responsive behavior
 
 금지:
@@ -176,7 +176,6 @@ tests/fixtures/envelopes/completed.json
 tests/fixtures/envelopes/failed.json
 tests/fixtures/envelopes/parallel.json
 tests/fixtures/envelopes/loop.json
-tests/fixtures/envelopes/feedback-before-trace.json
 ```
 
 SDK는 fixture와 같은 envelope를 만들고, server는 fixture를 ingest하며,
@@ -293,9 +292,10 @@ coding agent의 완료 보고만 믿지 않고 다음 scenario로 결과를 평�
 7. node exception
 8. client cancellation/disconnect
 9. collector unavailable
-10. feedback before delayed trace ingest
-11. backup/reset/offline restore
-12. container restart
+10. categorical multiple empty annotation
+11. explicit annotation queue complete/edit
+12. backup/reset/offline restore
+13. container restart
 
 각 scenario는 expected trace status, observation count/kinds, parent relation,
 payload assertion을 가진다.

@@ -10,15 +10,15 @@ acceptance gate를 가져야 한다.
 
 ## Current Status
 
-2026-07-26 기준으로 Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5의
-local technical gate가 완료됐다.
+2026-07-28 기준으로 Phase 0부터 Phase 5까지의 local technical gate가
+완료됐고 Phase 7 custom score/annotation queue 구현이 진행 중이다.
 
 - Python `uv` workspace와 SDK/server package scaffold
 - Vite, React, TypeScript strict frontend scaffold
 - root `make` quality command
 - Python 3.10과 최신 지원 Python을 대상으로 하는 CI skeleton
 - `schema_version=1` SDK/server/web contract types
-- completed, failed, parallel, loop, feedback-before-trace canonical fixture
+- completed, failed, parallel, loop canonical fixture
 - generated JSON Schema fixture
 - `wrap_runnable()` sync/async capture와 bounded background HTTP sender
 - FastAPI ingest/list/detail/payload API, SQLite WAL persistence, Alembic migration
@@ -37,9 +37,9 @@ local technical gate가 완료됐다.
 - collector 정상/중단 상태의 return, chunks, exception parity integration gate
 - local lint, type check, package/integration/web tests, build, smoke, browser smoke
 - opaque cursor list/filter API와 session trace navigation API
-- feedback-before-trace, feedback CRUD, trace/observation/feedback cascade delete
+- custom score, trace annotation/memo, fixed annotation queue API와 persistence
 - root input/output header, failed-node focus, nested JSON folding/copy,
-  filter reset, cursor pagination, session previous/next, feedback/delete UI
+  filter reset, cursor pagination, session previous/next, annotation/delete UI
 - exact `RESET` confirmation UI/API, SQLite online backup download, server-offline
   restore CLI with integrity/migration validation and atomic replace/safety copy
 - FastAPI static SPA and deep-link fallback, multi-stage Docker/Compose deployment,
@@ -75,7 +75,7 @@ parent를 유지한다. 종료된 trace context를 상속한 detached task는 �
 application을 다시 실행해 return object identity, stream chunks, application
 exception instance와 traceback 최종 frame이 동일함을 확인했다.
 
-다음 구현 단계는 Phase 6 release hardening이다.
+Phase 7 gate가 끝난 뒤 다음 release 단계는 Phase 6 hardening이다.
 
 GitHub repository는 `SungjinWi99/langfeather`로 확정됐다. PyPI ownership,
 license, GHCR publication path는 `docs/DECISIONS.md`에 따라 release 전에 결정하며
@@ -95,9 +95,9 @@ push된 뒤 별도로 확인한다.
 - frontend package와 strict TypeScript
 - root lint, format, type check, test, build, smoke command
 - CI skeleton
-- trace, observation, usage, error, feedback domain types
+- trace, observation, usage, error domain types
 - stable opaque ID와 UTC/monotonic timing utility
-- canonical envelope와 feedback fixtures
+- canonical completed/failed/parallel/loop envelope fixtures
 - generated JSON Schema fixture
 - development compose placeholder
 
@@ -107,7 +107,7 @@ push된 뒤 별도로 확인한다.
 - SDK, server, web가 같은 canonical fixtures를 수용함
 - `schema_version=1`만 수용하고 다른 version을 거부함
 - root observation, unique sequence, same-trace parent 관계를 검증함
-- failed trace와 feedback-before-trace fixture를 수용함
+- failed, parallel, loop trace fixture를 수용함
 - Python package와 frontend production build가 성공함
 
 ### Gate
@@ -141,7 +141,7 @@ push된 뒤 별도로 확인한다.
 
 ### Scope Boundary
 
-이 phase에서는 full serializer registry, retry policy, feedback, backup,
+이 phase에서는 full serializer registry, retry policy, annotation, backup,
 advanced filter, graph layout polish를 완성하지 않는다. Canonical JSON-compatible
 sample payload 하나가 SDK에서 API, SQLite, query, browser까지 이동하는 경로를
 먼저 고정한다.
@@ -282,7 +282,6 @@ state 변화를 찾을 수 있게 한다.
 - nested JSON folding와 copy
 - unknown observation kind fallback
 - session previous/next
-- feedback create, read, update, delete
 - individual trace delete
 - beginner-oriented empty/error states와 terminology
 
@@ -303,7 +302,6 @@ state 변화를 찾을 수 있게 한다.
 - initial detail request가 observation summary만 가져옴
 - graph selection과 inspector payload가 일치함
 - error node automatic focus
-- feedback-before-trace
 - delete confirmation
 - keyboard와 basic accessibility
 - desktop/mobile smoke
@@ -336,7 +334,7 @@ traceback frame을 찾을 수 있다.
 ### Required Tests
 
 - invalid envelope과 같은 batch의 valid envelope은 정상 저장됨
-- cascade observation delete와 feedback cleanup
+- cascade observation 및 trace 소유 product data cleanup
 - default 50, maximum 200 limit
 - container restart와 `docker compose down` 뒤 data 유지
 - backup, reset, restore round trip
@@ -372,6 +370,34 @@ documented quickstart가 동작한다.
 - amd64/arm64 image smoke
 - `docs/PRODUCT_REQUIREMENTS.md`의 v1 acceptance criteria 전체 확인
 
+## Phase 7: Custom Scores and Manual Annotation Queues
+
+### Deliverables
+
+- boolean, finite number, categorical single/multiple score config CRUD
+- trace-level structured annotation과 trace당 shared memo
+- fixed/manual annotation queue 생성과 score/trace 목록 편집
+- 명시적 queue item 완료, 읽기 전용 완료 상태, `수정` 시 pending 전환
+- legacy feedback contract/table/API 제거 migration
+- future observation target을 위한 annotation target identity seam
+- `Scores`, `Annotation Queues`, trace annotation UI
+
+### Required Tests
+
+- score type별 validation과 categorical multiple `[]`/미기록 구분
+- 사용된 score의 structure 불변성과 archive
+- score 값 없이도 명시적으로 queue item 완료 가능
+- 완료 item 수정 시 pending 전환 및 기존 값 보존
+- queue 삭제가 trace annotation/memo를 삭제하지 않음
+- trace 삭제가 annotation/memo/queue item을 cascade 삭제
+- queue 생성 후 score와 trace membership 수동 편집
+
+### Gate
+
+- server package tests, web component tests, lint/type check 통과
+- SDK -> API -> SQLite -> browser smoke에서 기존 tracing flow 회귀 없음
+- product, decision, architecture, data contract 문서와 구현 일치
+
 ## Sequencing Rules
 
 - canonical contract 변경은 SDK, server, web types, fixture, integration test를
@@ -392,7 +418,7 @@ documented quickstart가 동작한다.
 
 1. visual polish와 animation
 2. advanced search 조합
-3. feedback 수정 기능
+3. queue 생성 후 score/trace 목록 편집 편의 기능
 4. session previous/next convenience
 5. offline restore CLI의 UX 개선
 

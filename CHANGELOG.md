@@ -8,15 +8,20 @@ follow Semantic Versioning while LangFeather remains in the `0.x` series.
 
 ### Added
 
-- Nothing yet.
+- Custom boolean, finite number, categorical single/multiple score definitions.
+- Trace-level structured annotations and one shared memo per trace.
+- Fixed manual annotation queues with explicit complete/edit workflow.
 
 ### Changed
 
-- Nothing yet.
+- The top navigation now separates Traces, Annotation Queues, Scores, and
+  Local Data.
+- Queue completion is explicit and independent of score coverage.
+- Used score structures are immutable and archived instead of deleted.
 
-### Fixed
+### Removed
 
-- Nothing yet.
+- The legacy generic feedback API, database table, SDK type, and fixture.
 
 ## [0.1.0] - 2026-07-27
 

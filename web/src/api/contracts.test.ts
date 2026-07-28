@@ -3,7 +3,6 @@ import {resolve} from "node:path";
 import {describe, expect, it} from "vitest";
 import {
   isCompletedEnvelope,
-  isFeedback,
   type CompletedEnvelope,
 } from "./types";
 
@@ -31,10 +30,6 @@ describe("schema v1 contract fixtures", () => {
     },
   );
 
-  it("accepts feedback before its trace exists", () => {
-    expect(isFeedback(loadFixture("feedback-before-trace.json"))).toBe(true);
-  });
-
   it("rejects an unsupported schema version", () => {
     const value = loadFixture("completed.json") as Record<string, unknown>;
     value.schema_version = 2;
@@ -42,4 +37,3 @@ describe("schema v1 contract fixtures", () => {
     expect(isCompletedEnvelope(value)).toBe(false);
   });
 });
-

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Annotated, Literal
@@ -103,7 +102,6 @@ class TraceContract(ContractModel):
             raise ValueError("ended_at must not be earlier than started_at")
         return self
 
-
 class ObservationContract(ContractModel):
     observation_id: OpaqueId
     trace_id: OpaqueId
@@ -194,39 +192,4 @@ class CompletedEnvelopeContract(ContractModel):
                     raise ValueError("observation parent cycle is not allowed")
                 visited.add(current.observation_id)
                 current = by_id[current.parent_observation_id]
-        return self
-
-
-class FeedbackContract(ContractModel):
-    feedback_id: OpaqueId
-    trace_id: OpaqueId
-    name: ContractName
-    value: bool | int | float | str
-    comment: str | None = None
-    metadata: Metadata = Field(default_factory=dict)
-    created_at: datetime
-    updated_at: datetime
-
-    _created_at_is_string = field_validator(
-        "created_at",
-        mode="before",
-    )(_require_timestamp_string)
-    _updated_at_is_string = field_validator(
-        "updated_at",
-        mode="before",
-    )(_require_timestamp_string)
-    _created_at_is_utc = field_validator("created_at")(_require_utc)
-    _updated_at_is_utc = field_validator("updated_at")(_require_utc)
-
-    @field_validator("value")
-    @classmethod
-    def validate_finite_number(cls, value: bool | int | float | str) -> object:
-        if isinstance(value, float) and not math.isfinite(value):
-            raise ValueError("feedback number must be finite")
-        return value
-
-    @model_validator(mode="after")
-    def validate_time_order(self) -> FeedbackContract:
-        if self.updated_at < self.created_at:
-            raise ValueError("updated_at must not be earlier than created_at")
         return self

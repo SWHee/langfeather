@@ -3,10 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from langfeather_server.contracts import (
-    CompletedEnvelopeContract,
-    FeedbackContract,
-)
+from langfeather_server.contracts import CompletedEnvelopeContract
 
 
 def main() -> None:
@@ -16,7 +13,6 @@ def main() -> None:
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "completed_envelope": CompletedEnvelopeContract.model_json_schema(),
-        "feedback": FeedbackContract.model_json_schema(),
     }
     output_path.write_text(
         f"{json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True)}\n",
@@ -26,4 +22,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

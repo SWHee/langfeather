@@ -108,7 +108,7 @@ def test_health_reports_applied_migration(
         "status": "ok",
         "server_version": "0.1.0",
         "supported_schema_versions": [1],
-        "database_migration_version": "0002_feedback",
+        "database_migration_version": "0003_score_annotations",
     }
 
 
@@ -366,7 +366,8 @@ def test_trace_detail_and_observation_payload_are_separate(
     trace = trace_response.json()
     assert {"input", "output", "error", "metadata"}.isdisjoint(trace)
     assert len(trace["observations"]) == 2
-    assert trace["feedback"] == []
+    assert trace["annotations"] == []
+    assert trace["memo"] is None
     assert {"input", "output", "error", "usage", "metadata"}.isdisjoint(
         trace["observations"][1]
     )
@@ -409,68 +410,28 @@ def test_trace_detail_exposes_explicit_dispatch_evidence(
     )
 
 
-def test_feedback_can_arrive_before_trace_and_is_editable(
-    api: tuple[TestClient, Path],
-) -> None:
-    client, _ = api
-    feedback = {
-        "feedback_id": "fb_api_01",
-        "trace_id": "tr_api_01",
-        "name": "user_feedback",
-        "value": False,
-        "comment": "근거가 충분하지 않습니다.",
-        "metadata": {"source": "student"},
-        "created_at": "2026-07-25T12:00:00.000000Z",
-        "updated_at": "2026-07-25T12:00:00.000000Z",
-    }
-
-    created = client.post("/api/v1/feedback", json=feedback)
-    duplicate = client.post("/api/v1/feedback", json=feedback)
-    assert created.status_code == 201
-    assert duplicate.status_code == 200
-    assert duplicate.json()["comment"] == "근거가 충분하지 않습니다."
-
-    stored = client.post("/api/v1/traces/batch", json={"items": [make_envelope()]})
-    assert stored.json()["results"][0]["status"] == "stored"
-    detail = client.get("/api/v1/traces/tr_api_01").json()
-    assert len(detail["feedback"]) == 1
-    assert detail["feedback"][0]["feedback_id"] == feedback["feedback_id"]
-    assert detail["feedback"][0]["value"] is False
-    assert detail["feedback"][0]["comment"] == feedback["comment"]
-
-    updated = client.patch(
-        "/api/v1/feedback/fb_api_01",
-        json={"value": True, "comment": "수정한 의견"},
-    )
-    assert updated.status_code == 200
-    assert updated.json()["value"] is True
-    assert updated.json()["comment"] == "수정한 의견"
-    assert updated.json()["updated_at"] > feedback["updated_at"]
-
-    removed = client.delete(
-        "/api/v1/feedback/fb_api_01",
-        headers={"content-type": "application/json"},
-    )
-    assert removed.status_code == 204
-    assert client.get("/api/v1/traces/tr_api_01").json()["feedback"] == []
-
-
-def test_delete_trace_removes_observations_and_feedback(
+def test_delete_trace_removes_observations_annotations_and_memo(
     api: tuple[TestClient, Path],
 ) -> None:
     client, database_path = api
-    feedback = {
-        "feedback_id": "fb_delete_01",
-        "trace_id": "tr_api_01",
-        "name": "user_feedback",
-        "value": True,
-        "comment": None,
-        "metadata": {},
-        "created_at": "2026-07-25T12:00:00.000000Z",
-        "updated_at": "2026-07-25T12:00:00.000000Z",
-    }
-    assert client.post("/api/v1/feedback", json=feedback).status_code == 201
     assert client.post("/api/v1/traces/batch", json={"items": [make_envelope()]}).status_code == 200
+    score = client.post(
+        "/api/v1/scores",
+        json={
+            "name": "Success",
+            "data_type": "boolean",
+            "boolean_true_label": "Success",
+            "boolean_false_label": "Failure",
+        },
+    ).json()
+    assert client.put(
+        f"/api/v1/traces/tr_api_01/annotations/{score['score_config_id']}",
+        json={"value": True},
+    ).status_code == 200
+    assert client.put(
+        "/api/v1/traces/tr_api_01/memo",
+        json={"content": "delete me"},
+    ).status_code == 200
 
     deleted = client.delete(
         "/api/v1/traces/tr_api_01",
@@ -481,7 +442,8 @@ def test_delete_trace_removes_observations_and_feedback(
     assert client.get("/api/v1/traces/tr_api_01").status_code == 404
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM observations").fetchone() == (0,)
-        assert connection.execute("SELECT COUNT(*) FROM feedback").fetchone() == (0,)
+        assert connection.execute("SELECT COUNT(*) FROM annotations").fetchone() == (0,)
+        assert connection.execute("SELECT COUNT(*) FROM trace_memos").fetchone() == (0,)
 
 
 def test_batch_requires_json_and_rejects_malformed_request_shape(

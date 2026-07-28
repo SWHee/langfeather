@@ -23,8 +23,9 @@ account or sending traces to a hosted observability service.
   aggregate metrics.
 - Add tracing to ordinary Python functions with `@observe` and `span()`, or
   make an ASGI request the root trace with `wrap_asgi()`.
-- Navigate traces in the same LangGraph `thread_id`, add feedback, export a
-  SQLite backup, and delete local trace data.
+- Navigate traces in the same LangGraph `thread_id`, evaluate them with custom
+  scores and a shared trace memo, and manage fixed annotation queues.
+- Export a SQLite backup and delete local trace data.
 
 LangFeather displays only runtime relationships supported by captured callback
 evidence. It does **not** infer a static graph or unobserved edges.
@@ -202,7 +203,8 @@ bash scripts/container_smoke.sh
 | [Product requirements](docs/PRODUCT_REQUIREMENTS.md) | you need the target user, scope, and acceptance criteria |
 | [Decisions](docs/DECISIONS.md) | you need to know what is locked or deliberately out of scope |
 | [Architecture](docs/ARCHITECTURE.md) | you need SDK/server/web boundaries and runtime flow |
-| [Data contract](docs/DATA_CONTRACT.md) | you change trace, observation, feedback, or HTTP shapes |
+| [Data contract](docs/DATA_CONTRACT.md) | you change trace, observation, score, annotation, or HTTP shapes |
+| [Score and annotation queue design](docs/SCORE_ANNOTATION_QUEUE_DESIGN.md) | you need the custom score and annotation queue UX/state rules |
 | [Known issues](docs/KNOWN_ISSUES.md) | you are investigating a documented limitation |
 | [Agent rules](AGENTS.md) | you are making repository changes with a coding agent |
 
@@ -225,8 +227,8 @@ automatic payload redaction or retention. See
 ## Backup and reset
 
 The UI can download a consistent SQLite backup and reset all trace,
-observation, and feedback data after you type `RESET`. Backups include raw
-payloads, so keep them in a safe local location.
+observation, score, annotation, memo, and annotation queue data after you type
+`RESET`. Backups include raw payloads, so keep them in a safe local location.
 
 Restore is deliberately offline-only. Stop the server first, then mount the
 backup directory into the Compose container.

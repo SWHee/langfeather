@@ -1,34 +1,34 @@
-import {useEffect, useState} from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  createFeedback,
-  deleteFeedback,
+  addAnnotationQueueItems,
   deleteTrace,
+  getAnnotationQueues,
   getObservation,
   getTrace,
   getTraces,
   resetAllData,
-  updateFeedback,
 } from "./api/client";
 import type {
-  Feedback,
-  FeedbackPatch,
-  JsonValue,
+  AnnotationQueue,
   Observation,
-  ObservationSummary,
   TraceDetail,
   TraceQuery,
   TraceListResponse,
   TraceStatus,
 } from "./api/types";
-import {APP_TITLE} from "./constants";
-import {RuntimeExecutionGraph} from "./graph/RuntimeExecutionGraph";
+import {
+  AnnotationQueuesView,
+  ScoresView,
+  TraceAnnotationPanel,
+} from "./annotations/AnnotationViews";
+import { APP_TITLE } from "./constants";
+import {
+  ObservationInspector,
+  type LoadState,
+} from "./components/ObservationInspector";
+import { useDismissiblePopover } from "./components/useDismissiblePopover";
+import { RuntimeExecutionGraph } from "./graph/RuntimeExecutionGraph";
 import "./styles.css";
-
-type LoadState<T> =
-  | {status: "idle"}
-  | {status: "loading"}
-  | {status: "error"}
-  | {status: "success"; data: T};
 
 const STATUS_LABEL: Record<TraceStatus, string> = {
   completed: "완료",
@@ -42,43 +42,6 @@ function isAbortError(error: unknown): boolean {
     error !== null &&
     "name" in error &&
     error.name === "AbortError"
-  );
-}
-
-function jsonRecord(value: JsonValue): {[key: string]: JsonValue} | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value
-    : null;
-}
-
-function FailureSummary({error}: {error: JsonValue}) {
-  const diagnostic = jsonRecord(error);
-  if (diagnostic === null) {
-    return null;
-  }
-  const errorType = diagnostic.__type__;
-  const message = diagnostic.message;
-  const traceback = diagnostic.traceback;
-  const lastFrame = Array.isArray(traceback)
-    ? jsonRecord(traceback[traceback.length - 1] ?? null)
-    : null;
-  const file = lastFrame?.file;
-  const line = lastFrame?.line;
-  const functionName = lastFrame?.function;
-
-  return (
-    <div className="failure-summary" role="alert">
-      <p>실패한 노드</p>
-      <strong>{typeof errorType === "string" ? errorType : "실행 오류"}</strong>
-      <span>{typeof message === "string" ? message : "오류 메시지가 없습니다."}</span>
-      {typeof file === "string" && typeof line === "number" && (
-        <code>
-          {file}:{line}
-          {typeof functionName === "string" ? ` · ${functionName}()` : ""}
-        </code>
-      )}
-      <small>전체 traceback과 metadata는 ‘전체 데이터’에서 확인할 수 있습니다.</small>
-    </div>
   );
 }
 
@@ -102,55 +65,7 @@ function formatTimestamp(timestamp: string): string {
   }).format(new Date(timestamp));
 }
 
-function formatJson(value: unknown): string {
-  return JSON.stringify(value, null, 2) ?? "null";
-}
-
-function jsonPreview(value: JsonValue): string {
-  if (Array.isArray(value)) {
-    return `Array(${value.length})`;
-  }
-  if (value !== null && typeof value === "object") {
-    return `Object(${Object.keys(value).length})`;
-  }
-  return formatJson(value);
-}
-
-function JsonTree({value, depth = 0}: {value: JsonValue; depth?: number}) {
-  if (Array.isArray(value)) {
-    return (
-      <details className="json-tree-branch" open={depth < 1}>
-        <summary>{jsonPreview(value)}</summary>
-        <ol className="json-tree-list">
-          {value.map((item, index) => (
-            <li key={index}>
-              <span className="json-tree-key">{index}: </span>
-              <JsonTree value={item} depth={depth + 1} />
-            </li>
-          ))}
-        </ol>
-      </details>
-    );
-  }
-  if (value !== null && typeof value === "object") {
-    return (
-      <details className="json-tree-branch" open={depth < 1}>
-        <summary>{jsonPreview(value)}</summary>
-        <ul className="json-tree-list">
-          {Object.entries(value).map(([key, item]) => (
-            <li key={key}>
-              <span className="json-tree-key">{JSON.stringify(key)}: </span>
-              <JsonTree value={item} depth={depth + 1} />
-            </li>
-          ))}
-        </ul>
-      </details>
-    );
-  }
-  return <code className="json-tree-value">{formatJson(value)}</code>;
-}
-
-function StatusBadge({status}: {status: TraceStatus}) {
+function StatusBadge({ status }: { status: TraceStatus }) {
   return (
     <span className="status-badge" data-status={status}>
       <span aria-hidden="true" className="status-dot" />
@@ -159,7 +74,207 @@ function StatusBadge({status}: {status: TraceStatus}) {
   );
 }
 
-function LoadingCard({message}: {message: string}) {
+function TraceActions({
+  traceId,
+  deleting,
+  onDelete,
+}: {
+  traceId: string;
+  deleting: boolean;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"actions" | "queues">("actions");
+  const [queues, setQueues] = useState<AnnotationQueue[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [pendingQueueId, setPendingQueueId] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const [query, setQuery] = useState("");
+  const { rootRef, triggerRef } = useDismissiblePopover(open, () => {
+    setOpen(false);
+    setView("actions");
+  });
+
+  const loadQueues = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const response = await getAnnotationQueues();
+      setQueues(response.items);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setView("actions");
+    setQuery("");
+    setOpen(true);
+  };
+
+  const openQueues = () => {
+    setView("queues");
+    setQuery("");
+    void loadQueues();
+  };
+
+  const filteredQueues = queues.filter((queue) => {
+    const searchText = `${queue.name} ${queue.description ?? ""}`.toLowerCase();
+    return searchText.includes(query.trim().toLowerCase());
+  });
+
+  const add = async (queue: AnnotationQueue) => {
+    setPendingQueueId(queue.annotation_queue_id);
+    setError(false);
+    try {
+      const updated = await addAnnotationQueueItems(queue.annotation_queue_id, [
+        traceId,
+      ]);
+      setQueues((current) =>
+        current.map((item) =>
+          item.annotation_queue_id === updated.annotation_queue_id
+            ? updated
+            : item,
+        ),
+      );
+    } catch {
+      setError(true);
+    } finally {
+      setPendingQueueId(null);
+    }
+  };
+
+  return (
+    <div className="trace-actions" ref={rootRef}>
+      <button
+        ref={triggerRef}
+        className="icon-button trace-actions-trigger"
+        type="button"
+        aria-expanded={open}
+        aria-label="Trace actions"
+        onClick={toggle}
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <circle cx="5" cy="12" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="19" cy="12" r="1.5" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          className="trace-actions-popover"
+          role="menu"
+          aria-label="Trace actions menu"
+        >
+          {view === "actions" ? (
+            <>
+              <button
+                className="trace-action-item"
+                type="button"
+                onClick={openQueues}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Add to Queue
+              </button>
+              <button
+                className="trace-action-item trace-action-danger"
+                type="button"
+                disabled={deleting}
+                aria-label="이 요청 삭제"
+                onClick={() => {
+                  setOpen(false);
+                  onDelete();
+                }}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M4 7h16" />
+                  <path d="M9 7V4h6v3" />
+                  <path d="m7 7 1 13h8l1-13" />
+                  <path d="M10 11v5M14 11v5" />
+                </svg>
+                Delete
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="trace-actions-heading">
+                <button
+                  className="trace-actions-back"
+                  type="button"
+                  aria-label="Trace actions 뒤로"
+                  onClick={() => setView("actions")}
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+                <strong>Add to Queue</strong>
+              </div>
+              <label className="queue-popover-search">
+                <span aria-hidden="true" className="search-icon" />
+                <input
+                  type="search"
+                  aria-label="Queue 검색"
+                  placeholder="Queue 검색"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+              {loading ? (
+                <span className="queue-popover-state">불러오는 중…</span>
+              ) : error ? (
+                <button
+                  className="queue-popover-state queue-popover-retry"
+                  type="button"
+                  onClick={() => void loadQueues()}
+                >
+                  다시 시도
+                </button>
+              ) : queues.length === 0 ? (
+                <span className="queue-popover-state">Queue가 없습니다.</span>
+              ) : filteredQueues.length === 0 ? (
+                <span className="queue-popover-state">
+                  검색 결과가 없습니다.
+                </span>
+              ) : (
+                filteredQueues.map((queue) => {
+                  const added = queue.items.some(
+                    (item) => item.trace_id === traceId,
+                  );
+                  const pending = pendingQueueId === queue.annotation_queue_id;
+                  return (
+                    <button
+                      className="queue-choice"
+                      type="button"
+                      key={queue.annotation_queue_id}
+                      disabled={added || pending}
+                      aria-label={`${queue.name}${added ? " 추가됨" : ""}`}
+                      onClick={() => void add(queue)}
+                    >
+                      <span>{queue.name}</span>
+                      {added && <small>추가됨</small>}
+                      {pending && <small>추가 중…</small>}
+                    </button>
+                  );
+                })
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoadingCard({ message }: { message: string }) {
   return (
     <div className="state-card" aria-live="polite">
       <span className="loading-spinner" aria-hidden="true" />
@@ -185,29 +300,6 @@ function ErrorCard({
         다시 시도
       </button>
     </div>
-  );
-}
-
-function JsonSection({title, value}: {title: string; value: unknown}) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    if (typeof navigator.clipboard?.writeText !== "function") {
-      return;
-    }
-    void navigator.clipboard.writeText(formatJson(value)).then(() => {
-      setCopied(true);
-    });
-  };
-  return (
-    <details className="json-section" open>
-      <summary>{title}</summary>
-      <button className="json-copy-button" type="button" onClick={copy}>
-        {copied ? "복사됨" : "복사"}
-      </button>
-      <div className="json-tree" aria-label={`${title} JSON`}>
-        <JsonTree value={value as JsonValue} />
-      </div>
-    </details>
   );
 }
 
@@ -255,7 +347,7 @@ function TraceFilters({
 }) {
   const [expanded, setExpanded] = useState(false);
   const update = (key: keyof TraceFilterDraft, next: string) => {
-    onChange({...value, [key]: next});
+    onChange({ ...value, [key]: next });
   };
   const advancedFilterCount = [
     value.status,
@@ -366,7 +458,7 @@ function TraceFilters({
   );
 }
 
-function LocalDataControls({onReset}: {onReset: () => void}) {
+function LocalDataControls({ onReset }: { onReset: () => void }) {
   const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
@@ -406,7 +498,9 @@ function LocalDataControls({onReset}: {onReset: () => void}) {
         }}
       >
         <label>
-          <span><code>RESET</code>을 입력하면 모든 추적과 피드백을 지웁니다.</span>
+          <span>
+            <code>RESET</code>을 입력하면 모든 추적과 피드백을 지웁니다.
+          </span>
           <input
             aria-label="전체 데이터 초기화 확인"
             value={confirmation}
@@ -452,9 +546,20 @@ function TraceList({
         <div className="empty-feather" aria-hidden="true">
           ↘
         </div>
-        <h3>{hasFilters ? "조건에 맞는 요청이 없습니다" : "아직 기록된 요청이 없습니다"}</h3>
+        <h3>
+          {hasFilters
+            ? "조건에 맞는 요청이 없습니다"
+            : "아직 기록된 요청이 없습니다"}
+        </h3>
         <p>
-          {hasFilters ? "검색어나 필터를 바꿔 다시 확인해 보세요." : <><code>wrap_runnable()</code>로 감싼 LangGraph를 실행하면 여기에 요청이 나타납니다.</>}
+          {hasFilters ? (
+            "검색어나 필터를 바꿔 다시 확인해 보세요."
+          ) : (
+            <>
+              <code>wrap_runnable()</code>로 감싼 LangGraph를 실행하면 여기에
+              요청이 나타납니다.
+            </>
+          )}
         </p>
       </div>
     );
@@ -503,238 +608,6 @@ function TraceList({
   );
 }
 
-function Inspector({
-  selectedObservation,
-  payloadState,
-  onRetry,
-}: {
-  selectedObservation: ObservationSummary | null;
-  payloadState: LoadState<Observation>;
-  onRetry: () => void;
-}) {
-  const [detail, setDetail] = useState<"core" | "all">("core");
-  return (
-    <section className="inspector-panel" aria-labelledby="inspector-title">
-      <div className="panel-heading">
-        <h3 id="inspector-title">
-          {selectedObservation?.name ?? "Input / Output"}
-        </h3>
-        {selectedObservation === null ? null : (
-          <span className="kind-chip">{selectedObservation.kind}</span>
-        )}
-      </div>
-
-      {payloadState.status === "idle" && (
-        <div className="inspector-placeholder">
-          <p>노드를 선택하세요.</p>
-        </div>
-      )}
-      {payloadState.status === "loading" && (
-        <LoadingCard message="노드 데이터를 불러오는 중입니다…" />
-      )}
-      {payloadState.status === "error" && (
-        <ErrorCard
-          message="노드 데이터를 불러오지 못했습니다"
-          onRetry={onRetry}
-        />
-      )}
-      {payloadState.status === "success" && (
-        <div className="json-inspector">
-          {selectedObservation?.status === "failed" && (
-            <FailureSummary error={payloadState.data.error} />
-          )}
-          <div className="inspector-mode-toggle" role="group" aria-label="데이터 상세 수준">
-            <button
-              className={detail === "core" ? "selected" : undefined}
-              type="button"
-              aria-pressed={detail === "core"}
-              onClick={() => setDetail("core")}
-            >
-              핵심 입출력
-            </button>
-            <button
-              className={detail === "all" ? "selected" : undefined}
-              type="button"
-              aria-pressed={detail === "all"}
-              onClick={() => setDetail("all")}
-            >
-              전체 데이터
-            </button>
-          </div>
-          <JsonSection title="Input" value={payloadState.data.input} />
-          <JsonSection title="Output" value={payloadState.data.output} />
-          {(detail === "all" || payloadState.data.error !== null) && (
-            <JsonSection title="Error" value={payloadState.data.error} />
-          )}
-          {detail === "all" && (
-            <>
-              <JsonSection title="Usage" value={payloadState.data.usage} />
-              <JsonSection title="Metadata" value={payloadState.data.metadata} />
-            </>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function feedbackId(): string {
-  if (typeof crypto.randomUUID === "function") {
-    return `fb_${crypto.randomUUID()}`;
-  }
-  return `fb_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-function FeedbackPanel({
-  traceId,
-  feedback,
-  onChanged,
-}: {
-  traceId: string;
-  feedback: Feedback[];
-  onChanged: () => void;
-}) {
-  const [value, setValue] = useState<"true" | "false">("true");
-  const [comment, setComment] = useState("");
-  const [editing, setEditing] = useState<Feedback | null>(null);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState(false);
-
-  const submit = () => {
-    setPending(true);
-    setError(false);
-    const booleanValue = value === "true";
-    const request =
-      editing === null
-        ? createFeedback({
-            feedback_id: feedbackId(),
-            trace_id: traceId,
-            name: "user_feedback",
-            value: booleanValue,
-            comment: comment === "" ? null : comment,
-            metadata: {source: "langfeather-web"},
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-        : updateFeedback(editing.feedback_id, {
-            value: booleanValue,
-            comment: comment === "" ? null : comment,
-          } satisfies FeedbackPatch);
-    void request
-      .then(() => {
-        setComment("");
-        setValue("true");
-        setEditing(null);
-        onChanged();
-      })
-      .catch(() => {
-        setError(true);
-      })
-      .finally(() => {
-        setPending(false);
-      });
-  };
-
-  const edit = (item: Feedback) => {
-    setEditing(item);
-    setValue(item.value === false ? "false" : "true");
-    setComment(item.comment ?? "");
-    setError(false);
-  };
-
-  const remove = (item: Feedback) => {
-    if (!window.confirm("이 피드백을 삭제할까요?")) {
-      return;
-    }
-    setPending(true);
-    setError(false);
-    void deleteFeedback(item.feedback_id)
-      .then(onChanged)
-      .catch(() => {
-        setError(true);
-      })
-      .finally(() => {
-        setPending(false);
-      });
-  };
-
-  return (
-    <section className="feedback-panel" aria-labelledby="feedback-title">
-      <div className="feedback-heading">
-        <h3 id="feedback-title">Feedback</h3>
-        <span>{feedback.length}개</span>
-      </div>
-      {feedback.length > 0 && (
-        <ul className="feedback-list">
-          {feedback.map((item) => (
-            <li key={item.feedback_id}>
-              <span className={item.value === false ? "feedback-negative" : "feedback-positive"}>
-                {item.value === false ? "아쉬움" : "도움됨"}
-              </span>
-              <p>{item.comment ?? "의견 없음"}</p>
-              <div>
-                <button className="text-button" type="button" onClick={() => edit(item)}>
-                  수정
-                </button>
-                <button className="text-button" type="button" onClick={() => remove(item)}>
-                  삭제
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form
-        className="feedback-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit();
-        }}
-      >
-        <label>
-          <span>평가</span>
-          <select
-            aria-label="피드백 평가"
-            value={value}
-            onChange={(event) => setValue(event.target.value as "true" | "false")}
-          >
-            <option value="true">도움됨</option>
-            <option value="false">아쉬움</option>
-          </select>
-        </label>
-        <label>
-          <span>메모</span>
-          <input
-            aria-label="피드백 메모"
-            placeholder="예: 이 결과가 기대와 다른 이유"
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-          />
-        </label>
-        <div className="feedback-actions">
-          <button className="secondary-button" type="submit" disabled={pending}>
-            {pending ? "저장 중…" : editing === null ? "피드백 저장" : "피드백 수정"}
-          </button>
-          {editing !== null && (
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setValue("true");
-                setComment("");
-              }}
-            >
-              취소
-            </button>
-          )}
-        </div>
-      </form>
-      {error && <p className="feedback-error" role="alert">피드백을 저장하지 못했습니다. 다시 시도해 주세요.</p>}
-    </section>
-  );
-}
-
 function TraceDetailPanel({
   detail,
   selectedObservationId,
@@ -758,8 +631,7 @@ function TraceDetailPanel({
 }) {
   const selectedObservation =
     detail.observations.find(
-      (observation) =>
-        observation.observation_id === selectedObservationId,
+      (observation) => observation.observation_id === selectedObservationId,
     ) ?? null;
 
   return (
@@ -775,16 +647,12 @@ function TraceDetailPanel({
           <time dateTime={detail.started_at}>
             {formatTimestamp(detail.started_at)}
           </time>
-          <button
-            className="icon-button delete-trace-button"
-            type="button"
-            disabled={deleting}
-            onClick={onDelete}
-            aria-label="이 요청 삭제"
-            title="이 요청 삭제"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
+          <TraceActions
+            key={detail.trace_id}
+            traceId={detail.trace_id}
+            deleting={deleting}
+            onDelete={onDelete}
+          />
         </div>
       </header>
 
@@ -794,18 +662,32 @@ function TraceDetailPanel({
           <button
             className="text-button"
             type="button"
-            disabled={detail.previous_trace_id === null || detail.previous_trace_id === undefined}
-            onClick={() => detail.previous_trace_id !== null && detail.previous_trace_id !== undefined && onSelectTrace(detail.previous_trace_id)}
+            disabled={
+              detail.previous_trace_id === null ||
+              detail.previous_trace_id === undefined
+            }
+            onClick={() =>
+              detail.previous_trace_id !== null &&
+              detail.previous_trace_id !== undefined &&
+              onSelectTrace(detail.previous_trace_id)
+            }
           >
-            이전 요청
+            이전 요청 <kbd>K</kbd>
           </button>
           <button
             className="text-button"
             type="button"
-            disabled={detail.next_trace_id === null || detail.next_trace_id === undefined}
-            onClick={() => detail.next_trace_id !== null && detail.next_trace_id !== undefined && onSelectTrace(detail.next_trace_id)}
+            disabled={
+              detail.next_trace_id === null ||
+              detail.next_trace_id === undefined
+            }
+            onClick={() =>
+              detail.next_trace_id !== null &&
+              detail.next_trace_id !== undefined &&
+              onSelectTrace(detail.next_trace_id)
+            }
           >
-            다음 요청
+            다음 요청 <kbd>J</kbd>
           </button>
         </nav>
       )}
@@ -813,9 +695,7 @@ function TraceDetailPanel({
       <section className="path-section" aria-labelledby="path-heading">
         <div className="path-heading">
           <h3 id="path-heading">Execution</h3>
-          <span className="node-count">
-            {detail.observation_count}
-          </span>
+          <span className="node-count">{detail.observation_count}</span>
         </div>
 
         <div className="detail-grid">
@@ -827,17 +707,20 @@ function TraceDetailPanel({
               onSelect={onSelectObservation}
             />
           </div>
-          <Inspector
+          <ObservationInspector
             selectedObservation={selectedObservation}
             payloadState={payloadState}
             onRetry={onRetryObservation}
           />
         </div>
       </section>
-      <FeedbackPanel
-        key={detail.trace_id}
-        traceId={detail.trace_id}
-        feedback={detail.feedback}
+      <TraceAnnotationPanel
+        key={[
+          detail.trace_id,
+          detail.memo?.updated_at ?? "no-memo",
+          ...detail.annotations.map((annotation) => annotation.updated_at),
+        ].join(":")}
+        detail={detail}
         onChanged={onRefresh}
       />
     </article>
@@ -845,7 +728,9 @@ function TraceDetailPanel({
 }
 
 export function App() {
-  const [activeView, setActiveView] = useState<"traces" | "data">("traces");
+  const [activeView, setActiveView] = useState<
+    "traces" | "queues" | "scores" | "data"
+  >("traces");
   const [listRevision, setListRevision] = useState(0);
   const [detailRevision, setDetailRevision] = useState(0);
   const [payloadRevision, setPayloadRevision] = useState(0);
@@ -853,7 +738,8 @@ export function App() {
     status: "loading",
   });
   const [filters, setFilters] = useState<TraceFilterDraft>(EMPTY_FILTERS);
-  const [activeFilters, setActiveFilters] = useState<TraceFilterDraft>(EMPTY_FILTERS);
+  const [activeFilters, setActiveFilters] =
+    useState<TraceFilterDraft>(EMPTY_FILTERS);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [detailState, setDetailState] = useState<LoadState<TraceDetail>>({
@@ -872,11 +758,11 @@ export function App() {
 
     void getTraces(traceQueryFromFilters(activeFilters), controller.signal)
       .then((response) => {
-        setListState({status: "success", data: response});
+        setListState({ status: "success", data: response });
       })
       .catch((error: unknown) => {
         if (!isAbortError(error)) {
-          setListState({status: "error"});
+          setListState({ status: "error" });
         }
       });
 
@@ -894,7 +780,7 @@ export function App() {
 
     void getTrace(selectedTraceId, controller.signal)
       .then((detail) => {
-        setDetailState({status: "success", data: detail});
+        setDetailState({ status: "success", data: detail });
         const rootObservation = detail.observations.find(
           (observation) => observation.parent_observation_id === null,
         );
@@ -904,15 +790,15 @@ export function App() {
         const initialObservation = failedObservation ?? rootObservation;
         if (initialObservation !== undefined) {
           setSelectedObservationId(initialObservation.observation_id);
-          setPayloadState({status: "loading"});
+          setPayloadState({ status: "loading" });
         } else {
           setSelectedObservationId(null);
-          setPayloadState({status: "idle"});
+          setPayloadState({ status: "idle" });
         }
       })
       .catch((error: unknown) => {
         if (!isAbortError(error)) {
-          setDetailState({status: "error"});
+          setDetailState({ status: "error" });
         }
       });
 
@@ -930,11 +816,11 @@ export function App() {
 
     void getObservation(selectedObservationId, controller.signal)
       .then((observation) => {
-        setPayloadState({status: "success", data: observation});
+        setPayloadState({ status: "success", data: observation });
       })
       .catch((error: unknown) => {
         if (!isAbortError(error)) {
-          setPayloadState({status: "error"});
+          setPayloadState({ status: "error" });
         }
       });
 
@@ -943,15 +829,53 @@ export function App() {
     };
   }, [payloadRevision, selectedObservationId]);
 
-  const selectTrace = (traceId: string) => {
-    if (traceId === selectedTraceId && detailState.status !== "error") {
+  const selectTrace = useCallback(
+    (traceId: string) => {
+      if (traceId === selectedTraceId && detailState.status !== "error") {
+        return;
+      }
+      setSelectedTraceId(traceId);
+      setSelectedObservationId(null);
+      setPayloadState({ status: "idle" });
+      setDetailState({ status: "loading" });
+    },
+    [detailState.status, selectedTraceId],
+  );
+
+  useEffect(() => {
+    if (activeView !== "traces" || detailState.status !== "success") {
       return;
     }
-    setSelectedTraceId(traceId);
-    setSelectedObservationId(null);
-    setPayloadState({status: "idle"});
-    setDetailState({status: "loading"});
-  };
+    const moveBetweenSessionTraces = (event: KeyboardEvent) => {
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement ||
+        (event.target instanceof HTMLElement && event.target.isContentEditable)
+      ) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      const traceId =
+        key === "j"
+          ? detailState.data.next_trace_id
+          : key === "k"
+            ? detailState.data.previous_trace_id
+            : null;
+      if (traceId !== null && traceId !== undefined) {
+        event.preventDefault();
+        selectTrace(traceId);
+      }
+    };
+    document.addEventListener("keydown", moveBetweenSessionTraces);
+    return () => {
+      document.removeEventListener("keydown", moveBetweenSessionTraces);
+    };
+  }, [activeView, detailState, selectTrace]);
 
   const selectObservation = (observationId: string) => {
     if (
@@ -961,32 +885,32 @@ export function App() {
       return;
     }
     setSelectedObservationId(observationId);
-    setPayloadState({status: "loading"});
+    setPayloadState({ status: "loading" });
   };
 
   const retryList = () => {
-    setListState({status: "loading"});
+    setListState({ status: "loading" });
     setListRevision((revision) => revision + 1);
   };
 
   const applyFilters = () => {
     setSelectedTraceId(null);
-    setDetailState({status: "idle"});
+    setDetailState({ status: "idle" });
     setSelectedObservationId(null);
-    setPayloadState({status: "idle"});
-    setListState({status: "loading"});
-    setActiveFilters({...filters});
+    setPayloadState({ status: "idle" });
+    setListState({ status: "loading" });
+    setActiveFilters({ ...filters });
     setListRevision((revision) => revision + 1);
   };
 
   const clearFilters = () => {
-    const cleared = {...EMPTY_FILTERS};
+    const cleared = { ...EMPTY_FILTERS };
     setFilters(cleared);
     setSelectedTraceId(null);
-    setDetailState({status: "idle"});
+    setDetailState({ status: "idle" });
     setSelectedObservationId(null);
-    setPayloadState({status: "idle"});
-    setListState({status: "loading"});
+    setPayloadState({ status: "idle" });
+    setListState({ status: "loading" });
     setActiveFilters(cleared);
     setListRevision((revision) => revision + 1);
   };
@@ -997,10 +921,13 @@ export function App() {
     }
     const cursor = listState.data.next_cursor;
     setLoadingMore(true);
-    void getTraces({...traceQueryFromFilters(activeFilters), cursor})
+    void getTraces({ ...traceQueryFromFilters(activeFilters), cursor })
       .then((response) => {
         setListState((current) => {
-          if (current.status !== "success" || current.data.next_cursor !== cursor) {
+          if (
+            current.status !== "success" ||
+            current.data.next_cursor !== cursor
+          ) {
             return current;
           }
           return {
@@ -1018,31 +945,34 @@ export function App() {
   };
 
   const retryDetail = () => {
-    setDetailState({status: "loading"});
+    setDetailState({ status: "loading" });
     setDetailRevision((revision) => revision + 1);
   };
 
   const retryObservation = () => {
-    setPayloadState({status: "loading"});
+    setPayloadState({ status: "loading" });
     setPayloadRevision((revision) => revision + 1);
   };
 
   const refreshDetail = () => {
-    setDetailState({status: "loading"});
+    setDetailState({ status: "loading" });
     setDetailRevision((revision) => revision + 1);
   };
 
   const removeTrace = () => {
-    if (selectedTraceId === null || !window.confirm("이 요청과 노드, 피드백을 모두 삭제할까요?")) {
+    if (
+      selectedTraceId === null ||
+      !window.confirm("이 요청과 노드, 피드백을 모두 삭제할까요?")
+    ) {
       return;
     }
     setDeleting(true);
     void deleteTrace(selectedTraceId)
       .then(() => {
         setSelectedTraceId(null);
-        setDetailState({status: "idle"});
+        setDetailState({ status: "idle" });
         setSelectedObservationId(null);
-        setPayloadState({status: "idle"});
+        setPayloadState({ status: "idle" });
         retryList();
       })
       .finally(() => {
@@ -1052,9 +982,9 @@ export function App() {
 
   const resetAll = () => {
     setSelectedTraceId(null);
-    setDetailState({status: "idle"});
+    setDetailState({ status: "idle" });
     setSelectedObservationId(null);
-    setPayloadState({status: "idle"});
+    setPayloadState({ status: "idle" });
     setActiveView("traces");
     retryList();
   };
@@ -1080,19 +1010,45 @@ export function App() {
           </button>
           <button
             type="button"
+            aria-label="Annotation Queues"
+            aria-pressed={activeView === "queues"}
+            onClick={() => setActiveView("queues")}
+          >
+            <span className="desktop-nav-label" aria-hidden="true">
+              Annotation Queues
+            </span>
+            <span className="mobile-nav-label" aria-hidden="true">
+              Queues
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={activeView === "scores"}
+            onClick={() => setActiveView("scores")}
+          >
+            Scores
+          </button>
+          <button
+            type="button"
+            aria-label="Local Data"
             aria-pressed={activeView === "data"}
             onClick={() => setActiveView("data")}
           >
-            Local Data
+            <span className="desktop-nav-label" aria-hidden="true">
+              Local Data
+            </span>
+            <span className="mobile-nav-label" aria-hidden="true">
+              Data
+            </span>
           </button>
         </nav>
         <span className="local-badge">
           <span aria-hidden="true" />
-          Local
+          Stored locally
         </span>
       </header>
 
-      {activeView === "traces" ? (
+      {activeView === "traces" && (
         <main className="workspace">
           <aside className="trace-sidebar" aria-labelledby="trace-list-title">
             <div className="sidebar-heading">
@@ -1163,7 +1119,10 @@ export function App() {
             )}
           </section>
         </main>
-      ) : (
+      )}
+      {activeView === "queues" && <AnnotationQueuesView />}
+      {activeView === "scores" && <ScoresView />}
+      {activeView === "data" && (
         <main className="local-data-page">
           <LocalDataControls onReset={resetAll} />
         </main>

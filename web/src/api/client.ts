@@ -1,7 +1,14 @@
 import type {
-  Feedback,
-  FeedbackPatch,
+  Annotation,
+  AnnotationQueue,
+  AnnotationQueueCreateRequest,
+  AnnotationQueueItem,
+  AnnotationQueueListResponse,
   Observation,
+  ScoreConfig,
+  ScoreCreateRequest,
+  ScoreListResponse,
+  TraceMemo,
   TraceDetail,
   TraceQuery,
   TraceListResponse,
@@ -34,7 +41,7 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 async function mutateJson<T>(
   path: string,
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   body?: unknown,
 ): Promise<T> {
   const response = await fetch(`${API_BASE_PATH}${path}`, {
@@ -113,25 +120,171 @@ export function getSessionTraces(
   );
 }
 
-export function createFeedback(feedback: Feedback): Promise<Feedback> {
-  return mutateJson<Feedback>("/feedback", "POST", feedback);
+export function getScores(
+  includeArchived = false,
+  signal?: AbortSignal,
+): Promise<ScoreListResponse> {
+  return getJson<ScoreListResponse>(
+    `/scores${includeArchived ? "?include_archived=true" : ""}`,
+    signal,
+  );
 }
 
-export function updateFeedback(
-  feedbackId: string,
-  patch: FeedbackPatch,
-): Promise<Feedback> {
-  return mutateJson<Feedback>(
-    `/feedback/${encodeURIComponent(feedbackId)}`,
+export function createScore(request: ScoreCreateRequest): Promise<ScoreConfig> {
+  return mutateJson<ScoreConfig>("/scores", "POST", request);
+}
+
+export function updateScore(
+  scoreConfigId: string,
+  patch: Partial<ScoreCreateRequest>,
+): Promise<ScoreConfig> {
+  return mutateJson<ScoreConfig>(
+    `/scores/${encodeURIComponent(scoreConfigId)}`,
     "PATCH",
     patch,
   );
 }
 
-export function deleteFeedback(feedbackId: string): Promise<void> {
+export function deleteScore(scoreConfigId: string): Promise<void> {
   return mutateJson<void>(
-    `/feedback/${encodeURIComponent(feedbackId)}`,
+    `/scores/${encodeURIComponent(scoreConfigId)}`,
     "DELETE",
+  );
+}
+
+export function archiveScore(scoreConfigId: string): Promise<ScoreConfig> {
+  return mutateJson<ScoreConfig>(
+    `/scores/${encodeURIComponent(scoreConfigId)}/archive`,
+    "POST",
+    {},
+  );
+}
+
+export function putAnnotation(
+  traceId: string,
+  scoreConfigId: string,
+  value: Annotation["value"],
+): Promise<Annotation> {
+  return mutateJson<Annotation>(
+    `/traces/${encodeURIComponent(traceId)}/annotations/${encodeURIComponent(scoreConfigId)}`,
+    "PUT",
+    {value},
+  );
+}
+
+export function deleteAnnotation(
+  traceId: string,
+  scoreConfigId: string,
+): Promise<void> {
+  return mutateJson<void>(
+    `/traces/${encodeURIComponent(traceId)}/annotations/${encodeURIComponent(scoreConfigId)}`,
+    "DELETE",
+  );
+}
+
+export function putTraceMemo(
+  traceId: string,
+  content: string,
+): Promise<TraceMemo | null> {
+  return mutateJson<TraceMemo | null>(
+    `/traces/${encodeURIComponent(traceId)}/memo`,
+    "PUT",
+    {content},
+  );
+}
+
+export function getAnnotationQueues(
+  signal?: AbortSignal,
+): Promise<AnnotationQueueListResponse> {
+  return getJson<AnnotationQueueListResponse>("/annotation-queues", signal);
+}
+
+export function getAnnotationQueue(
+  queueId: string,
+  signal?: AbortSignal,
+): Promise<AnnotationQueue> {
+  return getJson<AnnotationQueue>(
+    `/annotation-queues/${encodeURIComponent(queueId)}`,
+    signal,
+  );
+}
+
+export function createAnnotationQueue(
+  request: AnnotationQueueCreateRequest,
+): Promise<AnnotationQueue> {
+  return mutateJson<AnnotationQueue>("/annotation-queues", "POST", request);
+}
+
+export function updateAnnotationQueue(
+  queueId: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    score_config_ids?: string[];
+  },
+): Promise<AnnotationQueue> {
+  return mutateJson<AnnotationQueue>(
+    `/annotation-queues/${encodeURIComponent(queueId)}`,
+    "PATCH",
+    patch,
+  );
+}
+
+export function addAnnotationQueueItems(
+  queueId: string,
+  traceIds: string[],
+): Promise<AnnotationQueue> {
+  return mutateJson<AnnotationQueue>(
+    `/annotation-queues/${encodeURIComponent(queueId)}/items`,
+    "POST",
+    {trace_ids: traceIds},
+  );
+}
+
+export function deleteAnnotationQueueItem(
+  queueId: string,
+  itemId: string,
+): Promise<void> {
+  return mutateJson<void>(
+    `/annotation-queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}`,
+    "DELETE",
+  );
+}
+
+export function deleteAnnotationQueue(queueId: string): Promise<void> {
+  return mutateJson<void>(
+    `/annotation-queues/${encodeURIComponent(queueId)}`,
+    "DELETE",
+  );
+}
+
+export function editAnnotationQueueItem(
+  queueId: string,
+  itemId: string,
+): Promise<AnnotationQueueItem> {
+  return mutateJson<AnnotationQueueItem>(
+    `/annotation-queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}/edit`,
+    "POST",
+    {},
+  );
+}
+
+export function completeAnnotationQueueItem(
+  queueId: string,
+  itemId: string,
+  annotations: Array<{
+    score_config_id: string;
+    value: Annotation["value"];
+  }>,
+  memo?: string,
+): Promise<AnnotationQueueItem> {
+  return mutateJson<AnnotationQueueItem>(
+    `/annotation-queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}/complete`,
+    "POST",
+    {
+      annotations,
+      ...(memo === undefined ? {} : {memo}),
+    },
   );
 }
 
