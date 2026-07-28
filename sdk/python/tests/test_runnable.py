@@ -389,10 +389,12 @@ def test_async_cancellation_is_preserved_and_recorded(
     original = asyncio.CancelledError("student cancelled")
     graph = langfeather.wrap_runnable(_CancelledRunnable(original))
 
-    with pytest.raises(asyncio.CancelledError) as caught:
-        asyncio.run(graph.ainvoke({"question": "hello"}))
+    async def scenario() -> None:
+        with pytest.raises(asyncio.CancelledError) as caught:
+            await graph.ainvoke({"question": "hello"})
+        assert caught.value is original
 
-    assert caught.value is original
+    asyncio.run(scenario())
     assert langfeather.flush(timeout=2)
     envelope = requests[0]["items"][0]
     assert envelope["trace"]["status"] == "cancelled"
