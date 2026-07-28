@@ -38,7 +38,8 @@ button:focus-visible,
 a:focus-visible,
 summary:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
@@ -2586,6 +2587,420 @@ pre,
   padding: 20px;
 }
 
+.evaluation-page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 32px 44px;
+}
+
+.evaluation-header,
+.evaluation-detail-heading,
+.evaluation-rail-heading,
+.experiment-run-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.evaluation-header {
+  margin-bottom: 24px;
+}
+
+.evaluation-header h1,
+.evaluation-detail-heading h2,
+.dataset-add-example h3 {
+  margin: 0;
+  color: #172033;
+  letter-spacing: -0.025em;
+}
+
+.evaluation-header h1 {
+  font-size: 1.45rem;
+}
+
+.evaluation-header p:not(.evaluation-kicker),
+.evaluation-detail-heading p,
+.dataset-add-example p {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 0.82rem;
+}
+
+.evaluation-kicker {
+  margin: 0 0 5px;
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.evaluation-tabs {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid #e1e5eb;
+  border-radius: 10px;
+  background: #fff;
+  gap: 3px;
+}
+
+.evaluation-tabs button,
+.evaluation-rail-heading button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: #667085;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.evaluation-tabs button[aria-pressed="true"] {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.evaluation-workspace {
+  display: grid;
+  min-height: 560px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  border: 1px solid #dfe4ea;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.evaluation-rail {
+  padding: 16px 12px;
+  border-right: 1px solid #e5e8ed;
+  background: #f8f9fb;
+}
+
+.evaluation-rail-heading {
+  padding: 0 4px 10px;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.evaluation-rail-heading button:hover {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.evaluation-record-list {
+  display: grid;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  gap: 4px;
+}
+
+.evaluation-record-list button {
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #344054;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  gap: 4px;
+}
+
+.evaluation-record-list button:hover,
+.evaluation-record-list button[aria-current="true"] {
+  border-color: #d8e4fd;
+  background: #eff6ff;
+}
+
+.evaluation-record-list strong {
+  overflow: hidden;
+  color: #172033;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evaluation-record-list small {
+  color: #758195;
+  font-size: 0.67rem;
+}
+
+.evaluation-detail {
+  min-width: 0;
+  padding: 24px;
+}
+
+.evaluation-detail-heading {
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.evaluation-detail-heading h2 {
+  font-size: 1.1rem;
+}
+
+.dataset-example-table-wrap {
+  overflow-x: auto;
+}
+
+.dataset-example-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #475467;
+  font-size: 0.75rem;
+}
+
+.dataset-example-table th,
+.dataset-example-table td {
+  min-width: 150px;
+  padding: 11px 10px;
+  border-bottom: 1px solid #edf0f3;
+  vertical-align: top;
+  text-align: left;
+}
+
+.dataset-example-table th {
+  color: #667085;
+  font-size: 0.67rem;
+  font-weight: 750;
+}
+
+.dataset-example-table code {
+  display: block;
+  max-width: 38ch;
+  overflow: hidden;
+  color: #344054;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-add-example,
+.dataset-create-form {
+  display: grid;
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.dataset-add-example {
+  padding-top: 20px;
+  border-top: 1px solid #e9edf2;
+}
+
+.dataset-add-example h3 {
+  font-size: 0.88rem;
+}
+
+.dataset-json-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dataset-add-example label,
+.dataset-create-form label {
+  display: grid;
+  color: #475467;
+  font-size: 0.68rem;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.dataset-add-example label span,
+.dataset-create-form label span {
+  color: #98a2b3;
+  font-weight: 500;
+}
+
+.dataset-add-example textarea,
+.dataset-create-form input {
+  width: 100%;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  color: #344054;
+  background: #fff;
+  font:
+    0.72rem "SFMono-Regular",
+    Consolas,
+    monospace;
+}
+
+.dataset-add-example textarea {
+  min-height: 100px;
+  resize: vertical;
+  padding: 10px;
+}
+
+.dataset-create-form {
+  padding: 10px 4px 14px;
+}
+
+.dataset-create-form input {
+  min-height: 34px;
+  padding: 0 8px;
+  font-family: inherit;
+}
+
+.experiment-status,
+.evaluation-result {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.experiment-status {
+  padding: 6px 9px;
+  color: #667085;
+  background: #f2f4f7;
+}
+
+.status-completed {
+  color: #087443;
+  background: #ecfdf3;
+}
+.status-cancelled {
+  color: #9a6700;
+  background: #fffaeb;
+}
+
+.experiment-run-note {
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding: 11px 12px;
+  border: 1px solid #e2e8f5;
+  border-radius: 8px;
+  color: #526077;
+  background: #f8faff;
+  font-size: 0.72rem;
+}
+
+.experiment-compare-select {
+  display: grid;
+  width: fit-content;
+  margin: -8px 0 16px;
+  color: #667085;
+  font-size: 0.68rem;
+  font-weight: 700;
+  gap: 5px;
+}
+
+.experiment-compare-select select {
+  min-width: 220px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  color: #344054;
+  background: #fff;
+  font: inherit;
+}
+
+.experiment-comparison {
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid #dbe7fb;
+  border-radius: 9px;
+  background: #fbfdff;
+}
+
+.experiment-comparison h3 {
+  margin: 0 0 12px;
+  color: #334155;
+  font-size: 0.82rem;
+}
+
+.experiment-comparison td strong,
+.experiment-comparison td code {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.experiment-run-note code {
+  color: #1d4ed8;
+  font-size: 0.7rem;
+}
+
+.experiment-case-table td:first-child {
+  display: grid;
+  gap: 5px;
+}
+.experiment-case-table td:first-child strong {
+  color: #475467;
+  font-size: 0.7rem;
+}
+.experiment-case-table td:first-child small {
+  color: #98a2b3;
+  font-size: 0.67rem;
+}
+.experiment-case-table td:nth-child(2) {
+  display: grid;
+  gap: 5px;
+}
+.experiment-case-table td:nth-child(3) {
+  display: grid;
+  gap: 5px;
+}
+.evaluation-result {
+  padding: 3px 6px;
+  color: #475467;
+  background: #f2f4f7;
+}
+
+.experiment-case-table tr[data-status="failed"] td:first-child strong,
+.evaluation-result-error {
+  color: #b42318;
+}
+
+.evaluation-state {
+  margin: 0;
+  padding: 28px 6px;
+  color: #7b8799;
+  font-size: 0.78rem;
+}
+
+.evaluation-error,
+.evaluation-form-error {
+  margin: 0 0 16px;
+  color: #b42318;
+  font-size: 0.75rem;
+}
+
+.evaluation-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  background: #fffbfa;
+}
+
+.evaluation-error button {
+  border: 0;
+  color: #b42318;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.trace-actions-note {
+  margin: 4px 0 10px;
+  color: #667085;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
 .queue-review {
   padding: 0;
 }
@@ -2620,6 +3035,47 @@ pre,
 }
 
 @media (max-width: 760px) {
+  .evaluation-page {
+    padding: 20px 14px 36px;
+  }
+
+  .evaluation-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .evaluation-workspace {
+    grid-template-columns: 1fr;
+    border-radius: 10px;
+  }
+
+  .evaluation-rail {
+    border-right: 0;
+    border-bottom: 1px solid #e5e8ed;
+  }
+
+  .evaluation-record-list {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .evaluation-record-list li {
+    min-width: 176px;
+  }
+
+  .evaluation-detail {
+    padding: 18px 14px;
+  }
+
+  .dataset-json-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .experiment-run-note {
+    display: grid;
+  }
+
   .primary-button,
   .secondary-button,
   .delete-button,

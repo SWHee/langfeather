@@ -25,7 +25,9 @@ from ._context import (
     _GenericRunScope,
     _resolve_generic_parent_run_id,
     get_live_active_trace,
+    get_root_trace_options,
 )
+from ._ids import new_trace_id
 from ._runnable import _aggregate_chunks
 from ._transport import enqueue_envelope
 from .integrations.langchain import LangFeatherCallbackHandler
@@ -166,10 +168,17 @@ def _begin_operation(
         active = None if force_new_trace else get_live_active_trace()
         owns_trace = active is None
         if active is None:
+            root_options = get_root_trace_options()
             builder = TraceBuilder(
                 invocation_input=inputs,
                 configured_name=name,
                 session_id=session_id,
+                trace_id=(
+                    root_options.trace_id
+                    if root_options is not None
+                    else new_trace_id()
+                ),
+                trace_metadata=({} if root_options is None else root_options.metadata),
             )
             active = _ActiveTrace(
                 builder=builder,
@@ -192,10 +201,17 @@ def _begin_operation(
             metadata=metadata,
         )
         if not accepted and not owns_trace:
+            root_options = get_root_trace_options()
             builder = TraceBuilder(
                 invocation_input=inputs,
                 configured_name=name,
                 session_id=session_id,
+                trace_id=(
+                    root_options.trace_id
+                    if root_options is not None
+                    else new_trace_id()
+                ),
+                trace_metadata=({} if root_options is None else root_options.metadata),
             )
             active = _ActiveTrace(
                 builder=builder,

@@ -12,6 +12,7 @@ from ._context import (
     _ActiveTrace,
     _GenericRunScope,
     get_live_active_trace,
+    get_root_trace_options,
 )
 from ._ids import new_trace_id
 from ._transport import enqueue_envelope
@@ -79,6 +80,26 @@ def _runnable_name(runnable: object) -> str:
     return type(runnable).__name__
 
 
+def _root_builder(
+    *,
+    invocation_input: object,
+    name: str | None,
+    config: object,
+) -> TraceBuilder:
+    options = get_root_trace_options()
+    return TraceBuilder(
+        invocation_input=invocation_input,
+        configured_name=name,
+        session_id=_session_id_from_config(config),
+        trace_id=(
+            _trace_id_from_config(config)
+            or (None if options is None else options.trace_id)
+            or new_trace_id()
+        ),
+        trace_metadata={} if options is None else options.metadata,
+    )
+
+
 @contextmanager
 def _activate_trace_context(
     active: _ActiveTrace,
@@ -117,12 +138,7 @@ class RunnableWrapper(Generic[InputT, OutputT]):
             )
 
         fallback_name = _runnable_name(self._runnable)
-        builder = TraceBuilder(
-            invocation_input=input,
-            configured_name=self._name,
-            session_id=_session_id_from_config(config),
-            trace_id=_trace_id_from_config(config) or new_trace_id(),
-        )
+        builder = _root_builder(invocation_input=input, name=self._name, config=config)
         handler = LangFeatherCallbackHandler(builder)
         try:
             traced_config = add_callback(config, handler)
@@ -172,12 +188,7 @@ class RunnableWrapper(Generic[InputT, OutputT]):
             )
 
         fallback_name = _runnable_name(self._runnable)
-        builder = TraceBuilder(
-            invocation_input=input,
-            configured_name=self._name,
-            session_id=_session_id_from_config(config),
-            trace_id=_trace_id_from_config(config) or new_trace_id(),
-        )
+        builder = _root_builder(invocation_input=input, name=self._name, config=config)
         handler = LangFeatherCallbackHandler(builder)
         try:
             traced_config = add_callback(config, handler)
@@ -232,12 +243,7 @@ class RunnableWrapper(Generic[InputT, OutputT]):
             return
 
         fallback_name = _runnable_name(self._runnable)
-        builder = TraceBuilder(
-            invocation_input=input,
-            configured_name=self._name,
-            session_id=_session_id_from_config(config),
-            trace_id=_trace_id_from_config(config) or new_trace_id(),
-        )
+        builder = _root_builder(invocation_input=input, name=self._name, config=config)
         handler = LangFeatherCallbackHandler(builder)
         try:
             traced_config = add_callback(config, handler)
@@ -308,12 +314,7 @@ class RunnableWrapper(Generic[InputT, OutputT]):
             return
 
         fallback_name = _runnable_name(self._runnable)
-        builder = TraceBuilder(
-            invocation_input=input,
-            configured_name=self._name,
-            session_id=_session_id_from_config(config),
-            trace_id=_trace_id_from_config(config) or new_trace_id(),
-        )
+        builder = _root_builder(invocation_input=input, name=self._name, config=config)
         handler = LangFeatherCallbackHandler(builder)
         try:
             traced_config = add_callback(config, handler)

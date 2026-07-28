@@ -102,3 +102,56 @@ collector failures do not replace application return values, chunks, exception
 instances, or their originating traceback frames. `shutdown()` stops accepting
 new envelopes after its bounded flush; call `configure()` explicitly before
 tracing again in the same process.
+
+## Local dataset evaluation
+
+`evaluate()` runs a dataset sequentially in the calling Python process. The
+server stores the dataset snapshot and results, but never imports or executes a
+target or evaluator. Create and review datasets in the Evaluation UI first,
+then pass its dataset ID to the SDK:
+
+```python
+import langfeather
+
+langfeather.configure(endpoint="http://127.0.0.1:4319")
+
+dataset = langfeather.get_or_create_dataset(
+    name="rag-regression",
+    examples=[
+        langfeather.DatasetExample(
+            input={"question": "hello"},
+            expected_output={"answer": "hello"},
+        )
+    ],
+)
+
+run = langfeather.evaluate(
+    dataset=dataset.dataset_id,
+    name="baseline",
+    target=lambda item: {"answer": item["question"]},
+    evaluators=[langfeather.json_field("answer")],
+    target_metadata={"release": "abc123"},
+)
+```
+
+`target` can be a normal one-argument callable or a LangChain/LangGraph-like
+object with `invoke`. Use `aevaluate()` for an async callable or object with
+`ainvoke`. Every case receives a normal trace tagged with experiment, dataset,
+example, and case IDs. Target/evaluator failures are stored on that case and do
+not stop later cases; a control API failure raises `EvaluationError`. Only
+`Exception` counts as a case failure — `KeyboardInterrupt` stops the run and
+cancels the experiment, so a long run stays interruptible.
+
+Built-ins are `exact_match()`, `contains()`, and `json_field("field")`. A custom
+evaluator returns a boolean or finite number:
+
+```python
+@langfeather.evaluator(key="has_answer", name="Has answer")
+def has_answer(*, input, output, expected_output, metadata) -> bool:
+    del input, expected_output, metadata
+    return isinstance(output, dict) and bool(output.get("answer"))
+```
+
+See the [dataset, experiment, evaluator guide](../../docs/DATASET_EXPERIMENT_EVALUATION.md)
+for UI workflow, API examples, immutable snapshot semantics, write-once case
+result rules, and scope limits.

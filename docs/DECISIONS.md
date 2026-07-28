@@ -52,11 +52,15 @@
 | Internal nodes | callback event가 발생한 모든 내부 run을 저장한다. | 관찰 가능한 실행의 완전성을 우선한다. |
 | UI noise | 내부 node는 기본 collapse할 수 있지만 삭제하지 않는다. | 완전성과 가독성을 함께 제공한다. |
 | UI simplicity | 화면에는 현재 작업에 꼭 필요한 component와 설명만 둔다. | 사용자가 실행 경로와 원본 data에 바로 집중하게 한다. |
-| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. | trace 확인, 반복 평가, 평가 schema 관리, local data 관리를 분리한다. |
+| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Evaluation`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. | trace 확인, 수동 평가, evaluation regression, local data 관리를 분리한다. |
 | Score management UI | `Scores`는 검색 가능한 table을 기본 화면으로 두고 create form은 `New Score` 동작 뒤의 별도 집중 UI에 둔다. | 자주 하는 조회와 드문 schema 생성을 같은 시각적 우선순위로 두지 않는다. |
 | Queue navigation UI | annotation queue 생성/목록과 선택 queue의 상세 review를 같은 화면에 동시에 표시하지 않는다. | queue 탐색과 trace 평가의 작업 맥락을 분리한다. |
 | Detail layout | 작은 execution graph와 더 넓은 선택 observation Input/Output inspector를 나란히 두고 `Node View`와 `Runnable View`를 사용한다. | 실행 구조보다 실제 data 확인에 더 많은 공간을 준다. |
 | Trace actions | queue 추가와 삭제는 trace header의 overflow menu 하나로 묶고, queue review도 Trace Detail과 같은 inspector를 사용한다. | 낮은 빈도의 동작을 숨기고 입출력 확인 방식을 일관되게 유지한다. |
+| Evaluation | dataset은 수정 가능한 example 모음이고, experiment 시작 시 input/expected output/metadata를 revision과 함께 snapshot하여 이후 immutable history로 보관한다. | regression 비교가 나중 dataset 편집으로 바뀌지 않아야 한다. |
+| Evaluator runner | evaluator와 target은 SDK를 호출한 사용자 Python process에서 순차 실행하며 server는 control data와 결과만 저장한다. | local server의 code execution, worker, scheduler를 추가하지 않는다. |
+| Evaluator values | automatic evaluator 결과는 boolean 또는 finite number만 허용한다. `@evaluator` custom callable과 exact match/contains/json field built-in을 제공한다. | 현재 반복 확인에 필요한 최소 결과만 구조화하고 categorical automation과 managed LLM judge를 피한다. |
+| Evaluation trace link | experiment case의 trace ID와 dataset example의 source trace ID는 soft reference다. trace 삭제는 dataset과 experiment history를 지우지 않는다. | trace 보존 정책과 regression evidence의 독립성을 유지한다. |
 | Session | optional `session_id`로 trace를 연결한다. | multi-turn navigation에 필요하다. |
 | LangGraph session | `thread_id`를 session 후보로 자동 인식한다. | 사용자 추가 코드를 줄인다. |
 | LLM metadata | 실제 model/usage/token metadata만 저장한다. | provider 응답을 보존한다. |
@@ -82,6 +86,8 @@
 | Detail loading | graph summary와 선택 observation payload를 분리 조회한다. | 큰 trace를 한 번에 browser로 보내지 않는다. |
 | Timing | duration과 TTFT는 monotonic clock으로 계산한다. | wall-clock 변경의 영향을 피한다. |
 | Local web safety | production CORS off, trusted local Host, JSON-only mutation을 사용한다. | 인증 없이 기본 browser 공격 표면을 줄인다. |
+| Experiment result writes | case 결과와 experiment finish는 write-once이며 재전송은 409다. | 기록된 비교 기준을 나중에 덮어쓸 수 없게 한다. |
+| Completed case scores | completed case는 선언된 evaluator를 전부 보고해야 한다. | 완료 집계가 비어 있는 점수를 가리키지 않게 한다. |
 
 ## Deliberately Deferred
 
@@ -96,7 +102,7 @@
 - automatic retention
 - payload attachment/object storage
 - full-text search engine 또는 SQLite FTS
-- dataset/experiment/evaluator
+- managed LLM evaluator, server-side evaluator execution, scheduler/worker
 - hot restore와 restore UI
 - tombstone과 reset epoch
 - LangChain batch 계열 자동 추적

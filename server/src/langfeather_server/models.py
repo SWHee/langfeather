@@ -307,3 +307,155 @@ class AnnotationQueueItemRow(Base):
             name="uq_annotation_queue_items_queue_trace",
         ),
     )
+
+
+class DatasetRow(Base):
+    __tablename__ = "datasets"
+
+    dataset_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[str] = mapped_column(String(27), nullable=False)
+    updated_at: Mapped[str] = mapped_column(String(27), nullable=False)
+
+
+class DatasetExampleRow(Base):
+    __tablename__ = "dataset_examples"
+
+    dataset_example_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(
+        String(128),
+        ForeignKey(
+            "datasets.dataset_id",
+            name="fk_dataset_examples_dataset",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_json: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_output_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[str] = mapped_column(Text, nullable=False)
+    source_trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[str] = mapped_column(String(27), nullable=False)
+    updated_at: Mapped[str] = mapped_column(String(27), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "position", name="uq_dataset_examples_position"),
+    )
+
+
+class ExperimentRow(Base):
+    __tablename__ = "experiments"
+
+    experiment_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(
+        String(128),
+        ForeignKey(
+            "datasets.dataset_id", name="fk_experiments_dataset", ondelete="RESTRICT"
+        ),
+        nullable=False,
+        index=True,
+    )
+    dataset_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    target_metadata_json: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    started_at: Mapped[str] = mapped_column(String(27), nullable=False)
+    ended_at: Mapped[str | None] = mapped_column(String(27), nullable=True)
+
+
+class ExperimentEvaluatorRow(Base):
+    __tablename__ = "experiment_evaluators"
+
+    experiment_evaluator_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    experiment_id: Mapped[str] = mapped_column(
+        String(128),
+        ForeignKey(
+            "experiments.experiment_id",
+            name="fk_experiment_evaluators_experiment",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    key: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    data_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("experiment_id", "key", name="uq_experiment_evaluators_key"),
+    )
+
+
+class ExperimentCaseRow(Base):
+    __tablename__ = "experiment_cases"
+
+    experiment_case_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    experiment_id: Mapped[str] = mapped_column(
+        String(128),
+        ForeignKey(
+            "experiments.experiment_id",
+            name="fk_experiment_cases_experiment",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    dataset_example_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_json: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_output_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    output_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration_us: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    completed_at: Mapped[str | None] = mapped_column(String(27), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "experiment_id", "dataset_example_id", name="uq_experiment_cases_example"
+        ),
+    )
+
+
+class ExperimentResultRow(Base):
+    __tablename__ = "experiment_results"
+
+    experiment_result_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    experiment_case_id: Mapped[str] = mapped_column(
+        String(128),
+        ForeignKey(
+            "experiment_cases.experiment_case_id",
+            name="fk_experiment_results_case",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    experiment_evaluator_id: Mapped[str] = mapped_column(
+        String(128),
+        ForeignKey(
+            "experiment_evaluators.experiment_evaluator_id",
+            name="fk_experiment_results_evaluator",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    boolean_value: Mapped[bool | None] = mapped_column(nullable=True)
+    number_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "experiment_case_id",
+            "experiment_evaluator_id",
+            name="uq_experiment_results_case_evaluator",
+        ),
+    )

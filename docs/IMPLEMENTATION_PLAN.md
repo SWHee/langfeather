@@ -398,6 +398,30 @@ documented quickstart가 동작한다.
 - SDK -> API -> SQLite -> browser smoke에서 기존 tracing flow 회귀 없음
 - product, decision, architecture, data contract 문서와 구현 일치
 
+## Phase 8: Local Dataset and Experiment Evaluation
+
+### Deliverables
+
+- mutable dataset/example CRUD와 trace input을 example으로 수동 추가하는 flow
+- experiment create 시 dataset revision snapshot과 immutable case history
+- SDK `evaluate()`/`aevaluate()` sequential runner와 normal trace linkage
+- `@evaluator` custom callable, exact match/contains/json field built-ins
+- boolean 또는 finite number evaluator result persistence
+- dataset/experiment inspection UI와 trace header의 `Add to Dataset`
+
+### Required Tests
+
+- dataset update 후에도 existing experiment case snapshot이 변하지 않음
+- invalid evaluator value를 거부하고 target/evaluator failure를 case result로 보존
+- sync와 async target이 동일한 control contract를 사용
+- trace soft reference deletion이 dataset/experiment history를 지우지 않음
+
+### Gate
+
+- SDK -> API -> SQLite -> evaluation result 조회와 browser smoke가 동작
+- server는 evaluator callable을 실행하지 않음
+- managed LLM judge, categorical automatic evaluator, scheduler/worker를 추가하지 않음
+
 ## Sequencing Rules
 
 - canonical contract 변경은 SDK, server, web types, fixture, integration test를

@@ -77,6 +77,9 @@ ScoreDataType = Literal["boolean", "number", "categorical"]
 CategoricalSelectionMode = Literal["single", "multiple"]
 QueueItemStatus = Literal["pending", "completed"]
 AnnotationValue = bool | int | float | list[str]
+EvaluatorDataType = Literal["boolean", "number"]
+ExperimentStatus = Literal["running", "completed", "cancelled"]
+ExperimentCaseStatus = Literal["pending", "completed", "failed"]
 
 
 class ScoreOptionCreate(ApiModel):
@@ -330,6 +333,186 @@ class AnnotationQueueCompleteRequest(ApiModel):
 
 class AnnotationQueueEditRequest(ApiModel):
     pass
+
+
+class DatasetExampleInput(ApiModel):
+    input: JsonValue
+    expected_output: JsonValue | None = None
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    source_trace_id: str | None = Field(default=None, max_length=128)
+
+
+class DatasetExamplePatchRequest(ApiModel):
+    input: JsonValue | None = None
+    expected_output: JsonValue | None = None
+    metadata: dict[str, JsonValue] | None = None
+    source_trace_id: str | None = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def require_a_change(self) -> DatasetExamplePatchRequest:
+        if not self.model_fields_set:
+            raise ValueError("dataset example patch must include at least one field")
+        return self
+
+
+class DatasetExampleResponse(DatasetExampleInput):
+    dataset_example_id: str
+    position: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class DatasetCreateRequest(ApiModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    examples: list[DatasetExampleInput] = Field(default_factory=list)
+
+
+class DatasetPatchRequest(ApiModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+
+    @model_validator(mode="after")
+    def require_a_change(self) -> DatasetPatchRequest:
+        if not self.model_fields_set:
+            raise ValueError("dataset patch must include at least one field")
+        if "name" in self.model_fields_set and self.name is None:
+            raise ValueError("dataset name cannot be null")
+        return self
+
+
+class DatasetSummary(ApiModel):
+    dataset_id: str
+    name: str
+    description: str | None
+    revision: int
+    example_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class DatasetResponse(DatasetSummary):
+    examples: list[DatasetExampleResponse] = Field(default_factory=list)
+
+
+class DatasetListResponse(ApiModel):
+    items: list[DatasetSummary]
+
+
+class DatasetTraceAddRequest(ApiModel):
+    trace_id: str
+    use_trace_output_as_expected: bool = False
+
+
+class ExperimentEvaluatorInput(ApiModel):
+    key: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=255)
+    data_type: EvaluatorDataType
+
+
+class ExperimentCreateRequest(ApiModel):
+    dataset_id: str
+    name: str = Field(min_length=1, max_length=255)
+    target_metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    evaluators: list[ExperimentEvaluatorInput] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def require_unique_evaluators(self) -> ExperimentCreateRequest:
+        keys = [evaluator.key for evaluator in self.evaluators]
+        if len(keys) != len(set(keys)):
+            raise ValueError("experiment evaluator keys must be unique")
+        return self
+
+
+class ExperimentEvaluatorResponse(ExperimentEvaluatorInput):
+    experiment_evaluator_id: str
+    position: int
+
+
+class ExperimentResultInput(ApiModel):
+    evaluator_key: str = Field(min_length=1, max_length=128)
+    value: bool | int | float | None = None
+    error_message: str | None = None
+
+    @model_validator(mode="after")
+    def require_result_or_error(self) -> ExperimentResultInput:
+        has_value = "value" in self.model_fields_set
+        if has_value == (self.error_message is not None):
+            raise ValueError(
+                "evaluator result requires exactly one of value or error_message"
+            )
+        if isinstance(self.value, float) and not math.isfinite(self.value):
+            raise ValueError("evaluator result must be finite")
+        return self
+
+
+class ExperimentCaseResultRequest(ApiModel):
+    status: Literal["completed", "failed"]
+    output: JsonValue | None = None
+    error: JsonValue | None = None
+    duration_us: int = Field(ge=0)
+    trace_id: str | None = Field(default=None, max_length=128)
+    evaluator_results: list[ExperimentResultInput] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_case_result(self) -> ExperimentCaseResultRequest:
+        if self.status == "completed" and self.error is not None:
+            raise ValueError("completed experiment case cannot include error")
+        if self.status == "failed" and self.error is None:
+            raise ValueError("failed experiment case requires error")
+        keys = [result.evaluator_key for result in self.evaluator_results]
+        if len(keys) != len(set(keys)):
+            raise ValueError("experiment case evaluator keys must be unique")
+        return self
+
+
+class ExperimentResultResponse(ApiModel):
+    evaluator_key: str
+    value: bool | float | None = None
+    error_message: str | None = None
+
+
+class ExperimentCaseResponse(ApiModel):
+    experiment_case_id: str
+    dataset_example_id: str
+    position: int
+    input: JsonValue
+    expected_output: JsonValue | None = None
+    metadata: dict[str, JsonValue]
+    status: ExperimentCaseStatus
+    output: JsonValue | None = None
+    error: JsonValue | None = None
+    duration_us: int | None = None
+    trace_id: str | None = None
+    completed_at: datetime | None = None
+    evaluator_results: list[ExperimentResultResponse] = Field(default_factory=list)
+
+
+class ExperimentFinishRequest(ApiModel):
+    status: Literal["completed", "cancelled"]
+
+
+class ExperimentSummary(ApiModel):
+    experiment_id: str
+    dataset_id: str
+    dataset_revision: int
+    name: str
+    status: ExperimentStatus
+    started_at: datetime
+    ended_at: datetime | None = None
+    case_count: int
+    completed_case_count: int
+    failed_case_count: int
+
+
+class ExperimentResponse(ExperimentSummary):
+    target_metadata: dict[str, JsonValue]
+    evaluators: list[ExperimentEvaluatorResponse]
+    cases: list[ExperimentCaseResponse]
+
+
+class ExperimentListResponse(ApiModel):
+    items: list[ExperimentSummary]
 
 
 class ObservationDetail(ObservationSummary):
