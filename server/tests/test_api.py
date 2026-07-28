@@ -108,7 +108,7 @@ def test_health_reports_applied_migration(
         "status": "ok",
         "server_version": "0.1.0",
         "supported_schema_versions": [1],
-        "database_migration_version": "0003_score_annotations",
+        "database_migration_version": "0004_datasets_experiments",
     }
 
 
@@ -318,9 +318,7 @@ def test_list_filters_and_uses_an_exclusive_opaque_cursor(
         params={"limit": 1, "cursor": first_body["next_cursor"]},
     )
     assert second_page.status_code == 200
-    assert [item["trace_id"] for item in second_page.json()["items"]] == [
-        "tr_api_02"
-    ]
+    assert [item["trace_id"] for item in second_page.json()["items"]] == ["tr_api_02"]
 
     filtered = client.get(
         "/api/v1/traces",
@@ -392,9 +390,7 @@ def test_trace_detail_exposes_explicit_dispatch_evidence(
     client, _ = api
     envelope = make_envelope()
     root, child = envelope["observations"]
-    root["metadata"]["langfeather_dispatches"] = [
-        {"target": "answer", "index": 0}
-    ]
+    root["metadata"]["langfeather_dispatches"] = [{"target": "answer", "index": 0}]
     child["metadata"]["langfeather_dispatch_source_observation_id"] = root[
         "observation_id"
     ]
@@ -414,7 +410,12 @@ def test_delete_trace_removes_observations_annotations_and_memo(
     api: tuple[TestClient, Path],
 ) -> None:
     client, database_path = api
-    assert client.post("/api/v1/traces/batch", json={"items": [make_envelope()]}).status_code == 200
+    assert (
+        client.post(
+            "/api/v1/traces/batch", json={"items": [make_envelope()]}
+        ).status_code
+        == 200
+    )
     score = client.post(
         "/api/v1/scores",
         json={
@@ -424,14 +425,20 @@ def test_delete_trace_removes_observations_annotations_and_memo(
             "boolean_false_label": "Failure",
         },
     ).json()
-    assert client.put(
-        f"/api/v1/traces/tr_api_01/annotations/{score['score_config_id']}",
-        json={"value": True},
-    ).status_code == 200
-    assert client.put(
-        "/api/v1/traces/tr_api_01/memo",
-        json={"content": "delete me"},
-    ).status_code == 200
+    assert (
+        client.put(
+            f"/api/v1/traces/tr_api_01/annotations/{score['score_config_id']}",
+            json={"value": True},
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            "/api/v1/traces/tr_api_01/memo",
+            json={"content": "delete me"},
+        ).status_code
+        == 200
+    )
 
     deleted = client.delete(
         "/api/v1/traces/tr_api_01",
@@ -441,7 +448,9 @@ def test_delete_trace_removes_observations_annotations_and_memo(
     assert deleted.status_code == 204
     assert client.get("/api/v1/traces/tr_api_01").status_code == 404
     with sqlite3.connect(database_path) as connection:
-        assert connection.execute("SELECT COUNT(*) FROM observations").fetchone() == (0,)
+        assert connection.execute("SELECT COUNT(*) FROM observations").fetchone() == (
+            0,
+        )
         assert connection.execute("SELECT COUNT(*) FROM annotations").fetchone() == (0,)
         assert connection.execute("SELECT COUNT(*) FROM trace_memos").fetchone() == (0,)
 

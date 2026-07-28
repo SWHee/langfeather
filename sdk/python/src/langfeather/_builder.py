@@ -118,6 +118,7 @@ class TraceBuilder:
     configured_name: str | None
     session_id: str | None
     trace_id: str = field(default_factory=new_trace_id)
+    trace_metadata: object = field(default_factory=dict)
     _started_at: datetime = field(default_factory=utc_now)
     _timer: MonotonicTimer = field(default_factory=MonotonicTimer.start)
     _lock: RLock = field(default_factory=RLock)
@@ -378,6 +379,10 @@ class TraceBuilder:
                     observation.finish(status="cancelled")
 
             trace_name = self.configured_name or root.name
+            serialized_trace_metadata = to_json_value(
+                self.trace_metadata,
+                path="$.trace.metadata",
+            )
             trace = {
                 "trace_id": self.trace_id,
                 "name": trace_name[:255] or "runnable",
@@ -393,7 +398,11 @@ class TraceBuilder:
                 "release": None,
                 "environment": None,
                 "tags": [],
-                "metadata": {},
+                "metadata": (
+                    serialized_trace_metadata
+                    if isinstance(serialized_trace_metadata, dict)
+                    else {}
+                ),
             }
             return {
                 "schema_version": 1,

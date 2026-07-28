@@ -13,18 +13,50 @@ from ._observe import (
 )
 from ._runnable import RunnableWrapper, wrap_runnable
 from ._transport import configure_transport, flush_transport, shutdown_transport
+from .evaluation import (
+    Dataset,
+    DatasetExample,
+    Evaluator,
+    ExperimentRun,
+    add_dataset_examples,
+    aevaluate,
+    contains,
+    create_dataset,
+    evaluate,
+    evaluator,
+    exact_match,
+    find_dataset,
+    get_dataset,
+    get_or_create_dataset,
+    json_field,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
     "RunnableWrapper",
+    "Dataset",
+    "DatasetExample",
+    "Evaluator",
+    "ExperimentRun",
     "Span",
     "TraceContext",
     "__version__",
     "configure",
+    "create_dataset",
+    "get_dataset",
+    "find_dataset",
+    "get_or_create_dataset",
+    "add_dataset_examples",
+    "aevaluate",
+    "contains",
     "current_context",
+    "evaluate",
+    "evaluator",
+    "exact_match",
     "flush",
     "observe",
+    "json_field",
     "shutdown",
     "span",
     "use_context",

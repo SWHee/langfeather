@@ -4,6 +4,11 @@ import type {
   AnnotationQueueCreateRequest,
   AnnotationQueueItem,
   AnnotationQueueListResponse,
+  Dataset,
+  DatasetListResponse,
+  Experiment,
+  ExperimentListResponse,
+  JsonValue,
   Observation,
   ScoreConfig,
   ScoreCreateRequest,
@@ -28,7 +33,7 @@ export class ApiError extends Error {
 
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_BASE_PATH}${path}`, {
-    headers: {Accept: "application/json"},
+    headers: { Accept: "application/json" },
     signal,
   });
 
@@ -84,10 +89,7 @@ export function getTrace(
   traceId: string,
   signal?: AbortSignal,
 ): Promise<TraceDetail> {
-  return getJson<TraceDetail>(
-    `/traces/${encodeURIComponent(traceId)}`,
-    signal,
-  );
+  return getJson<TraceDetail>(`/traces/${encodeURIComponent(traceId)}`, signal);
 }
 
 export function getObservation(
@@ -168,7 +170,7 @@ export function putAnnotation(
   return mutateJson<Annotation>(
     `/traces/${encodeURIComponent(traceId)}/annotations/${encodeURIComponent(scoreConfigId)}`,
     "PUT",
-    {value},
+    { value },
   );
 }
 
@@ -189,7 +191,7 @@ export function putTraceMemo(
   return mutateJson<TraceMemo | null>(
     `/traces/${encodeURIComponent(traceId)}/memo`,
     "PUT",
-    {content},
+    { content },
   );
 }
 
@@ -237,7 +239,7 @@ export function addAnnotationQueueItems(
   return mutateJson<AnnotationQueue>(
     `/annotation-queues/${encodeURIComponent(queueId)}/items`,
     "POST",
-    {trace_ids: traceIds},
+    { trace_ids: traceIds },
   );
 }
 
@@ -283,18 +285,78 @@ export function completeAnnotationQueueItem(
     "POST",
     {
       annotations,
-      ...(memo === undefined ? {} : {memo}),
+      ...(memo === undefined ? {} : { memo }),
     },
   );
 }
 
 export function deleteTrace(traceId: string): Promise<void> {
-  return mutateJson<void>(
-    `/traces/${encodeURIComponent(traceId)}`,
-    "DELETE",
-  );
+  return mutateJson<void>(`/traces/${encodeURIComponent(traceId)}`, "DELETE");
 }
 
 export function resetAllData(): Promise<void> {
-  return mutateJson<void>("/admin/reset", "POST", {confirmation: "RESET"});
+  return mutateJson<void>("/admin/reset", "POST", { confirmation: "RESET" });
+}
+
+export function getDatasets(
+  signal?: AbortSignal,
+): Promise<DatasetListResponse> {
+  return getJson<DatasetListResponse>("/datasets", signal);
+}
+
+export function getDataset(
+  datasetId: string,
+  signal?: AbortSignal,
+): Promise<Dataset> {
+  return getJson<Dataset>(`/datasets/${encodeURIComponent(datasetId)}`, signal);
+}
+
+export function createDataset(request: {
+  name: string;
+  description?: string | null;
+}): Promise<Dataset> {
+  return mutateJson<Dataset>("/datasets", "POST", request);
+}
+
+export function addDatasetExample(
+  datasetId: string,
+  example: {
+    input: JsonValue;
+    expected_output?: JsonValue | null;
+    metadata?: { [key: string]: JsonValue };
+    source_trace_id?: string | null;
+  },
+): Promise<Dataset> {
+  return mutateJson<Dataset>(
+    `/datasets/${encodeURIComponent(datasetId)}/examples`,
+    "POST",
+    [example],
+  );
+}
+
+export function addTraceToDataset(
+  datasetId: string,
+  traceId: string,
+): Promise<Dataset> {
+  return mutateJson<Dataset>(
+    `/datasets/${encodeURIComponent(datasetId)}/traces`,
+    "POST",
+    { trace_id: traceId, use_trace_output_as_expected: false },
+  );
+}
+
+export function getExperiments(
+  signal?: AbortSignal,
+): Promise<ExperimentListResponse> {
+  return getJson<ExperimentListResponse>("/experiments", signal);
+}
+
+export function getExperiment(
+  experimentId: string,
+  signal?: AbortSignal,
+): Promise<Experiment> {
+  return getJson<Experiment>(
+    `/experiments/${encodeURIComponent(experimentId)}`,
+    signal,
+  );
 }

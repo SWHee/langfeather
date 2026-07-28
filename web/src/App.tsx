@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   addAnnotationQueueItems,
+  addTraceToDataset,
   deleteTrace,
   getAnnotationQueues,
+  getDatasets,
   getObservation,
   getTrace,
   getTraces,
@@ -10,6 +12,7 @@ import {
 } from "./api/client";
 import type {
   AnnotationQueue,
+  DatasetSummary,
   Observation,
   TraceDetail,
   TraceQuery,
@@ -28,6 +31,7 @@ import {
 } from "./components/ObservationInspector";
 import { useDismissiblePopover } from "./components/useDismissiblePopover";
 import { RuntimeExecutionGraph } from "./graph/RuntimeExecutionGraph";
+import { EvaluationView } from "./evaluation/EvaluationViews";
 import "./styles.css";
 
 const STATUS_LABEL: Record<TraceStatus, string> = {
@@ -84,10 +88,16 @@ function TraceActions({
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<"actions" | "queues">("actions");
+  const [view, setView] = useState<"actions" | "queues" | "datasets">(
+    "actions",
+  );
   const [queues, setQueues] = useState<AnnotationQueue[]>([]);
+  const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingQueueId, setPendingQueueId] = useState<string | null>(null);
+  const [pendingDatasetId, setPendingDatasetId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
   const { rootRef, triggerRef } = useDismissiblePopover(open, () => {
@@ -124,6 +134,17 @@ function TraceActions({
     void loadQueues();
   };
 
+  const openDatasets = () => {
+    setView("datasets");
+    setQuery("");
+    setLoading(true);
+    setError(false);
+    void getDatasets()
+      .then((response) => setDatasets(response.items))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  };
+
   const filteredQueues = queues.filter((queue) => {
     const searchText = `${queue.name} ${queue.description ?? ""}`.toLowerCase();
     return searchText.includes(query.trim().toLowerCase());
@@ -147,6 +168,24 @@ function TraceActions({
       setError(true);
     } finally {
       setPendingQueueId(null);
+    }
+  };
+
+  const addToDataset = async (dataset: DatasetSummary) => {
+    setPendingDatasetId(dataset.dataset_id);
+    setError(false);
+    try {
+      const updated = await addTraceToDataset(dataset.dataset_id, traceId);
+      setDatasets((current) =>
+        current.map((item) =>
+          item.dataset_id === updated.dataset_id ? updated : item,
+        ),
+      );
+      setOpen(false);
+    } catch {
+      setError(true);
+    } finally {
+      setPendingDatasetId(null);
     }
   };
 
@@ -185,6 +224,17 @@ function TraceActions({
                 Add to Queue
               </button>
               <button
+                className="trace-action-item"
+                type="button"
+                onClick={openDatasets}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M5 5h14v14H5z" />
+                  <path d="M8 9h8M8 13h5" />
+                </svg>
+                Add to Dataset
+              </button>
+              <button
                 className="trace-action-item trace-action-danger"
                 type="button"
                 disabled={deleting}
@@ -203,7 +253,7 @@ function TraceActions({
                 Delete
               </button>
             </>
-          ) : (
+          ) : view === "queues" ? (
             <>
               <div className="trace-actions-heading">
                 <button
@@ -262,6 +312,57 @@ function TraceActions({
                       <span>{queue.name}</span>
                       {added && <small>추가됨</small>}
                       {pending && <small>추가 중…</small>}
+                    </button>
+                  );
+                })
+              )}
+            </>
+          ) : (
+            <>
+              <div className="trace-actions-heading">
+                <button
+                  className="trace-actions-back"
+                  type="button"
+                  aria-label="Trace actions 뒤로"
+                  onClick={() => setView("actions")}
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+                <strong>Add to Dataset</strong>
+              </div>
+              <p className="trace-actions-note">
+                Trace input만 example으로 저장합니다. Expected output은 비워 둡니다.
+              </p>
+              {loading ? (
+                <span className="queue-popover-state">불러오는 중…</span>
+              ) : error ? (
+                <button
+                  className="queue-popover-state queue-popover-retry"
+                  type="button"
+                  onClick={openDatasets}
+                >
+                  다시 시도
+                </button>
+              ) : datasets.length === 0 ? (
+                <span className="queue-popover-state">Dataset이 없습니다.</span>
+              ) : (
+                datasets.map((dataset) => {
+                  const pending = pendingDatasetId === dataset.dataset_id;
+                  return (
+                    <button
+                      className="queue-choice"
+                      type="button"
+                      key={dataset.dataset_id}
+                      disabled={pending}
+                      onClick={() => void addToDataset(dataset)}
+                    >
+                      <span>{dataset.name}</span>
+                      <small>
+                        r{dataset.revision}
+                        {pending ? " · 추가 중…" : ""}
+                      </small>
                     </button>
                   );
                 })
@@ -729,7 +830,7 @@ function TraceDetailPanel({
 
 export function App() {
   const [activeView, setActiveView] = useState<
-    "traces" | "queues" | "scores" | "data"
+    "traces" | "queues" | "scores" | "evaluation" | "data"
   >("traces");
   const [listRevision, setListRevision] = useState(0);
   const [detailRevision, setDetailRevision] = useState(0);
@@ -1030,6 +1131,13 @@ export function App() {
           </button>
           <button
             type="button"
+            aria-pressed={activeView === "evaluation"}
+            onClick={() => setActiveView("evaluation")}
+          >
+            Evaluation
+          </button>
+          <button
+            type="button"
             aria-label="Local Data"
             aria-pressed={activeView === "data"}
             onClick={() => setActiveView("data")}
@@ -1122,6 +1230,7 @@ export function App() {
       )}
       {activeView === "queues" && <AnnotationQueuesView />}
       {activeView === "scores" && <ScoresView />}
+      {activeView === "evaluation" && <EvaluationView />}
       {activeView === "data" && (
         <main className="local-data-page">
           <LocalDataControls onReset={resetAll} />

@@ -515,3 +515,19 @@ CLI는 `PRAGMA integrity_check`, supported Alembic migration version을 확인�
 - restore가 실패하면 기존 database를 그대로 유지해야 한다.
 - delete/reset 직후 in-flight SDK retry가 도착하면 trace가 다시 생성될 수
   있다. v1은 tombstone과 reset epoch를 저장하지 않는다.
+
+## 12. Dataset and Experiment Contract
+
+Dataset example은 `input` JSON, nullable `expected_output` JSON, optional
+metadata, optional `source_trace_id`를 가진다. Dataset 변경은 revision을
+증가시킨다. Experiment create는 dataset의 현재 example을 case snapshot으로
+복사하고, 이후 dataset 수정은 해당 experiment case를 바꾸지 않는다.
+
+Dataset name은 database에서 unique하다. `GET /datasets?name=...`은 optional
+exact-name lookup이며 0개 또는 1개의 dataset summary를 반환한다.
+
+Experiment case result는 `pending`, `running`, `completed`, `failed` 중 하나이며
+optional output/error/duration/trace ID를 가진다. Evaluator result는 evaluator
+key와 boolean 또는 finite number value, 혹은 evaluator error를 가진다. trace ID는
+foreign key가 아닌 soft reference이므로 trace가 먼저 삭제되어도 experiment
+history와 dataset example은 유지된다.

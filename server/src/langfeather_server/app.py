@@ -39,6 +39,19 @@ from langfeather_server.api_models import (
     BatchIngestResponse,
     BatchItemError,
     BatchItemResult,
+    DatasetCreateRequest,
+    DatasetExampleInput,
+    DatasetExamplePatchRequest,
+    DatasetListResponse,
+    DatasetPatchRequest,
+    DatasetResponse,
+    DatasetTraceAddRequest,
+    ExperimentCaseResponse,
+    ExperimentCaseResultRequest,
+    ExperimentCreateRequest,
+    ExperimentFinishRequest,
+    ExperimentListResponse,
+    ExperimentResponse,
     HealthResponse,
     ObservationDetail,
     ResetRequest,
@@ -584,6 +597,173 @@ def create_app(
             item_id,
             request_body,
         )
+
+    @application.get("/api/v1/datasets", response_model=DatasetListResponse)
+    def list_datasets(
+        store: RepositoryDependency,
+        name: str | None = Query(default=None, min_length=1, max_length=255),
+    ) -> DatasetListResponse:
+        return DatasetListResponse(items=store.list_datasets(name=name))
+
+    @application.post(
+        "/api/v1/datasets",
+        response_model=DatasetResponse,
+        status_code=status.HTTP_201_CREATED,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def create_dataset(
+        request_body: DatasetCreateRequest,
+        store: RepositoryDependency,
+    ) -> DatasetResponse:
+        return store.create_dataset(request_body)
+
+    @application.get("/api/v1/datasets/{dataset_id}", response_model=DatasetResponse)
+    def get_dataset(dataset_id: str, store: RepositoryDependency) -> DatasetResponse:
+        dataset = store.get_dataset(dataset_id)
+        if dataset is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found"
+            )
+        return dataset
+
+    @application.patch(
+        "/api/v1/datasets/{dataset_id}",
+        response_model=DatasetResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def update_dataset(
+        dataset_id: str,
+        request_body: DatasetPatchRequest,
+        store: RepositoryDependency,
+    ) -> DatasetResponse:
+        return store.update_dataset(dataset_id, request_body)
+
+    @application.delete(
+        "/api/v1/datasets/{dataset_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def delete_dataset(dataset_id: str, store: RepositoryDependency) -> Response:
+        if not store.delete_dataset(dataset_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found"
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/v1/datasets/{dataset_id}/examples",
+        response_model=DatasetResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def add_dataset_examples(
+        dataset_id: str,
+        request_body: list[DatasetExampleInput],
+        store: RepositoryDependency,
+    ) -> DatasetResponse:
+        if not request_body:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="at least one dataset example is required",
+            )
+        return store.add_dataset_examples(dataset_id, request_body)
+
+    @application.post(
+        "/api/v1/datasets/{dataset_id}/traces",
+        response_model=DatasetResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def add_trace_to_dataset(
+        dataset_id: str,
+        request_body: DatasetTraceAddRequest,
+        store: RepositoryDependency,
+    ) -> DatasetResponse:
+        return store.add_trace_to_dataset(dataset_id, request_body)
+
+    @application.patch(
+        "/api/v1/datasets/{dataset_id}/examples/{example_id}",
+        response_model=DatasetResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def update_dataset_example(
+        dataset_id: str,
+        example_id: str,
+        request_body: DatasetExamplePatchRequest,
+        store: RepositoryDependency,
+    ) -> DatasetResponse:
+        return store.update_dataset_example(dataset_id, example_id, request_body)
+
+    @application.delete(
+        "/api/v1/datasets/{dataset_id}/examples/{example_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def delete_dataset_example(
+        dataset_id: str,
+        example_id: str,
+        store: RepositoryDependency,
+    ) -> Response:
+        if not store.delete_dataset_example(dataset_id, example_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Dataset example not found",
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/v1/experiments",
+        response_model=ExperimentResponse,
+        status_code=status.HTTP_201_CREATED,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def create_experiment(
+        request_body: ExperimentCreateRequest,
+        store: RepositoryDependency,
+    ) -> ExperimentResponse:
+        return store.create_experiment(request_body)
+
+    @application.get("/api/v1/experiments", response_model=ExperimentListResponse)
+    def list_experiments(store: RepositoryDependency) -> ExperimentListResponse:
+        return ExperimentListResponse(items=store.list_experiments())
+
+    @application.get(
+        "/api/v1/experiments/{experiment_id}",
+        response_model=ExperimentResponse,
+    )
+    def get_experiment(
+        experiment_id: str,
+        store: RepositoryDependency,
+    ) -> ExperimentResponse:
+        experiment = store.get_experiment(experiment_id)
+        if experiment is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
+            )
+        return experiment
+
+    @application.put(
+        "/api/v1/experiments/{experiment_id}/cases/{case_id}",
+        response_model=ExperimentCaseResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def put_experiment_case_result(
+        experiment_id: str,
+        case_id: str,
+        request_body: ExperimentCaseResultRequest,
+        store: RepositoryDependency,
+    ) -> ExperimentCaseResponse:
+        return store.put_experiment_case_result(experiment_id, case_id, request_body)
+
+    @application.post(
+        "/api/v1/experiments/{experiment_id}/finish",
+        response_model=ExperimentResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def finish_experiment(
+        experiment_id: str,
+        request_body: ExperimentFinishRequest,
+        store: RepositoryDependency,
+    ) -> ExperimentResponse:
+        return store.finish_experiment(experiment_id, request_body.status)
 
     @application.get("/api/v1/admin/backup")
     def download_backup(

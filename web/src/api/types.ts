@@ -1,10 +1,5 @@
 export type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | {[key: string]: JsonValue};
+  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 export type TraceStatus = "completed" | "failed" | "cancelled";
 
@@ -23,7 +18,7 @@ export interface Trace {
   release: string | null;
   environment: string | null;
   tags: string[];
-  metadata: {[key: string]: JsonValue};
+  metadata: { [key: string]: JsonValue };
 }
 
 export interface Usage {
@@ -31,7 +26,7 @@ export interface Usage {
   output_tokens?: number | null;
   total_tokens?: number | null;
   provider?: string | null;
-  raw: {[key: string]: JsonValue};
+  raw: { [key: string]: JsonValue };
 }
 
 export interface Observation {
@@ -51,7 +46,7 @@ export interface Observation {
   error: JsonValue;
   model: string | null;
   usage: Usage | null;
-  metadata: {[key: string]: JsonValue};
+  metadata: { [key: string]: JsonValue };
 }
 
 export interface TraceListItem {
@@ -172,7 +167,7 @@ export interface ScoreCreateRequest {
   number_min?: number | null;
   number_max?: number | null;
   categorical_selection_mode?: CategoricalSelectionMode | null;
-  options?: Array<{label: string}>;
+  options?: Array<{ label: string }>;
 }
 
 export interface Annotation {
@@ -225,15 +220,99 @@ export interface AnnotationQueueCreateRequest {
   trace_ids: string[];
 }
 
+export interface DatasetExample {
+  dataset_example_id: string;
+  position: number;
+  input: JsonValue;
+  expected_output: JsonValue | null;
+  metadata: { [key: string]: JsonValue };
+  source_trace_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatasetSummary {
+  dataset_id: string;
+  name: string;
+  description: string | null;
+  revision: number;
+  example_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Dataset extends DatasetSummary {
+  examples: DatasetExample[];
+}
+
+export interface DatasetListResponse {
+  items: DatasetSummary[];
+}
+
+export type EvaluatorDataType = "boolean" | "number";
+export type ExperimentStatus = "running" | "completed" | "cancelled";
+export type ExperimentCaseStatus = "pending" | "completed" | "failed";
+
+export interface ExperimentEvaluator {
+  experiment_evaluator_id: string;
+  key: string;
+  name: string;
+  data_type: EvaluatorDataType;
+  position: number;
+}
+
+export interface ExperimentResult {
+  evaluator_key: string;
+  value: boolean | number | null;
+  error_message: string | null;
+}
+
+export interface ExperimentCase {
+  experiment_case_id: string;
+  dataset_example_id: string;
+  position: number;
+  input: JsonValue;
+  expected_output: JsonValue | null;
+  metadata: { [key: string]: JsonValue };
+  status: ExperimentCaseStatus;
+  output: JsonValue | null;
+  error: JsonValue | null;
+  duration_us: number | null;
+  trace_id: string | null;
+  completed_at: string | null;
+  evaluator_results: ExperimentResult[];
+}
+
+export interface ExperimentSummary {
+  experiment_id: string;
+  dataset_id: string;
+  dataset_revision: number;
+  name: string;
+  status: ExperimentStatus;
+  started_at: string;
+  ended_at: string | null;
+  case_count: number;
+  completed_case_count: number;
+  failed_case_count: number;
+}
+
+export interface Experiment extends ExperimentSummary {
+  target_metadata: { [key: string]: JsonValue };
+  evaluators: ExperimentEvaluator[];
+  cases: ExperimentCase[];
+}
+
+export interface ExperimentListResponse {
+  items: ExperimentSummary[];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isNonEmptyString(value: unknown, maximum: number): value is string {
   return (
-    typeof value === "string" &&
-    value.length >= 1 &&
-    value.length <= maximum
+    typeof value === "string" && value.length >= 1 && value.length <= maximum
   );
 }
 
@@ -289,7 +368,9 @@ function isObservation(value: unknown): value is Observation {
   );
 }
 
-export function isCompletedEnvelope(value: unknown): value is CompletedEnvelope {
+export function isCompletedEnvelope(
+  value: unknown,
+): value is CompletedEnvelope {
   if (!isRecord(value)) {
     return false;
   }
@@ -308,7 +389,9 @@ export function isCompletedEnvelope(value: unknown): value is CompletedEnvelope 
   const roots = observations.filter(
     (observation) => observation.parent_observation_id === null,
   );
-  const ids = new Set(observations.map((observation) => observation.observation_id));
+  const ids = new Set(
+    observations.map((observation) => observation.observation_id),
+  );
   const sequences = new Set(
     observations.map((observation) => observation.sequence),
   );

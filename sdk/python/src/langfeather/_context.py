@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import contextvars
 import importlib
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,12 @@ class _GenericRunScope:
     langchain_anchor_run_id: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class _RootTraceOptions:
+    trace_id: str
+    metadata: Mapping[str, object]
+
+
 _active_trace: contextvars.ContextVar[_ActiveTrace | None] = contextvars.ContextVar(
     "langfeather_active_trace",
     default=None,
@@ -34,6 +41,29 @@ _active_generic_run: contextvars.ContextVar[_GenericRunScope | None] = (
         default=None,
     )
 )
+_root_trace_options: contextvars.ContextVar[_RootTraceOptions | None] = (
+    contextvars.ContextVar("langfeather_root_trace_options", default=None)
+)
+
+
+@contextmanager
+def use_root_trace_options(
+    *,
+    trace_id: str,
+    metadata: Mapping[str, object],
+) -> Iterator[None]:
+    """Attach root-only metadata used by an owning trace builder."""
+    token = _root_trace_options.set(
+        _RootTraceOptions(trace_id=trace_id, metadata=metadata)
+    )
+    try:
+        yield
+    finally:
+        _root_trace_options.reset(token)
+
+
+def get_root_trace_options() -> _RootTraceOptions | None:
+    return _root_trace_options.get()
 
 
 def get_live_active_trace() -> _ActiveTrace | None:

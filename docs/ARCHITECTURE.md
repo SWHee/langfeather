@@ -270,6 +270,13 @@ same-origin 관리 API를 사용한다. Annotation은 현재 trace target만 받
 동작으로 변경한다. Queue item 완료 시 전달된 annotation, 공유 trace memo,
 item status를 하나의 transaction에서 저장한다.
 
+Dataset과 experiment도 같은-origin 관리 API를 사용한다. Dataset은 mutable
+example 모음이며, experiment create transaction은 선택한 dataset revision의
+input, expected output, metadata와 evaluator 선언을 case row로 복사한다. SDK
+`evaluate()`/`aevaluate()`가 호출자 Python process에서 target과 evaluator를
+순차 실행하고 trace를 normal SDK transport로 보낸 뒤, 결과만 control API에
+기록한다. Server는 user callable을 import하거나 실행하지 않는다.
+
 SQLite file을 실행 중 단순 복사하지 않는다. backup download는 SQLite
 online backup API로 consistent snapshot을 만든다. Restore는 server를
 중지한 뒤 CLI가 integrity와 migration version을 확인하고 DB file을
@@ -314,6 +321,7 @@ v1에 구현하지 않지만 다음 seam은 막지 않는다.
 - SQLAlchemy repository boundary
 - trace-like model을 OTel adapter로 변환할 가능성
 - annotation의 `target_type`, `target_id`, owning `trace_id`
+- experiment case의 optional trace ID와 dataset example의 source trace ID
 
 이 seam을 이유로 plugin framework, event bus, abstract database dialect를
 미리 만들지는 않는다.

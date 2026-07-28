@@ -24,6 +24,8 @@ LangFeather는 RAG 또는 agent application을 만드는 사용자와 개인 개
   request를 root trace로 만듭니다.
 - 같은 LangGraph `thread_id`의 trace를 이동하고, custom score와 trace 메모로
   평가하며, 고정 annotation queue를 관리합니다.
+- 검토한 trace input을 dataset으로 고정하고, local Python target/evaluator로
+  experiment를 실행해 같은 dataset revision의 결과를 비교합니다.
 - SQLite backup을 내보내거나 local trace data를 삭제합니다.
 
 LangFeather는 수집한 callback evidence가 뒷받침하는 runtime 관계만 표시합니다.
@@ -127,6 +129,11 @@ pip install "langfeather[langchain] @ git+https://github.com/SungjinWi99/langfea
 import langfeather
 
 langfeather.configure(endpoint="http://127.0.0.1:4319")
+
+dataset = langfeather.get_or_create_dataset(
+    name="rag-regression",
+    description="검토가 끝난 사례",
+)
 graph = langfeather.wrap_runnable(compiled_graph, name="my-langgraph-app")
 
 result = graph.invoke(
@@ -160,6 +167,38 @@ SDK API 세부 사항은 [Python SDK reference](sdk/python/README.md)를 참고�
 일반 Python 코드에는 `@langfeather.observe` 또는 `langfeather.span()`, ASGI
 application에는 `langfeather.wrap_asgi(app)`를 사용할 수 있습니다.
 
+## Dataset과 experiment로 regression 확인하기
+
+trace 상세의 `…` 메뉴에서 **Add to Dataset**을 선택하면 해당 trace의 input을
+example으로 추가합니다. 이때 trace output을 정답으로 자동 저장하지 않으므로,
+`Evaluation → Datasets`에서 expected output을 직접 검토·입력하세요. Dataset을
+만든 뒤에는 아래처럼 application과 같은 Python process에서 experiment를 실행할
+수 있습니다.
+
+```python
+import langfeather
+
+langfeather.configure(endpoint="http://127.0.0.1:4319")
+
+def answer(case: dict[str, str]) -> str:
+    return "청년" if case["question"] == "지원 대상은?" else "확인 필요"
+
+run = langfeather.evaluate(
+    dataset=dataset.dataset_id,
+    name="baseline-after-retrieval-change",
+    target=answer,
+    evaluators=[langfeather.exact_match()],
+    target_metadata={"git_sha": "abc123"},
+)
+print(run.completed_case_count, run.failed_case_count)
+```
+
+case별 target 실행은 trace로 남고, `Evaluation → Experiments`에서 output,
+evaluator 결과, 연결 trace와 같은 dataset revision의 다른 experiment를 비교할 수
+있습니다. 상세 규칙과 custom evaluator 예시는
+[Dataset, Experiment, Evaluator guide](docs/DATASET_EXPERIMENT_EVALUATION.md)를
+참고하세요.
+
 ## Example 선택하기
 
 | 확인하려는 내용 | 시작할 문서 |
@@ -168,6 +207,7 @@ application에는 `langfeather.wrap_asgi(app)`를 사용할 수 있습니다.
 | 병렬 branch, loop, fallback, streaming, 실패, 취소 | [Runtime fidelity examples](examples/langgraph_runtime_fidelity/README.md) |
 | 일반 Python 함수, span, ASGI request | [Generic capture example](examples/generic_capture/README.md) |
 | SDK 설정, stream lifecycle, serializer 동작 | [Python SDK reference](sdk/python/README.md) |
+| Dataset 작성, local experiment 실행, evaluator 작성 | [Dataset, Experiment, Evaluator guide](docs/DATASET_EXPERIMENT_EVALUATION.md) |
 | Local API/database 운영 | [Server reference](server/README.md) |
 
 ![LangFeather mobile trace list](artifacts/ui-redesign-mobile.png)
@@ -205,6 +245,7 @@ bash scripts/container_smoke.sh
 | [Architecture](docs/ARCHITECTURE.md) | SDK/server/web 경계와 runtime flow를 확인할 때 |
 | [Data contract](docs/DATA_CONTRACT.md) | Trace, observation, score, annotation, HTTP shape를 바꿀 때 |
 | [Score and annotation queue design](docs/SCORE_ANNOTATION_QUEUE_DESIGN.md) | Custom score와 annotation queue의 UX/상태 규칙을 확인할 때 |
+| [Dataset, experiment, evaluator guide](docs/DATASET_EXPERIMENT_EVALUATION.md) | Regression dataset과 local Python evaluation loop를 사용할 때 |
 | [Known issues](docs/KNOWN_ISSUES.md) | 문서화된 limitation을 조사할 때 |
 | [Agent rules](AGENTS.md) | Coding agent로 repository를 수정할 때 |
 

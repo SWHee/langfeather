@@ -3,13 +3,15 @@ from __future__ import annotations
 import base64
 import json
 import math
+from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal, cast
 from uuid import uuid4
 
 from pydantic import JsonValue
-from sqlalchemy import and_, delete, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
@@ -22,6 +24,21 @@ from langfeather_server.api_models import (
     AnnotationQueuePatchRequest,
     AnnotationQueueResponse,
     AnnotationResponse,
+    DatasetCreateRequest,
+    DatasetExampleInput,
+    DatasetExamplePatchRequest,
+    DatasetExampleResponse,
+    DatasetPatchRequest,
+    DatasetResponse,
+    DatasetSummary,
+    DatasetTraceAddRequest,
+    ExperimentCaseResponse,
+    ExperimentCaseResultRequest,
+    ExperimentCreateRequest,
+    ExperimentEvaluatorResponse,
+    ExperimentResponse,
+    ExperimentResultResponse,
+    ExperimentSummary,
     ObservationDetail,
     ObservationSummary,
     ScoreConfigResponse,
@@ -45,6 +62,12 @@ from langfeather_server.models import (
     AnnotationQueueScoreRow,
     AnnotationRow,
     AnnotationSelectedOptionRow,
+    DatasetExampleRow,
+    DatasetRow,
+    ExperimentCaseRow,
+    ExperimentEvaluatorRow,
+    ExperimentResultRow,
+    ExperimentRow,
     ObservationRow,
     ScoreConfigRow,
     ScoreOptionRow,
@@ -274,9 +297,7 @@ def _score_response(session: Session, row: ScoreConfigRow) -> ScoreConfigRespons
     is_used_by_queue = (
         session.scalars(
             select(AnnotationQueueScoreRow.score_config_id)
-            .where(
-                AnnotationQueueScoreRow.score_config_id == row.score_config_id
-            )
+            .where(AnnotationQueueScoreRow.score_config_id == row.score_config_id)
             .limit(1)
         ).first()
         is not None
@@ -338,9 +359,7 @@ def _annotation_response(session: Session, row: AnnotationRow) -> AnnotationResp
                     ScoreOptionRow.score_option_id
                     == AnnotationSelectedOptionRow.score_option_id,
                 )
-                .where(
-                    AnnotationSelectedOptionRow.annotation_id == row.annotation_id
-                )
+                .where(AnnotationSelectedOptionRow.annotation_id == row.annotation_id)
                 .order_by(
                     ScoreOptionRow.position,
                     AnnotationSelectedOptionRow.score_option_id,
@@ -397,8 +416,7 @@ def _queue_response(
         session.scalars(
             select(AnnotationQueueScoreRow.score_config_id)
             .where(
-                AnnotationQueueScoreRow.annotation_queue_id
-                == row.annotation_queue_id
+                AnnotationQueueScoreRow.annotation_queue_id == row.annotation_queue_id
             )
             .order_by(
                 AnnotationQueueScoreRow.position,
@@ -408,9 +426,7 @@ def _queue_response(
     )
     item_rows = session.scalars(
         select(AnnotationQueueItemRow)
-        .where(
-            AnnotationQueueItemRow.annotation_queue_id == row.annotation_queue_id
-        )
+        .where(AnnotationQueueItemRow.annotation_queue_id == row.annotation_queue_id)
         .order_by(
             AnnotationQueueItemRow.created_at,
             AnnotationQueueItemRow.annotation_queue_item_id,
@@ -424,6 +440,235 @@ def _queue_response(
         items=[_queue_item_response(session, item) for item in item_rows],
         created_at=_parse_timestamp(row.created_at),
         updated_at=_parse_timestamp(row.updated_at),
+    )
+
+
+def _dataset_example_response(row: DatasetExampleRow) -> DatasetExampleResponse:
+    metadata = _load_json(row.metadata_json)
+    if not isinstance(metadata, dict):
+        raise RuntimeError("stored dataset example metadata is not an object")
+    return DatasetExampleResponse(
+        dataset_example_id=row.dataset_example_id,
+        position=row.position,
+        input=_load_json(row.input_json),
+        expected_output=(
+            None
+            if row.expected_output_json is None
+            else _load_json(row.expected_output_json)
+        ),
+        metadata=metadata,
+        source_trace_id=row.source_trace_id,
+        created_at=_parse_timestamp(row.created_at),
+        updated_at=_parse_timestamp(row.updated_at),
+    )
+
+
+def _dataset_example_counts(
+    session: Session, *, dataset_id: str | None = None
+) -> dict[str, int]:
+    """Count examples per dataset in one aggregate query."""
+
+    statement = select(
+        DatasetExampleRow.dataset_id, func.count(DatasetExampleRow.dataset_example_id)
+    ).group_by(DatasetExampleRow.dataset_id)
+    if dataset_id is not None:
+        statement = statement.where(DatasetExampleRow.dataset_id == dataset_id)
+    return {
+        row_dataset_id: count for row_dataset_id, count in session.execute(statement)
+    }
+
+
+def _dataset_summary(row: DatasetRow, example_count: int) -> DatasetSummary:
+    return DatasetSummary(
+        dataset_id=row.dataset_id,
+        name=row.name,
+        description=row.description,
+        revision=row.revision,
+        example_count=example_count,
+        created_at=_parse_timestamp(row.created_at),
+        updated_at=_parse_timestamp(row.updated_at),
+    )
+
+
+def _dataset_response(session: Session, row: DatasetRow) -> DatasetResponse:
+    examples = session.scalars(
+        select(DatasetExampleRow)
+        .where(DatasetExampleRow.dataset_id == row.dataset_id)
+        .order_by(DatasetExampleRow.position, DatasetExampleRow.dataset_example_id)
+    ).all()
+    summary = _dataset_summary(row, len(examples))
+    return DatasetResponse(
+        **summary.model_dump(),
+        examples=[_dataset_example_response(example) for example in examples],
+    )
+
+
+def _experiment_evaluator_response(
+    row: ExperimentEvaluatorRow,
+) -> ExperimentEvaluatorResponse:
+    return ExperimentEvaluatorResponse(
+        experiment_evaluator_id=row.experiment_evaluator_id,
+        key=row.key,
+        name=row.name,
+        data_type=cast(Literal["boolean", "number"], row.data_type),
+        position=row.position,
+    )
+
+
+def _experiment_evaluators(
+    session: Session, experiment_id: str
+) -> Sequence[ExperimentEvaluatorRow]:
+    return session.scalars(
+        select(ExperimentEvaluatorRow)
+        .where(ExperimentEvaluatorRow.experiment_id == experiment_id)
+        .order_by(ExperimentEvaluatorRow.position)
+    ).all()
+
+
+def _experiment_results_by_case(
+    session: Session, experiment_id: str
+) -> dict[str, list[ExperimentResultRow]]:
+    """Group every result of an experiment by case in one query.
+
+    Joining through ``experiment_cases`` keeps this a single statement no matter
+    how many cases the experiment has, unlike filtering on a list of case IDs.
+    """
+
+    grouped: dict[str, list[ExperimentResultRow]] = defaultdict(list)
+    result_rows = session.scalars(
+        select(ExperimentResultRow)
+        .join(
+            ExperimentCaseRow,
+            ExperimentCaseRow.experiment_case_id
+            == ExperimentResultRow.experiment_case_id,
+        )
+        .where(ExperimentCaseRow.experiment_id == experiment_id)
+    ).all()
+    for result in result_rows:
+        grouped[result.experiment_case_id].append(result)
+    return grouped
+
+
+def _experiment_case_response(
+    row: ExperimentCaseRow,
+    evaluator_by_id: Mapping[str, ExperimentEvaluatorRow],
+    result_rows: Sequence[ExperimentResultRow],
+) -> ExperimentCaseResponse:
+    metadata = _load_json(row.metadata_json)
+    if not isinstance(metadata, dict):
+        raise RuntimeError("stored experiment case metadata is not an object")
+    results: list[tuple[int, ExperimentResultResponse]] = []
+    for result in result_rows:
+        evaluator = evaluator_by_id.get(result.experiment_evaluator_id)
+        if evaluator is None:
+            raise RuntimeError("stored experiment evaluator is missing")
+        value: bool | float | None
+        if evaluator.data_type == "boolean":
+            value = result.boolean_value
+        else:
+            value = result.number_value
+        results.append(
+            (
+                evaluator.position,
+                ExperimentResultResponse(
+                    evaluator_key=evaluator.key,
+                    value=value,
+                    error_message=result.error_message,
+                ),
+            )
+        )
+    return ExperimentCaseResponse(
+        experiment_case_id=row.experiment_case_id,
+        dataset_example_id=row.dataset_example_id,
+        position=row.position,
+        input=_load_json(row.input_json),
+        expected_output=(
+            None
+            if row.expected_output_json is None
+            else _load_json(row.expected_output_json)
+        ),
+        metadata=metadata,
+        status=cast(Literal["pending", "completed", "failed"], row.status),
+        output=None if row.output_json is None else _load_json(row.output_json),
+        error=None if row.error_json is None else _load_json(row.error_json),
+        duration_us=row.duration_us,
+        trace_id=row.trace_id,
+        completed_at=(
+            None if row.completed_at is None else _parse_timestamp(row.completed_at)
+        ),
+        evaluator_results=[
+            result for _, result in sorted(results, key=lambda item: item[0])
+        ],
+    )
+
+
+def _experiment_case_counts(
+    session: Session, *, experiment_id: str | None = None
+) -> dict[str, Counter[str]]:
+    """Count cases per status per experiment in one aggregate query."""
+
+    statement = select(
+        ExperimentCaseRow.experiment_id,
+        ExperimentCaseRow.status,
+        func.count(ExperimentCaseRow.experiment_case_id),
+    ).group_by(ExperimentCaseRow.experiment_id, ExperimentCaseRow.status)
+    if experiment_id is not None:
+        statement = statement.where(ExperimentCaseRow.experiment_id == experiment_id)
+    counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for row_experiment_id, case_status, count in session.execute(statement):
+        counts[row_experiment_id][case_status] = count
+    return counts
+
+
+def _experiment_summary(
+    row: ExperimentRow, case_counts: Counter[str]
+) -> ExperimentSummary:
+    return ExperimentSummary(
+        experiment_id=row.experiment_id,
+        dataset_id=row.dataset_id,
+        dataset_revision=row.dataset_revision,
+        name=row.name,
+        status=cast(Literal["running", "completed", "cancelled"], row.status),
+        started_at=_parse_timestamp(row.started_at),
+        ended_at=None if row.ended_at is None else _parse_timestamp(row.ended_at),
+        case_count=sum(case_counts.values()),
+        completed_case_count=case_counts["completed"],
+        failed_case_count=case_counts["failed"],
+    )
+
+
+def _experiment_response(session: Session, row: ExperimentRow) -> ExperimentResponse:
+    target_metadata = _load_json(row.target_metadata_json)
+    if not isinstance(target_metadata, dict):
+        raise RuntimeError("stored experiment target metadata is not an object")
+    summary = _experiment_summary(
+        row,
+        _experiment_case_counts(session, experiment_id=row.experiment_id)[
+            row.experiment_id
+        ],
+    )
+    evaluators = _experiment_evaluators(session, row.experiment_id)
+    results_by_case = _experiment_results_by_case(session, row.experiment_id)
+    evaluator_by_id = {
+        evaluator.experiment_evaluator_id: evaluator for evaluator in evaluators
+    }
+    cases = session.scalars(
+        select(ExperimentCaseRow)
+        .where(ExperimentCaseRow.experiment_id == row.experiment_id)
+        .order_by(ExperimentCaseRow.position)
+    ).all()
+    return ExperimentResponse(
+        **summary.model_dump(),
+        target_metadata=target_metadata,
+        evaluators=[
+            _experiment_evaluator_response(evaluator) for evaluator in evaluators
+        ],
+        cases=[
+            _experiment_case_response(
+                case, evaluator_by_id, results_by_case[case.experiment_case_id]
+            )
+            for case in cases
+        ],
     )
 
 
@@ -628,7 +873,9 @@ class TraceRepository:
                 next_trace_id=next_trace_id,
             )
 
-    def list_scores(self, *, include_archived: bool = False) -> list[ScoreConfigResponse]:
+    def list_scores(
+        self, *, include_archived: bool = False
+    ) -> list[ScoreConfigResponse]:
         with self._session_factory() as session:
             statement = select(ScoreConfigRow)
             if not include_archived:
@@ -725,9 +972,7 @@ class TraceRepository:
             queue_use = (
                 session.scalars(
                     select(AnnotationQueueScoreRow.score_config_id)
-                    .where(
-                        AnnotationQueueScoreRow.score_config_id == score_config_id
-                    )
+                    .where(AnnotationQueueScoreRow.score_config_id == score_config_id)
                     .limit(1)
                 ).first()
                 is not None
@@ -749,9 +994,7 @@ class TraceRepository:
                     .limit(1)
                 ).first()
                 if duplicate is not None:
-                    raise ResourceConflictError(
-                        "an active score with this name exists"
-                    )
+                    raise ResourceConflictError("an active score with this name exists")
                 row.name = cast(str, patch.name)
             if "description" in patch.model_fields_set:
                 row.description = patch.description
@@ -1106,9 +1349,7 @@ class TraceRepository:
                         score_config_id=score_config_id,
                         position=position,
                     )
-                    for position, score_config_id in enumerate(
-                        request.score_config_ids
-                    )
+                    for position, score_config_id in enumerate(request.score_config_ids)
                 ]
             )
             session.add_all(
@@ -1312,6 +1553,421 @@ class TraceRepository:
             session.flush()
             return _queue_item_response(session, row)
 
+    def list_datasets(self, *, name: str | None = None) -> list[DatasetSummary]:
+        with self._session_factory() as session:
+            statement = select(DatasetRow)
+            if name is not None:
+                statement = statement.where(DatasetRow.name == name)
+            rows = session.scalars(
+                statement.order_by(DatasetRow.updated_at.desc(), DatasetRow.name)
+            ).all()
+            counts = _dataset_example_counts(session)
+            return [
+                _dataset_summary(row, counts.get(row.dataset_id, 0)) for row in rows
+            ]
+
+    def get_dataset(self, dataset_id: str) -> DatasetResponse | None:
+        with self._session_factory() as session:
+            row = session.get(DatasetRow, dataset_id)
+            return None if row is None else _dataset_response(session, row)
+
+    def create_dataset(self, request: DatasetCreateRequest) -> DatasetResponse:
+        with self._session_factory.begin() as session:
+            duplicate = session.scalars(
+                select(DatasetRow.dataset_id)
+                .where(DatasetRow.name == request.name)
+                .limit(1)
+            ).first()
+            if duplicate is not None:
+                raise ResourceConflictError("a dataset with this name exists")
+            timestamp = _now_timestamp()
+            row = DatasetRow(
+                dataset_id=_new_id("ds"),
+                name=request.name,
+                description=request.description,
+                revision=1,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+            session.add(row)
+            session.flush()
+            # Examples supplied at creation are part of revision 1, not a change to it.
+            self._add_dataset_examples_in_session(
+                session, row, request.examples, bump_revision=False
+            )
+            session.flush()
+            return _dataset_response(session, row)
+
+    def update_dataset(
+        self,
+        dataset_id: str,
+        request: DatasetPatchRequest,
+    ) -> DatasetResponse:
+        with self._session_factory.begin() as session:
+            row = session.get(DatasetRow, dataset_id)
+            if row is None:
+                raise ResourceNotFoundError("Dataset not found")
+            if "name" in request.model_fields_set:
+                duplicate = session.scalars(
+                    select(DatasetRow.dataset_id)
+                    .where(
+                        DatasetRow.name == request.name,
+                        DatasetRow.dataset_id != dataset_id,
+                    )
+                    .limit(1)
+                ).first()
+                if duplicate is not None:
+                    raise ResourceConflictError("a dataset with this name exists")
+                row.name = cast(str, request.name)
+            if "description" in request.model_fields_set:
+                row.description = request.description
+            row.updated_at = _now_timestamp()
+            session.flush()
+            return _dataset_response(session, row)
+
+    def _add_dataset_examples_in_session(
+        self,
+        session: Session,
+        dataset: DatasetRow,
+        examples: list[DatasetExampleInput],
+        *,
+        bump_revision: bool = True,
+    ) -> list[DatasetExampleRow]:
+        """Append examples, advancing the revision unless the dataset is new."""
+
+        if not examples:
+            return []
+        next_position = session.scalars(
+            select(DatasetExampleRow.position)
+            .where(DatasetExampleRow.dataset_id == dataset.dataset_id)
+            .order_by(DatasetExampleRow.position.desc())
+            .limit(1)
+        ).first()
+        timestamp = _now_timestamp()
+        rows = [
+            DatasetExampleRow(
+                dataset_example_id=_new_id("dse"),
+                dataset_id=dataset.dataset_id,
+                position=(next_position if next_position is not None else -1)
+                + offset
+                + 1,
+                input_json=_dump_json(example.input),
+                expected_output_json=(
+                    None
+                    if example.expected_output is None
+                    else _dump_json(example.expected_output)
+                ),
+                metadata_json=_dump_json(example.metadata),
+                source_trace_id=example.source_trace_id,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+            for offset, example in enumerate(examples)
+        ]
+        session.add_all(rows)
+        if bump_revision:
+            dataset.revision += 1
+        dataset.updated_at = timestamp
+        return rows
+
+    def add_dataset_examples(
+        self,
+        dataset_id: str,
+        examples: list[DatasetExampleInput],
+    ) -> DatasetResponse:
+        with self._session_factory.begin() as session:
+            dataset = session.get(DatasetRow, dataset_id)
+            if dataset is None:
+                raise ResourceNotFoundError("Dataset not found")
+            self._add_dataset_examples_in_session(session, dataset, examples)
+            session.flush()
+            return _dataset_response(session, dataset)
+
+    def add_trace_to_dataset(
+        self,
+        dataset_id: str,
+        request: DatasetTraceAddRequest,
+    ) -> DatasetResponse:
+        with self._session_factory.begin() as session:
+            dataset = session.get(DatasetRow, dataset_id)
+            trace = session.get(TraceRow, request.trace_id)
+            if dataset is None:
+                raise ResourceNotFoundError("Dataset not found")
+            if trace is None:
+                raise ResourceNotFoundError("Trace not found")
+            existing = session.scalars(
+                select(DatasetExampleRow.dataset_example_id).where(
+                    DatasetExampleRow.dataset_id == dataset_id,
+                    DatasetExampleRow.source_trace_id == trace.trace_id,
+                )
+            ).first()
+            if existing is not None:
+                return _dataset_response(session, dataset)
+            self._add_dataset_examples_in_session(
+                session,
+                dataset,
+                [
+                    DatasetExampleInput(
+                        input=_load_json(trace.input_json),
+                        expected_output=(
+                            _load_json(trace.output_json)
+                            if request.use_trace_output_as_expected
+                            else None
+                        ),
+                        metadata={},
+                        source_trace_id=trace.trace_id,
+                    )
+                ],
+            )
+            session.flush()
+            return _dataset_response(session, dataset)
+
+    def update_dataset_example(
+        self,
+        dataset_id: str,
+        example_id: str,
+        request: DatasetExamplePatchRequest,
+    ) -> DatasetResponse:
+        with self._session_factory.begin() as session:
+            dataset = session.get(DatasetRow, dataset_id)
+            example = session.get(DatasetExampleRow, example_id)
+            if dataset is None or example is None or example.dataset_id != dataset_id:
+                raise ResourceNotFoundError("Dataset example not found")
+            if "input" in request.model_fields_set:
+                example.input_json = _dump_json(request.input)
+            if "expected_output" in request.model_fields_set:
+                example.expected_output_json = (
+                    None
+                    if request.expected_output is None
+                    else _dump_json(request.expected_output)
+                )
+            if "metadata" in request.model_fields_set:
+                example.metadata_json = _dump_json(request.metadata)
+            if "source_trace_id" in request.model_fields_set:
+                example.source_trace_id = request.source_trace_id
+            timestamp = _now_timestamp()
+            example.updated_at = timestamp
+            dataset.revision += 1
+            dataset.updated_at = timestamp
+            session.flush()
+            return _dataset_response(session, dataset)
+
+    def delete_dataset_example(self, dataset_id: str, example_id: str) -> bool:
+        with self._session_factory.begin() as session:
+            dataset = session.get(DatasetRow, dataset_id)
+            example = session.get(DatasetExampleRow, example_id)
+            if dataset is None or example is None or example.dataset_id != dataset_id:
+                return False
+            session.delete(example)
+            dataset.revision += 1
+            dataset.updated_at = _now_timestamp()
+        return True
+
+    def delete_dataset(self, dataset_id: str) -> bool:
+        with self._session_factory.begin() as session:
+            row = session.get(DatasetRow, dataset_id)
+            if row is None:
+                return False
+            has_experiments = session.scalars(
+                select(ExperimentRow.experiment_id)
+                .where(ExperimentRow.dataset_id == dataset_id)
+                .limit(1)
+            ).first()
+            if has_experiments is not None:
+                raise ResourceConflictError(
+                    "dataset with experiment history cannot be deleted"
+                )
+            session.delete(row)
+        return True
+
+    def create_experiment(self, request: ExperimentCreateRequest) -> ExperimentResponse:
+        with self._session_factory.begin() as session:
+            dataset = session.get(DatasetRow, request.dataset_id)
+            if dataset is None:
+                raise ResourceNotFoundError("Dataset not found")
+            examples = session.scalars(
+                select(DatasetExampleRow)
+                .where(DatasetExampleRow.dataset_id == dataset.dataset_id)
+                .order_by(DatasetExampleRow.position)
+            ).all()
+            if not examples:
+                raise ResourceConflictError("experiment dataset must contain examples")
+            timestamp = _now_timestamp()
+            experiment = ExperimentRow(
+                experiment_id=_new_id("exp"),
+                dataset_id=dataset.dataset_id,
+                dataset_revision=dataset.revision,
+                name=request.name,
+                target_metadata_json=_dump_json(request.target_metadata),
+                status="running",
+                started_at=timestamp,
+                ended_at=None,
+            )
+            session.add(experiment)
+            session.flush()
+            evaluators = [
+                ExperimentEvaluatorRow(
+                    experiment_evaluator_id=_new_id("ev"),
+                    experiment_id=experiment.experiment_id,
+                    key=evaluator.key,
+                    name=evaluator.name,
+                    data_type=evaluator.data_type,
+                    position=position,
+                )
+                for position, evaluator in enumerate(request.evaluators)
+            ]
+            cases = [
+                ExperimentCaseRow(
+                    experiment_case_id=_new_id("ec"),
+                    experiment_id=experiment.experiment_id,
+                    dataset_example_id=example.dataset_example_id,
+                    position=example.position,
+                    input_json=example.input_json,
+                    expected_output_json=example.expected_output_json,
+                    metadata_json=example.metadata_json,
+                    status="pending",
+                    output_json=None,
+                    error_json=None,
+                    duration_us=None,
+                    trace_id=None,
+                    completed_at=None,
+                )
+                for example in examples
+            ]
+            session.add_all([*evaluators, *cases])
+            session.flush()
+            return _experiment_response(session, experiment)
+
+    def list_experiments(self) -> list[ExperimentSummary]:
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(ExperimentRow).order_by(ExperimentRow.started_at.desc())
+            ).all()
+            counts = _experiment_case_counts(session)
+            return [_experiment_summary(row, counts[row.experiment_id]) for row in rows]
+
+    def get_experiment(self, experiment_id: str) -> ExperimentResponse | None:
+        with self._session_factory() as session:
+            row = session.get(ExperimentRow, experiment_id)
+            return None if row is None else _experiment_response(session, row)
+
+    def put_experiment_case_result(
+        self,
+        experiment_id: str,
+        case_id: str,
+        request: ExperimentCaseResultRequest,
+    ) -> ExperimentCaseResponse:
+        with self._session_factory.begin() as session:
+            experiment = session.get(ExperimentRow, experiment_id)
+            case = session.get(ExperimentCaseRow, case_id)
+            if (
+                experiment is None
+                or case is None
+                or case.experiment_id != experiment_id
+            ):
+                raise ResourceNotFoundError("Experiment case not found")
+            if experiment.status != "running" or case.status != "pending":
+                raise ResourceConflictError("experiment case is no longer pending")
+            evaluator_by_key = {
+                evaluator.key: evaluator
+                for evaluator in session.scalars(
+                    select(ExperimentEvaluatorRow).where(
+                        ExperimentEvaluatorRow.experiment_id == experiment_id
+                    )
+                ).all()
+            }
+            for result in request.evaluator_results:
+                evaluator = evaluator_by_key.get(result.evaluator_key)
+                if evaluator is None:
+                    raise ResourceConflictError(
+                        "evaluator does not belong to experiment"
+                    )
+                if result.error_message is None:
+                    if evaluator.data_type == "boolean" and not isinstance(
+                        result.value, bool
+                    ):
+                        raise ResourceConflictError(
+                            "boolean evaluator requires boolean value"
+                        )
+                    if evaluator.data_type == "number" and (
+                        isinstance(result.value, bool)
+                        or not isinstance(result.value, (int, float))
+                        or not math.isfinite(float(result.value))
+                    ):
+                        raise ResourceConflictError(
+                            "number evaluator requires finite number"
+                        )
+            if request.status == "completed":
+                # A completed case is counted as scored, so partial results would
+                # inflate the summary counts against empty evaluator columns.
+                missing = sorted(
+                    set(evaluator_by_key)
+                    - {result.evaluator_key for result in request.evaluator_results}
+                )
+                if missing:
+                    raise ResourceConflictError(
+                        "completed experiment case is missing evaluator results: "
+                        + ", ".join(missing)
+                    )
+            timestamp = _now_timestamp()
+            case.status = request.status
+            case.output_json = (
+                None if request.output is None else _dump_json(request.output)
+            )
+            case.error_json = (
+                None if request.error is None else _dump_json(request.error)
+            )
+            case.duration_us = request.duration_us
+            case.trace_id = request.trace_id
+            case.completed_at = timestamp
+            rows = [
+                ExperimentResultRow(
+                    experiment_result_id=_new_id("er"),
+                    experiment_case_id=case.experiment_case_id,
+                    experiment_evaluator_id=(
+                        evaluator_by_key[result.evaluator_key].experiment_evaluator_id
+                    ),
+                    boolean_value=(
+                        result.value
+                        if isinstance(result.value, bool)
+                        and result.error_message is None
+                        else None
+                    ),
+                    number_value=(
+                        float(result.value)
+                        if result.error_message is None
+                        and isinstance(result.value, (int, float))
+                        and not isinstance(result.value, bool)
+                        else None
+                    ),
+                    error_message=result.error_message,
+                )
+                for result in request.evaluator_results
+            ]
+            session.add_all(rows)
+            session.flush()
+            # The case was pending, so `rows` is every result it has.
+            return _experiment_case_response(
+                case,
+                {
+                    evaluator.experiment_evaluator_id: evaluator
+                    for evaluator in evaluator_by_key.values()
+                },
+                rows,
+            )
+
+    def finish_experiment(self, experiment_id: str, status: str) -> ExperimentResponse:
+        with self._session_factory.begin() as session:
+            experiment = session.get(ExperimentRow, experiment_id)
+            if experiment is None:
+                raise ResourceNotFoundError("Experiment not found")
+            if experiment.status != "running":
+                raise ResourceConflictError("experiment is already finished")
+            experiment.status = status
+            experiment.ended_at = _now_timestamp()
+            session.flush()
+            return _experiment_response(session, experiment)
+
     def delete_trace(self, trace_id: str) -> bool:
         with self._session_factory.begin() as session:
             trace = session.get(TraceRow, trace_id)
@@ -1322,6 +1978,8 @@ class TraceRepository:
 
     def reset(self) -> None:
         with self._session_factory.begin() as session:
+            session.execute(delete(ExperimentRow))
+            session.execute(delete(DatasetRow))
             session.execute(delete(AnnotationQueueRow))
             session.execute(delete(TraceRow))
             session.execute(delete(ScoreConfigRow))
