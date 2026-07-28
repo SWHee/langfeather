@@ -334,6 +334,23 @@ export function addDatasetExample(
   );
 }
 
+export function deleteDataset(datasetId: string): Promise<void> {
+  return mutateJson<void>(
+    `/datasets/${encodeURIComponent(datasetId)}`,
+    "DELETE",
+  );
+}
+
+export function deleteDatasetExample(
+  datasetId: string,
+  exampleId: string,
+): Promise<void> {
+  return mutateJson<void>(
+    `/datasets/${encodeURIComponent(datasetId)}/examples/${encodeURIComponent(exampleId)}`,
+    "DELETE",
+  );
+}
+
 export function addTraceToDataset(
   datasetId: string,
   traceId: string,

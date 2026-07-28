@@ -171,7 +171,7 @@ application에는 `langfeather.wrap_asgi(app)`를 사용할 수 있습니다.
 
 trace 상세의 `…` 메뉴에서 **Add to Dataset**을 선택하면 해당 trace의 input을
 example으로 추가합니다. 이때 trace output을 정답으로 자동 저장하지 않으므로,
-`Evaluation → Datasets`에서 expected output을 직접 검토·입력하세요. Dataset을
+`Datasets`에서 dataset을 열어 expected output을 직접 검토·입력하세요. Dataset을
 만든 뒤에는 아래처럼 application과 같은 Python process에서 experiment를 실행할
 수 있습니다.
 
@@ -193,7 +193,7 @@ run = langfeather.evaluate(
 print(run.completed_case_count, run.failed_case_count)
 ```
 
-case별 target 실행은 trace로 남고, `Evaluation → Experiments`에서 output,
+case별 target 실행은 trace로 남고, dataset 상세의 `Experiments` tab에서 output,
 evaluator 결과, 연결 trace와 같은 dataset revision의 다른 experiment를 비교할 수
 있습니다. 상세 규칙과 custom evaluator 예시는
 [Dataset, Experiment, Evaluator guide](docs/DATASET_EXPERIMENT_EVALUATION.md)를
