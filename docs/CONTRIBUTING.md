@@ -38,20 +38,21 @@ three `main` branches:
 ```bash
 git status --short
 ./scripts/sync.sh
-git switch -c fix/short-task-name
+git switch -c your-branch-name
 ```
 
 After a pull request is merged, remove its local branch. Add `-r` to remove the
-same branch from your fork as well:
+same branch from your fork as well. Replace `your-branch-name` with the branch
+you actually used:
 
 ```bash
 git status --short
 
 # Delete the local branch only.
-./scripts/cleanup.sh fix/short-task-name
+./scripts/cleanup.sh your-branch-name
 
 # Or delete both the local branch and the branch on your fork.
-./scripts/cleanup.sh fix/short-task-name -r
+./scripts/cleanup.sh your-branch-name -r
 ```
 
 Both scripts stop on uncommitted changes. `cleanup.sh` also refuses protected
