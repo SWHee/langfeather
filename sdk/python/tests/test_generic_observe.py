@@ -501,10 +501,12 @@ def test_async_cancellation_is_preserved_and_recorded(
     async def cancelled() -> None:
         raise original
 
-    with pytest.raises(asyncio.CancelledError) as caught:
-        asyncio.run(cancelled())
+    async def scenario() -> None:
+        with pytest.raises(asyncio.CancelledError) as caught:
+            await cancelled()
+        assert caught.value is original
 
-    assert caught.value is original
+    asyncio.run(scenario())
     assert captured_envelopes[0]["trace"]["status"] == "cancelled"
     assert captured_envelopes[0]["observations"][0]["status"] == "cancelled"
 
