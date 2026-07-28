@@ -37,7 +37,7 @@ LangFeather는 LangSmith 전체 제품군이나 Langfuse self-hosted stack을
 3. 병목은 어디이며 어떤 호출이 병렬 또는 반복 실행됐는가?
 4. 어느 node에서 어떤 exception이 발생했는가?
 5. 같은 대화 session에서 이전과 다음 요청은 무엇이었는가?
-6. 사용자의 negative feedback이 연결된 trace에서 무엇이 잘못됐는가?
+6. 정해진 score 기준으로 trace를 평가하고 반복 검토 작업을 어디까지 끝냈는가?
 
 ## 4. V1 User Experience
 
@@ -70,7 +70,8 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
 
 첫 화면은 dashboard가 아니라 trace list다.
 
-- 상단 navigation에서 `Traces`와 `Local Data`를 분리
+- 상단 navigation에서 `Traces`, `Annotation Queues`, `Scores`,
+  `Local Data`를 분리
 - status, name, duration, node count, input summary, timestamp 표시
 - 최신순 pagination
 - 한 요청당 기본 50개, 최대 200개를 반환하는 cursor pagination
@@ -92,7 +93,10 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
 - nested JSON folding과 copy
 - graph에는 observation 요약만 먼저 표시하고 node 선택 시 전체 payload 조회
 - 같은 session의 이전/다음 trace 이동
-- 연결된 feedback 조회, 생성, 수정, 삭제
+- trace의 queue 추가와 삭제는 header의 overflow menu에서 제공
+- `Annotation` 영역은 처음에 `Add scores`와 memo만 보이고, 사용자가 trace별로
+  평가할 score를 직접 추가한 뒤 값을 기록
+- custom score annotation 조회, 생성, 수정, 삭제와 trace memo
 
 ### Local Data
 
@@ -140,7 +144,6 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
   있는 오류는 관측 대상 application을 실패시키지 않는다. Process OOM은
   이 보장 범위 밖이다.
 - 전달 불가 trace는 버리고 warning log를 남길 수 있다.
-- trace와 feedback은 같은 background queue와 sender를 사용한다.
 
 ### Persistence
 
@@ -151,7 +154,7 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
   저장한다. 잘못된 envelope 하나가 다른 envelope 저장을 막지 않는다.
 - retry된 trace/observation ID는 first-write-wins로 처리하고 이미 존재하면
   성공으로 간주한다.
-- trace 삭제 시 observation과 feedback도 함께 삭제한다.
+- trace 삭제 시 observation, annotation, memo, queue item도 함께 삭제한다.
 - 삭제/reset 직후 전송 중이던 SDK retry가 도착하면 trace가 다시 나타날 수
   있다. v1은 tombstone이나 reset epoch를 두지 않는다.
 - 전체 reset UI를 제공한다.
@@ -170,12 +173,39 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
 - 얻을 수 없는 token을 추정하지 않는다.
 - model cost를 계산하지 않는다.
 
-### Feedback
+### Scores and Annotations
 
-- trace에 generic named value를 연결한다.
-- value는 boolean, number, string 중 하나다.
-- optional comment와 metadata를 지원한다.
-- background trace ingest보다 feedback이 먼저 도착해도 수용한다.
+- 사용자는 boolean, finite number, categorical single/multiple score를 만든다.
+- `Scores` 첫 화면은 검색 가능한 score 목록을 우선하며, 생성 form은
+  `New Score`를 눌렀을 때만 별도 집중 UI로 연다.
+- boolean은 true/false label, number는 optional minimum/maximum,
+  categorical은 사용자 정의 option을 가진다.
+- categorical multiple의 빈 배열은 유효한 기록이며 미기록과 구분한다.
+- system `None` option은 자동 생성하지 않는다. 필요한 의미는 사용자가 option으로
+  직접 만든다.
+- string/text score 대신 trace당 자유 형식 메모 하나를 제공한다.
+- 현재 annotation target은 trace 전체다. persistence model은 향후 observation
+  target을 추가할 수 있도록 `target_type`, `target_id`, 소유 `trace_id`를 가진다.
+- annotation에 사용된 score의 값 구조와 option 의미는 바꾸지 않는다. 이름과
+  설명만 수정할 수 있고 삭제 대신 archive한다.
+
+### Annotation Queues
+
+- `Annotation Queues` 첫 화면은 queue 생성과 검색 가능한 목록만 제공한다.
+- queue를 선택하면 목록 화면을 떠나 해당 queue의 trace, 설정, review를
+  다루는 별도 상세 화면으로 이동한다.
+- queue review는 Trace Detail과 같은 observation Input/Output inspector를 사용한다.
+- queue 생성 시 사용할 score만 사용자가 고르며, trace가 없는 상태로 시작한다.
+- trace 상세의 `Add to Queue`에서 현재 trace를 기존 queue에 추가한다.
+- 생성 뒤에도 score 목록은 수정할 수 있고, trace 항목은 queue 상세에서 제거할 수
+  있다.
+- 새 trace나 새 score는 기존 queue에 자동으로 들어가지 않는다.
+- queue item 완료는 score나 memo의 작성 여부가 아니라 사용자의 `완료` 동작으로만
+  결정한다.
+- 완료 item은 읽기 전용이다. `수정`을 누르면 즉시 pending으로 전환되고,
+  기존 값은 유지되며 다시 `완료`를 눌러야 completed가 된다.
+- queue 진행 표시는 `완료 수 / 전체 수`만 제공한다. 작성률이나 coverage를 별도
+  KPI로 계산하지 않는다.
 
 ## 6. Non-functional Requirements
 
@@ -224,7 +254,8 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
 - client disk spool과 guaranteed delivery
 - PostgreSQL, ClickHouse, Redis, Kafka, object storage
 - prompt management/versioning UI
-- dataset, experiment runner, LLM evaluator
+- dataset, experiment runner, automatic LLM evaluator
+- observation/node 단위 annotation과 dynamic query queue
 - aggregate cost dashboard와 pricing catalog
 - sampling, retention policy, payload size limit
 - automatic PII/secret redaction
@@ -240,12 +271,14 @@ v1은 다음 demo가 재현될 때 완료다.
 2. sample LangGraph를 `wrap_runnable()` 한 줄로 감싼다.
 3. sequential, parallel, loop, failed node를 포함한 trace가 저장된다.
 4. UI graph와 inspector에서 모든 runtime observation과 원본 payload를 본다.
-5. session filter와 feedback을 사용할 수 있다.
-6. trace 하나를 삭제하고 전체 data를 reset할 수 있다.
-7. backup을 내려받고 server를 중지한 상태에서 CLI로 깨끗한 volume에
+5. custom score와 trace 메모를 저장하고 categorical multiple의 빈 배열과
+   미기록을 구분할 수 있다.
+6. 고정 annotation queue를 만들고 각 trace를 명시적으로 완료·수정할 수 있다.
+7. trace 하나를 삭제하고 전체 data를 reset할 수 있다.
+8. backup을 내려받고 server를 중지한 상태에서 CLI로 깨끗한 volume에
    복원할 수 있다.
-8. collector를 중단해도 sample application 결과와 exception behavior가
+9. collector를 중단해도 sample application 결과와 exception behavior가
    달라지지 않는다.
-9. amd64와 arm64 image가 build된다.
-10. installation, instrumentation, limitations 문서가 신규 사용자 기준으로
+10. amd64와 arm64 image가 build된다.
+11. installation, instrumentation, limitations 문서가 신규 사용자 기준으로
     검증된다.

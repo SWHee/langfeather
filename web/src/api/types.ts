@@ -117,7 +117,9 @@ export interface TraceDetail {
   tags: string[];
   observation_count: number;
   observations: ObservationSummary[];
-  feedback: Feedback[];
+  score_configs: ScoreConfig[];
+  annotations: Annotation[];
+  memo: TraceMemo | null;
   previous_trace_id?: string | null;
   next_trace_id?: string | null;
 }
@@ -128,21 +130,99 @@ export interface CompletedEnvelope {
   observations: Observation[];
 }
 
-export interface Feedback {
-  feedback_id: string;
-  trace_id: string;
+export type ScoreDataType = "boolean" | "number" | "categorical";
+export type CategoricalSelectionMode = "single" | "multiple";
+export type AnnotationValue = boolean | number | string[];
+
+export interface ScoreOption {
+  score_option_id: string;
+  label: string;
+  position: number;
+  archived_at: string | null;
+}
+
+export interface ScoreConfig {
+  score_config_id: string;
   name: string;
-  value: boolean | number | string;
-  comment: string | null;
-  metadata: {[key: string]: JsonValue};
+  description: string | null;
+  data_type: ScoreDataType;
+  boolean_true_label: string | null;
+  boolean_false_label: string | null;
+  number_min: number | null;
+  number_max: number | null;
+  categorical_selection_mode: CategoricalSelectionMode | null;
+  options: ScoreOption[];
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  has_annotations: boolean;
+  is_used: boolean;
+}
+
+export interface ScoreListResponse {
+  items: ScoreConfig[];
+}
+
+export interface ScoreCreateRequest {
+  name: string;
+  description?: string | null;
+  data_type: ScoreDataType;
+  boolean_true_label?: string | null;
+  boolean_false_label?: string | null;
+  number_min?: number | null;
+  number_max?: number | null;
+  categorical_selection_mode?: CategoricalSelectionMode | null;
+  options?: Array<{label: string}>;
+}
+
+export interface Annotation {
+  annotation_id: string;
+  score_config_id: string;
+  target_type: "trace";
+  target_id: string;
+  trace_id: string;
+  value: AnnotationValue;
   created_at: string;
   updated_at: string;
 }
 
-export interface FeedbackPatch {
-  value?: boolean | number | string;
-  comment?: string | null;
-  metadata?: {[key: string]: JsonValue};
+export interface TraceMemo {
+  trace_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnotationQueueItem {
+  annotation_queue_item_id: string;
+  annotation_queue_id: string;
+  trace_id: string;
+  trace_name: string;
+  status: "pending" | "completed";
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface AnnotationQueue {
+  annotation_queue_id: string;
+  name: string;
+  description: string | null;
+  score_config_ids: string[];
+  items: AnnotationQueueItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnotationQueueListResponse {
+  items: AnnotationQueue[];
+}
+
+export interface AnnotationQueueCreateRequest {
+  name: string;
+  description?: string | null;
+  score_config_ids: string[];
+  trace_ids: string[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -243,23 +323,5 @@ export function isCompletedEnvelope(value: unknown): value is CompletedEnvelope 
     ) &&
     ids.size === observations.length &&
     sequences.size === observations.length
-  );
-}
-
-export function isFeedback(value: unknown): value is Feedback {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const feedbackValue = value.value;
-  return (
-    isNonEmptyString(value.feedback_id, 128) &&
-    isNonEmptyString(value.trace_id, 128) &&
-    isNonEmptyString(value.name, 255) &&
-    (typeof feedbackValue === "boolean" ||
-      (typeof feedbackValue === "number" && Number.isFinite(feedbackValue)) ||
-      typeof feedbackValue === "string") &&
-    isNullableString(value.comment) &&
-    typeof value.created_at === "string" &&
-    typeof value.updated_at === "string"
   );
 }

@@ -18,27 +18,41 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.background import BackgroundTask
 
 from langfeather_server import __version__
 from langfeather_server.api_models import (
+    AnnotationPutRequest,
+    AnnotationQueueAddItemsRequest,
+    AnnotationQueueCompleteRequest,
+    AnnotationQueueCreateRequest,
+    AnnotationQueueEditRequest,
+    AnnotationQueueItemResponse,
+    AnnotationQueueListResponse,
+    AnnotationQueuePatchRequest,
+    AnnotationQueueResponse,
+    AnnotationResponse,
     BatchIngestRequest,
     BatchIngestResponse,
     BatchItemError,
     BatchItemResult,
-    FeedbackPatchRequest,
     HealthResponse,
     ObservationDetail,
     ResetRequest,
+    ScoreConfigResponse,
+    ScoreCreateRequest,
+    ScoreListResponse,
+    ScorePatchRequest,
     TraceDetail,
     TraceListResponse,
+    TraceMemoPutRequest,
+    TraceMemoResponse,
 )
 from langfeather_server.contracts import (
     CompletedEnvelopeContract,
-    FeedbackContract,
     TraceStatus,
 )
 from langfeather_server.database import (
@@ -50,8 +64,11 @@ from langfeather_server.database import (
 )
 from langfeather_server.migrations import current_revision, upgrade_database
 from langfeather_server.repository import (
+    InvalidAnnotationError,
     InvalidCursorError,
     ObservationIdConflictError,
+    ResourceConflictError,
+    ResourceNotFoundError,
     TraceRepository,
 )
 
@@ -154,6 +171,36 @@ def create_app(
         TrustedHostMiddleware,
         allowed_hosts=_resolve_trusted_hosts(trusted_hosts),
     )
+
+    @application.exception_handler(ResourceNotFoundError)
+    async def resource_not_found_handler(
+        _request: Request,
+        error: ResourceNotFoundError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(error)},
+        )
+
+    @application.exception_handler(ResourceConflictError)
+    async def resource_conflict_handler(
+        _request: Request,
+        error: ResourceConflictError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": str(error)},
+        )
+
+    @application.exception_handler(InvalidAnnotationError)
+    async def invalid_annotation_handler(
+        _request: Request,
+        error: InvalidAnnotationError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": str(error)},
+        )
 
     @application.post(
         "/api/v1/traces/batch",
@@ -279,54 +326,264 @@ def create_app(
             )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    @application.post(
-        "/api/v1/feedback",
-        response_model=FeedbackContract,
-        dependencies=[Depends(_require_json_content_type)],
-    )
-    def create_feedback(
-        feedback: FeedbackContract,
-        response: Response,
+    @application.get("/api/v1/scores", response_model=ScoreListResponse)
+    def list_scores(
         store: RepositoryDependency,
-    ) -> FeedbackContract:
-        stored_feedback, result = store.create_feedback(feedback)
-        if result == "stored":
-            response.status_code = status.HTTP_201_CREATED
-        return stored_feedback
+        include_archived: bool = False,
+    ) -> ScoreListResponse:
+        return ScoreListResponse(
+            items=store.list_scores(include_archived=include_archived)
+        )
 
-    @application.patch(
-        "/api/v1/feedback/{feedback_id}",
-        response_model=FeedbackContract,
+    @application.post(
+        "/api/v1/scores",
+        response_model=ScoreConfigResponse,
+        status_code=status.HTTP_201_CREATED,
         dependencies=[Depends(_require_json_content_type)],
     )
-    def update_feedback(
-        feedback_id: str,
-        patch: FeedbackPatchRequest,
+    def create_score(
+        request_body: ScoreCreateRequest,
         store: RepositoryDependency,
-    ) -> FeedbackContract:
-        feedback = store.update_feedback(feedback_id, patch)
-        if feedback is None:
+    ) -> ScoreConfigResponse:
+        return store.create_score(request_body)
+
+    @application.get(
+        "/api/v1/scores/{score_config_id}",
+        response_model=ScoreConfigResponse,
+    )
+    def get_score(
+        score_config_id: str,
+        store: RepositoryDependency,
+    ) -> ScoreConfigResponse:
+        score = store.get_score(score_config_id)
+        if score is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Feedback not found",
+                detail="Score not found",
             )
-        return feedback
+        return score
+
+    @application.patch(
+        "/api/v1/scores/{score_config_id}",
+        response_model=ScoreConfigResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def update_score(
+        score_config_id: str,
+        patch: ScorePatchRequest,
+        store: RepositoryDependency,
+    ) -> ScoreConfigResponse:
+        return store.update_score(score_config_id, patch)
 
     @application.delete(
-        "/api/v1/feedback/{feedback_id}",
+        "/api/v1/scores/{score_config_id}",
         status_code=status.HTTP_204_NO_CONTENT,
         dependencies=[Depends(_require_json_content_type)],
     )
-    def delete_feedback(
-        feedback_id: str,
+    def delete_score(
+        score_config_id: str,
         store: RepositoryDependency,
     ) -> Response:
-        if not store.delete_feedback(feedback_id):
+        if not store.delete_score(score_config_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Feedback not found",
+                detail="Score not found",
             )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/v1/scores/{score_config_id}/archive",
+        response_model=ScoreConfigResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def archive_score(
+        score_config_id: str,
+        _request: AnnotationQueueEditRequest,
+        store: RepositoryDependency,
+    ) -> ScoreConfigResponse:
+        return store.archive_score(score_config_id)
+
+    @application.put(
+        "/api/v1/traces/{trace_id}/annotations/{score_config_id}",
+        response_model=AnnotationResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def put_annotation(
+        trace_id: str,
+        score_config_id: str,
+        request_body: AnnotationPutRequest,
+        store: RepositoryDependency,
+    ) -> AnnotationResponse:
+        return store.put_annotation(trace_id, score_config_id, request_body)
+
+    @application.delete(
+        "/api/v1/traces/{trace_id}/annotations/{score_config_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def delete_annotation(
+        trace_id: str,
+        score_config_id: str,
+        store: RepositoryDependency,
+    ) -> Response:
+        if not store.delete_annotation(trace_id, score_config_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Annotation not found",
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.put(
+        "/api/v1/traces/{trace_id}/memo",
+        response_model=TraceMemoResponse | None,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def put_trace_memo(
+        trace_id: str,
+        request_body: TraceMemoPutRequest,
+        store: RepositoryDependency,
+    ) -> TraceMemoResponse | None:
+        return store.put_memo(trace_id, request_body.content)
+
+    @application.delete(
+        "/api/v1/traces/{trace_id}/memo",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def delete_trace_memo(
+        trace_id: str,
+        store: RepositoryDependency,
+    ) -> Response:
+        if not store.delete_memo(trace_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Trace memo not found",
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.get(
+        "/api/v1/annotation-queues",
+        response_model=AnnotationQueueListResponse,
+    )
+    def list_annotation_queues(
+        store: RepositoryDependency,
+    ) -> AnnotationQueueListResponse:
+        return AnnotationQueueListResponse(items=store.list_annotation_queues())
+
+    @application.post(
+        "/api/v1/annotation-queues",
+        response_model=AnnotationQueueResponse,
+        status_code=status.HTTP_201_CREATED,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def create_annotation_queue(
+        request_body: AnnotationQueueCreateRequest,
+        store: RepositoryDependency,
+    ) -> AnnotationQueueResponse:
+        return store.create_annotation_queue(request_body)
+
+    @application.get(
+        "/api/v1/annotation-queues/{queue_id}",
+        response_model=AnnotationQueueResponse,
+    )
+    def get_annotation_queue(
+        queue_id: str,
+        store: RepositoryDependency,
+    ) -> AnnotationQueueResponse:
+        queue = store.get_annotation_queue(queue_id)
+        if queue is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Annotation queue not found",
+            )
+        return queue
+
+    @application.patch(
+        "/api/v1/annotation-queues/{queue_id}",
+        response_model=AnnotationQueueResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def update_annotation_queue(
+        queue_id: str,
+        patch: AnnotationQueuePatchRequest,
+        store: RepositoryDependency,
+    ) -> AnnotationQueueResponse:
+        return store.update_annotation_queue(queue_id, patch)
+
+    @application.delete(
+        "/api/v1/annotation-queues/{queue_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def delete_annotation_queue(
+        queue_id: str,
+        store: RepositoryDependency,
+    ) -> Response:
+        if not store.delete_annotation_queue(queue_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Annotation queue not found",
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/v1/annotation-queues/{queue_id}/items",
+        response_model=AnnotationQueueResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def add_annotation_queue_items(
+        queue_id: str,
+        request_body: AnnotationQueueAddItemsRequest,
+        store: RepositoryDependency,
+    ) -> AnnotationQueueResponse:
+        return store.add_annotation_queue_items(queue_id, request_body.trace_ids)
+
+    @application.delete(
+        "/api/v1/annotation-queues/{queue_id}/items/{item_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def delete_annotation_queue_item(
+        queue_id: str,
+        item_id: str,
+        store: RepositoryDependency,
+    ) -> Response:
+        if not store.delete_annotation_queue_item(queue_id, item_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Annotation queue item not found",
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/v1/annotation-queues/{queue_id}/items/{item_id}/edit",
+        response_model=AnnotationQueueItemResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def edit_annotation_queue_item(
+        queue_id: str,
+        item_id: str,
+        _request: AnnotationQueueEditRequest,
+        store: RepositoryDependency,
+    ) -> AnnotationQueueItemResponse:
+        return store.edit_annotation_queue_item(queue_id, item_id)
+
+    @application.post(
+        "/api/v1/annotation-queues/{queue_id}/items/{item_id}/complete",
+        response_model=AnnotationQueueItemResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def complete_annotation_queue_item(
+        queue_id: str,
+        item_id: str,
+        request_body: AnnotationQueueCompleteRequest,
+        store: RepositoryDependency,
+    ) -> AnnotationQueueItemResponse:
+        return store.complete_annotation_queue_item(
+            queue_id,
+            item_id,
+            request_body,
+        )
 
     @application.get("/api/v1/admin/backup")
     def download_backup(

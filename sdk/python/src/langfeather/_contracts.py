@@ -9,7 +9,6 @@ from typing import TypeAlias, cast
 
 JsonScalar: TypeAlias = None | bool | int | float | str
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
-FeedbackValue: TypeAlias = bool | int | float | str
 
 _JS_SAFE_INTEGER = (1 << 53) - 1
 
@@ -426,59 +425,3 @@ def _validate_observation_graph(
                 raise _fail(f"{path}.observations", "parent cycle is not allowed")
             visited.add(current.observation_id)
             current = by_id[current.parent_observation_id]
-
-
-@dataclass(frozen=True, slots=True)
-class Feedback:
-    feedback_id: str
-    trace_id: str
-    name: str
-    value: FeedbackValue
-    comment: str | None
-    metadata: dict[str, JsonValue]
-    created_at: datetime
-    updated_at: datetime
-
-    @classmethod
-    def from_mapping(cls, value: object, path: str = "feedback") -> Feedback:
-        raw = _mapping(value, path)
-        feedback_value = _required(raw, "value", path)
-        if not isinstance(feedback_value, (bool, int, float, str)):
-            raise _fail(f"{path}.value", "expected a boolean, number, or string")
-        if isinstance(feedback_value, float) and not math.isfinite(feedback_value):
-            raise _fail(f"{path}.value", "number must be finite")
-
-        created_at = _timestamp(
-            _required(raw, "created_at", path), f"{path}.created_at"
-        )
-        updated_at = _timestamp(
-            _required(raw, "updated_at", path), f"{path}.updated_at"
-        )
-        if updated_at < created_at:
-            raise _fail(f"{path}.updated_at", "must not be earlier than created_at")
-
-        return cls(
-            feedback_id=_string(
-                _required(raw, "feedback_id", path),
-                f"{path}.feedback_id",
-                minimum=1,
-                maximum=128,
-            ),
-            trace_id=_string(
-                _required(raw, "trace_id", path),
-                f"{path}.trace_id",
-                minimum=1,
-                maximum=128,
-            ),
-            name=_string(
-                _required(raw, "name", path),
-                f"{path}.name",
-                minimum=1,
-                maximum=255,
-            ),
-            value=feedback_value,
-            comment=_optional_string(raw.get("comment"), f"{path}.comment"),
-            metadata=_json_object(raw.get("metadata", {}), f"{path}.metadata"),
-            created_at=created_at,
-            updated_at=updated_at,
-        )

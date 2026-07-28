@@ -198,27 +198,56 @@ envelope 하나를 transaction 하나로 저장한다.
   envelope를 validation error로 거부한다.
 - partial started state를 지원하기 위한 update API는 만들지 않는다.
 
-## 7. Feedback
+## 7. Scores, Annotations, and Queues
+
+Score config는 다음 구조를 가진다.
 
 ```json
 {
-  "feedback_id": "fb_01...",
+  "score_config_id": "sc_01...",
+  "name": "Success",
+  "description": "요청을 성공적으로 해결했는가",
+  "data_type": "boolean",
+  "boolean_true_label": "Success",
+  "boolean_false_label": "Failure",
+  "number_min": null,
+  "number_max": null,
+  "categorical_selection_mode": null,
+  "options": [],
+  "archived_at": null,
+  "has_annotations": false,
+  "is_used": false
+}
+```
+
+`data_type`은 `boolean`, `number`, `categorical` 중 하나다. Number는 finite
+value와 optional min/max를 사용한다. Categorical은 `single` 또는 `multiple`
+mode와 stable option ID를 사용한다. Multiple의 빈 배열 `[]`은 유효한 값이고
+annotation row 부재와 다르다.
+
+Annotation은 현재 `target_type="trace"`만 허용한다.
+
+```json
+{
+  "annotation_id": "an_01...",
+  "score_config_id": "sc_01...",
+  "target_type": "trace",
+  "target_id": "tr_01...",
   "trace_id": "tr_01...",
-  "name": "user_feedback",
-  "value": false,
-  "comment": "조건이 맞지 않는 정책을 추천함",
-  "metadata": {"source": "chat-ui"},
+  "value": true,
   "created_at": "2026-07-25T12:01:00.000000Z",
   "updated_at": "2026-07-25T12:01:00.000000Z"
 }
 ```
 
-`value`는 boolean, finite number, string 중 하나다. `POST`에서 같은
-feedback ID가 retry되면 first-write-wins duplicate 성공으로 처리하고,
-`PATCH`는 기존 feedback을 명시적으로 수정한다. feedback은 trace ingest
-전에 도착할 수 있다. 따라서 database-level trace foreign key로 ingest
-순서를 강제하지 않고 service transaction이 trace 삭제 시 관련 feedback도
-삭제한다.
+한 score/target 조합에는 current annotation 하나만 존재한다. 자유 형식 text는
+score가 아니라 `trace_memos`의 trace당 row 하나로 저장한다.
+
+Annotation queue는 선택한 `score_config_ids`와 queue item의 고정 trace 목록을
+가진다. Item status는 `pending` 또는 `completed`이며 annotation 값에서
+계산하지 않는다. 완료 요청은 값이 없거나 categorical multiple 값이 `[]`여도
+유효하다. 완료 item에 `수정`을 요청하면 값은 유지하고 item만 즉시 pending으로
+바꾼다.
 
 ## 8. Serialization Markers
 
@@ -347,7 +376,8 @@ List item은 scalar field, `duration_us`, `observation_count`,
 `query`는 trace name과 저장된 input/output JSON text에 단순 `LIKE` 검색을
 수행하며 고급 검색 성능은 보장하지 않는다.
 
-Trace detail은 trace scalar field, observation summary, feedback을 포함하고
+Trace detail은 trace scalar field, observation summary, 관련 score config,
+annotation, trace memo를 포함하고
 observation input/output/error 전체는 포함하지 않는다. `session_id`가 있을 때
 동일 session에서 시간상 바로 이전/다음 trace가 있으면 각각
 `previous_trace_id`, `next_trace_id`를 포함한다. 이 두 field가 `null`이면 더
@@ -363,19 +393,46 @@ GET /observations/{observation_id}
 Trace detail 화면은 root observation payload를 먼저 조회해 header의
 input/output을 표시하고 이후 선택 node payload만 lazy-load한다.
 
-### Feedback
+### Scores and Trace Annotations
 
 ```text
-POST   /feedback
-PATCH  /feedback/{feedback_id}
-DELETE /feedback/{feedback_id}
+GET    /scores
+POST   /scores
+GET    /scores/{score_config_id}
+PATCH  /scores/{score_config_id}
+DELETE /scores/{score_config_id}
+POST   /scores/{score_config_id}/archive
+
+PUT    /traces/{trace_id}/annotations/{score_config_id}
+DELETE /traces/{trace_id}/annotations/{score_config_id}
+PUT    /traces/{trace_id}/memo
+DELETE /traces/{trace_id}/memo
 ```
 
-`POST` body는 Feedback object 전체다. 새 feedback은 `201`, 같은
-`feedback_id`의 retry는 저장된 원문을 돌려주는 `200`이다. `PATCH` body는
-`value`, `comment`, `metadata` 중 하나 이상이며, server가 `updated_at`을
-갱신한다. `DELETE`는 `204`를 반환한다. 모든 mutation request는
+Score가 annotation에 사용되기 전에는 value structure를 수정하거나 삭제할 수
+있다. 사용된 뒤에는 이름/설명만 수정하고 archive할 수 있다. Archived score도
+기존 trace annotation과 queue에서는 조회할 수 있다. 모든 mutation request는
 `application/json`이어야 한다.
+
+### Annotation Queues
+
+```text
+GET    /annotation-queues
+POST   /annotation-queues
+GET    /annotation-queues/{queue_id}
+PATCH  /annotation-queues/{queue_id}
+DELETE /annotation-queues/{queue_id}
+POST   /annotation-queues/{queue_id}/items
+DELETE /annotation-queues/{queue_id}/items/{item_id}
+POST   /annotation-queues/{queue_id}/items/{item_id}/edit
+POST   /annotation-queues/{queue_id}/items/{item_id}/complete
+```
+
+Queue create는 `name`, optional `description`, unique `score_config_ids`,
+unique `trace_ids`를 받는다. Patch로 score 목록을 교체하고 item endpoint로
+trace를 수동 추가/제거한다. Complete body의 `annotations`에는 queue가 선택한
+score만 넣을 수 있으며 optional `memo`는 global trace memo를 갱신한다.
+Complete는 annotation/memo 저장과 item 상태 변경을 한 transaction에서 수행한다.
 
 ### Session
 
@@ -431,18 +488,24 @@ CLI는 `PRAGMA integrity_check`, supported Alembic migration version을 확인�
 - indexed: trace_id, parent_observation_id, kind, status, started_at
 - JSON text: input, output, error, usage, metadata
 
-### feedback
+### score and annotation tables
 
-- `feedback_id` primary key
-- indexed `trace_id`
-- name, typed value columns or canonical JSON value
-- comment, metadata, created_at, updated_at
-- trace ingest 순서를 허용하기 위해 strict foreign key는 두지 않는다.
+- `score_configs`: score metadata, type-specific config, lifecycle timestamps
+- `score_options`: categorical option stable ID, position, archive timestamp
+- `annotations`: score ID, target type/ID, owning trace ID, typed scalar value
+- `annotation_selected_options`: categorical selection join rows
+- `trace_memos`: trace ID primary key, content, timestamps
+- `annotation_queues`: queue metadata
+- `annotation_queue_scores`: ordered score membership
+- `annotation_queue_items`: trace membership, explicit status/completion timestamp
+- 모든 trace 소유 row는 foreign key cascade를 사용한다.
 
 ## 11. Deletion and Restore Semantics
 
-- trace delete는 trace, observations, feedback을 하나의 transaction에서
-  hard-delete한다.
+- trace delete는 trace, observations, annotations, memo, queue item을
+  hard-delete한다. Score config와 queue 자체는 유지한다.
+- queue delete는 queue membership과 status만 삭제하며 trace annotation과
+  memo는 유지한다.
 - reset은 모든 product data를 삭제하지만 schema migration state는
   유지한다.
 - backup은 consistent SQLite snapshot이다.

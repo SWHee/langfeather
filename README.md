@@ -22,8 +22,9 @@ LangFeather는 RAG 또는 agent application을 만드는 사용자와 개인 개
 - 집계 metric만 보는 대신 nested JSON을 포함한 원본 diagnostic payload를 확인합니다.
 - `@observe`, `span()`으로 일반 Python 코드를 추적하거나 `wrap_asgi()`로 ASGI
   request를 root trace로 만듭니다.
-- 같은 LangGraph `thread_id`의 trace를 이동하고, feedback을 남기며, SQLite backup을
-  내보내거나 local trace data를 삭제합니다.
+- 같은 LangGraph `thread_id`의 trace를 이동하고, custom score와 trace 메모로
+  평가하며, 고정 annotation queue를 관리합니다.
+- SQLite backup을 내보내거나 local trace data를 삭제합니다.
 
 LangFeather는 수집한 callback evidence가 뒷받침하는 runtime 관계만 표시합니다.
 정적 graph나 관찰되지 않은 edge를 추론하지 않습니다.
@@ -202,7 +203,8 @@ bash scripts/container_smoke.sh
 | [Product requirements](docs/PRODUCT_REQUIREMENTS.md) | Target user, scope, acceptance criteria를 확인할 때 |
 | [Decisions](docs/DECISIONS.md) | Locked 또는 deliberately out-of-scope 결정을 확인할 때 |
 | [Architecture](docs/ARCHITECTURE.md) | SDK/server/web 경계와 runtime flow를 확인할 때 |
-| [Data contract](docs/DATA_CONTRACT.md) | Trace, observation, feedback, HTTP shape를 바꿀 때 |
+| [Data contract](docs/DATA_CONTRACT.md) | Trace, observation, score, annotation, HTTP shape를 바꿀 때 |
+| [Score and annotation queue design](docs/SCORE_ANNOTATION_QUEUE_DESIGN.md) | Custom score와 annotation queue의 UX/상태 규칙을 확인할 때 |
 | [Known issues](docs/KNOWN_ISSUES.md) | 문서화된 limitation을 조사할 때 |
 | [Agent rules](AGENTS.md) | Coding agent로 repository를 수정할 때 |
 
@@ -225,8 +227,8 @@ retention은 범위 밖입니다. 전체 rationale은
 ## Backup과 reset
 
 UI는 일관된 SQLite backup을 내려받을 수 있고, `RESET`을 입력하면 trace,
-observation, feedback data를 모두 초기화할 수 있습니다. Backup에는 raw payload가
-들어 있으므로 안전한 local 위치에 보관하세요.
+observation, score, annotation, memo, annotation queue data를 모두 초기화할 수
+있습니다. Backup에는 raw payload가 들어 있으므로 안전한 local 위치에 보관하세요.
 
 Restore는 의도적으로 offline-only입니다. 먼저 server를 멈춘 후 backup directory를
 Compose container에 mount합니다.

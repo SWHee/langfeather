@@ -66,22 +66,38 @@ def api(database_path: Path) -> Iterator[TestClient]:
         yield client
 
 
-def store_trace_and_feedback(client: TestClient) -> None:
-    feedback = {
-        "feedback_id": "fb_admin_01",
-        "trace_id": "tr_admin_01",
-        "name": "user_feedback",
-        "value": True,
-        "comment": "backup me",
-        "metadata": {},
-        "created_at": "2026-07-26T12:00:00.000000Z",
-        "updated_at": "2026-07-26T12:00:00.000000Z",
-    }
-    assert client.post("/api/v1/feedback", json=feedback).status_code == 201
+def store_trace_and_annotation(client: TestClient) -> None:
     assert (
         client.post("/api/v1/traces/batch", json={"items": [make_envelope()]})
         .json()["results"][0]["status"]
         == "stored"
+    )
+    score = client.post(
+        "/api/v1/scores",
+        json={
+            "name": "Success",
+            "data_type": "boolean",
+            "boolean_true_label": "Success",
+            "boolean_false_label": "Failure",
+        },
+    )
+    assert score.status_code == 201
+    assert (
+        client.put(
+            (
+                "/api/v1/traces/tr_admin_01/annotations/"
+                f"{score.json()['score_config_id']}"
+            ),
+            json={"value": True},
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            "/api/v1/traces/tr_admin_01/memo",
+            json={"content": "backup me"},
+        ).status_code
+        == 200
     )
 
 
@@ -90,7 +106,7 @@ def test_backup_reset_and_offline_restore_round_trip(
     database_path: Path,
     tmp_path: Path,
 ) -> None:
-    store_trace_and_feedback(api)
+    store_trace_and_annotation(api)
 
     backup = api.get("/api/v1/admin/backup")
     backup_path = tmp_path / "backup.db"
@@ -119,7 +135,7 @@ def test_restore_replaces_a_stopped_database_and_preserves_a_safety_copy(
 ) -> None:
     application = create_app(database_url=f"sqlite:///{database_path}")
     with TestClient(application, base_url="http://localhost") as client:
-        store_trace_and_feedback(client)
+        store_trace_and_annotation(client)
         backup = client.get("/api/v1/admin/backup")
     backup_path = tmp_path / "backup.db"
     backup_path.write_bytes(backup.content)
@@ -142,9 +158,10 @@ def test_restore_replaces_a_stopped_database_and_preserves_a_safety_copy(
         base_url="http://localhost",
     ) as client:
         assert client.get("/api/v1/traces/tr_admin_01").status_code == 200
-        assert client.get("/api/v1/traces/tr_admin_01").json()["feedback"][0][
-            "comment"
-        ] == "backup me"
+        assert (
+            client.get("/api/v1/traces/tr_admin_01").json()["memo"]["content"]
+            == "backup me"
+        )
 
 
 def test_invalid_or_incompatible_restore_keeps_the_existing_database(
@@ -155,7 +172,7 @@ def test_invalid_or_incompatible_restore_keeps_the_existing_database(
         create_app(database_url=f"sqlite:///{database_path}"),
         base_url="http://localhost",
     ) as client:
-        store_trace_and_feedback(client)
+        store_trace_and_annotation(client)
 
     invalid_backup = tmp_path / "invalid.db"
     invalid_backup.write_text("not a sqlite database", encoding="utf-8")
@@ -189,7 +206,7 @@ def test_restore_cli_reports_the_restored_database(
         create_app(database_url=f"sqlite:///{database_path}"),
         base_url="http://localhost",
     ) as client:
-        store_trace_and_feedback(client)
+        store_trace_and_annotation(client)
         backup = client.get("/api/v1/admin/backup")
     backup_path = tmp_path / "backup.db"
     backup_path.write_bytes(backup.content)

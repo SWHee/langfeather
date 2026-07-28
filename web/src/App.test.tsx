@@ -62,7 +62,9 @@ const traceDetail = {
       model: null,
     },
   ],
-  feedback: [],
+  score_configs: [],
+  annotations: [],
+  memo: null,
 } as const;
 
 const observationPayload = {
@@ -293,6 +295,93 @@ describe("LangFeather trace explorer", () => {
     );
   });
 
+  it("adds the selected trace to an existing annotation queue", async () => {
+    const user = userEvent.setup();
+    const queue = {
+      annotation_queue_id: "aq_failure_review",
+      name: "Failure review",
+      description: null,
+      score_config_ids: [],
+      items: [],
+      created_at: "2026-07-28T10:02:00.000000Z",
+      updated_at: "2026-07-28T10:02:00.000000Z",
+    };
+    const queueWithTrace = {
+      ...queue,
+      items: [
+        {
+          annotation_queue_item_id: "qi_review",
+          annotation_queue_id: queue.annotation_queue_id,
+          trace_id: traceListItem.trace_id,
+          trace_name: traceListItem.name,
+          status: "pending",
+          created_at: "2026-07-28T10:03:00.000000Z",
+          updated_at: "2026-07-28T10:03:00.000000Z",
+          completed_at: null,
+        },
+      ],
+    };
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({items: [traceListItem], next_cursor: null}),
+      )
+      .mockResolvedValueOnce(jsonResponse(traceDetail))
+      .mockResolvedValueOnce(jsonResponse(rootObservationPayload))
+      .mockResolvedValueOnce(jsonResponse({items: [queue]}))
+      .mockResolvedValueOnce(jsonResponse(queueWithTrace));
+
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", {name: /policy-rag/}));
+    await user.click(await screen.findByRole("button", {name: "Trace actions"}));
+    await user.click(await screen.findByRole("button", {name: "Add to Queue"}));
+    expect(
+      screen.getByRole("button", {name: "Trace actions 뒤로"}),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", {name: "Queue 검색"})).toBeInTheDocument();
+    await user.click(
+      await screen.findByRole("button", {name: "Failure review"}),
+    );
+
+    expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/v1/annotation-queues");
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      "/api/v1/annotation-queues/aq_failure_review/items",
+    );
+    expect(fetchMock.mock.calls[4]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({trace_ids: ["tr_student_01"]}),
+    });
+    expect(
+      await screen.findByRole("button", {name: "Failure review 추가됨"}),
+    ).toBeDisabled();
+  });
+
+  it("dismisses trace actions with Escape and restores trigger focus", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({items: [traceListItem], next_cursor: null}),
+      )
+      .mockResolvedValueOnce(jsonResponse(traceDetail))
+      .mockResolvedValueOnce(jsonResponse(rootObservationPayload));
+
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", {name: /policy-rag/}));
+    const trigger = await screen.findByRole("button", {name: "Trace actions"});
+    await user.click(trigger);
+
+    expect(
+      screen.getByRole("menu", {name: "Trace actions menu"}),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    expect(
+      screen.queryByRole("menu", {name: "Trace actions menu"}),
+    ).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it("focuses the earliest failed node only after the trace is opened", async () => {
     const user = userEvent.setup();
     fetchMock
@@ -430,6 +519,7 @@ describe("LangFeather trace explorer", () => {
 
     render(<App />);
     await user.click(await screen.findByRole("button", {name: /policy-rag/}));
+    await user.click(await screen.findByRole("button", {name: "Trace actions"}));
     await user.click(await screen.findByRole("button", {name: "이 요청 삭제"}));
 
     expect(window.confirm).toHaveBeenCalledOnce();

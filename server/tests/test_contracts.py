@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from langfeather_server.contracts import CompletedEnvelopeContract, FeedbackContract
+from langfeather_server.contracts import CompletedEnvelopeContract
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "tests" / "fixtures" / "envelopes"
 SCHEMA_FIXTURE = (
@@ -36,15 +36,6 @@ def test_server_accepts_canonical_envelope_fixtures(fixture_name: str) -> None:
     assert envelope.schema_version == 1
     assert envelope.trace.trace_id == raw["trace"]["trace_id"]
     assert len(envelope.observations) == len(raw["observations"])
-
-
-def test_server_accepts_feedback_before_trace_fixture() -> None:
-    feedback = FeedbackContract.model_validate(
-        load_fixture("feedback-before-trace.json")
-    )
-
-    assert feedback.trace_id == "tr_delayed_01"
-    assert feedback.value is False
 
 
 def test_server_rejects_unknown_schema_version() -> None:
@@ -76,14 +67,6 @@ def test_server_rejects_numeric_wire_timestamps(
         CompletedEnvelopeContract.model_validate(raw)
 
 
-def test_server_rejects_numeric_feedback_timestamp() -> None:
-    raw = load_fixture("feedback-before-trace.json")
-    raw["created_at"] = 0
-
-    with pytest.raises(ValidationError, match="ISO 8601 string"):
-        FeedbackContract.model_validate(raw)
-
-
 def test_server_rejects_parent_cycle() -> None:
     raw = load_fixture("completed.json")
     root, child = raw["observations"]
@@ -106,5 +89,4 @@ def test_generated_schema_fixture_is_current() -> None:
     assert exported_schema == {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "completed_envelope": CompletedEnvelopeContract.model_json_schema(),
-        "feedback": FeedbackContract.model_json_schema(),
     }

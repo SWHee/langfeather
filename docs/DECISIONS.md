@@ -52,13 +52,23 @@
 | Internal nodes | callback event가 발생한 모든 내부 run을 저장한다. | 관찰 가능한 실행의 완전성을 우선한다. |
 | UI noise | 내부 node는 기본 collapse할 수 있지만 삭제하지 않는다. | 완전성과 가독성을 함께 제공한다. |
 | UI simplicity | 화면에는 현재 작업에 꼭 필요한 component와 설명만 둔다. | 사용자가 실행 경로와 원본 data에 바로 집중하게 한다. |
-| UI navigation | top navigation에서 `Traces`와 `Local Data`를 분리하고 backup/reset은 `Local Data`에만 둔다. | 자주 쓰는 debugging flow에서 관리 기능을 치운다. |
+| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. | trace 확인, 반복 평가, 평가 schema 관리, local data 관리를 분리한다. |
+| Score management UI | `Scores`는 검색 가능한 table을 기본 화면으로 두고 create form은 `New Score` 동작 뒤의 별도 집중 UI에 둔다. | 자주 하는 조회와 드문 schema 생성을 같은 시각적 우선순위로 두지 않는다. |
+| Queue navigation UI | annotation queue 생성/목록과 선택 queue의 상세 review를 같은 화면에 동시에 표시하지 않는다. | queue 탐색과 trace 평가의 작업 맥락을 분리한다. |
 | Detail layout | 작은 execution graph와 더 넓은 선택 observation Input/Output inspector를 나란히 두고 `Node View`와 `Runnable View`를 사용한다. | 실행 구조보다 실제 data 확인에 더 많은 공간을 준다. |
+| Trace actions | queue 추가와 삭제는 trace header의 overflow menu 하나로 묶고, queue review도 Trace Detail과 같은 inspector를 사용한다. | 낮은 빈도의 동작을 숨기고 입출력 확인 방식을 일관되게 유지한다. |
 | Session | optional `session_id`로 trace를 연결한다. | multi-turn navigation에 필요하다. |
 | LangGraph session | `thread_id`를 session 후보로 자동 인식한다. | 사용자 추가 코드를 줄인다. |
 | LLM metadata | 실제 model/usage/token metadata만 저장한다. | provider 응답을 보존한다. |
 | Cost | 계산하지 않는다. | pricing maintenance를 제거한다. |
-| Feedback | generic name/value/comment/metadata를 지원한다. | thumbs와 custom score를 한 모델로 표현한다. |
+| Score types | custom boolean, finite number, categorical single/multiple score를 지원한다. string/text score는 만들지 않는다. | 구조화된 평가와 자유 형식 메모의 역할을 분리한다. |
+| Annotation target | 현재 UI/API는 trace 전체 평가만 지원하되 annotation은 `target_type`, `target_id`, 소유 `trace_id`를 저장한다. | observation/node 평가를 나중에 추가할 migration seam을 보존한다. |
+| Trace annotation UI | Trace detail은 처음에 `Add scores`와 memo만 보이고, 사용자가 해당 trace에서 평가할 score를 고른 뒤에만 입력 field를 표시한다. | 모든 active score를 일괄 노출하지 않아 trace별 평가 의도를 명확히 한다. |
+| Categorical multiple | 빈 배열 `[]`을 명시적으로 기록할 수 있고 미기록과 구분한다. system `None` option은 만들지 않는다. | 선택 결과 없음과 아직 평가하지 않음을 구분하며 의미는 사용자가 정의하게 한다. |
+| Trace memo | 자유 형식 메모는 score가 아니라 trace당 하나이며 모든 queue에서 공유한다. | 반복 queue마다 메모가 갈라지는 것을 피한다. |
+| Annotation queue | queue 생성 시 score를 선택하고 빈 queue로 시작한다. trace는 trace 상세의 `Add to Queue`로 기존 queue에 추가하며 자동 유입은 없다. | 이름이 같은 trace가 많이 쌓여도 현재 보고 있는 실행을 명확하게 추가한다. |
+| Queue completion | score 작성 여부와 무관하게 사용자가 item의 `완료`를 눌렀을 때만 완료한다. 완료 item은 읽기 전용이고 `수정`을 누르면 즉시 pending으로 돌아간다. | 작업 상태와 평가 값 존재 여부를 분리한다. |
+| Score lifecycle | 사용 전 score는 구조 변경/삭제 가능하고, annotation에 사용된 뒤에는 이름/설명만 수정하며 archive한다. | 과거 annotation의 해석을 보존한다. |
 | Search | SQLite scalar index와 단순 text search를 사용한다. | 별도 search infrastructure를 피한다. |
 | Pagination | 기본 50, 최대 200의 opaque cursor pagination을 사용한다. | 새 trace와 삭제가 있어도 page 이동을 안정적으로 유지한다. |
 | Ingest transaction | batch request 안의 trace envelope별로 transaction을 수행한다. | malformed item이 정상 trace를 막는 poison batch를 피한다. |
@@ -90,6 +100,9 @@
 - hot restore와 restore UI
 - tombstone과 reset epoch
 - LangChain batch 계열 자동 추적
+- observation/node 단위 annotation UI/API
+- trace query로 자동 확장되는 dynamic annotation queue
+- queue 완료율 외 score 작성률/coverage KPI
 
 ## Implementation Defaults Requiring Validation
 

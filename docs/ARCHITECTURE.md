@@ -28,7 +28,6 @@ public API
 ├── span
 ├── current_context
 ├── use_context
-├── feedback
 ├── flush
 └── shutdown
 
@@ -62,7 +61,8 @@ integration module이 dependency를 감지하고 명시적인 error message를
 FastAPI
 ├── ingest router
 ├── query router
-├── feedback router
+├── score/annotation router
+├── annotation queue router
 ├── admin backup/reset router
 ├── validation/domain service
 ├── SQLAlchemy repositories
@@ -84,7 +84,9 @@ React SPA
 │   ├── execution graph
 │   ├── observation summaries
 │   └── lazy-loaded node inspector
-├── feedback editor
+├── score management
+├── trace annotation editor
+├── annotation queue review
 └── settings
     ├── backup
     └── reset
@@ -245,9 +247,6 @@ process에서 다시 수집하려면 `configure()`를 명시적으로 호출한�
 enqueue가 교차하면 generation을 확인해 retiring sender가 거부한 envelope를
 현재 sender에 한 번만 다시 시도한다.
 
-Feedback은 trace envelope와 별도 endpoint로 전송할 수 있다. trace보다 먼저
-도착할 수 있으므로 server schema가 순서를 강제하지 않는다.
-
 ## 8. Persistence
 
 SQLite 설정:
@@ -263,6 +262,13 @@ Trace envelope 하나를 transaction 하나에서 trace와 observations와 함�
 저장한다. Batch 안의 invalid envelope는 다른 envelope commit을 막지 않는다.
 item 결과는 각 commit 후 반환한다. list query에 필요한 scalar field는
 column과 index로 저장하고, 원본 payload/metadata는 JSON text로 저장한다.
+
+Score, annotation, trace memo, annotation queue는 SDK transport와 분리된
+same-origin 관리 API를 사용한다. Annotation은 현재 trace target만 받지만
+`target_type`, `target_id`, 소유 `trace_id`를 별도 저장한다. Queue item의
+`pending`/`completed` 상태는 annotation 존재 여부에서 계산하지 않고 사용자
+동작으로 변경한다. Queue item 완료 시 전달된 annotation, 공유 trace memo,
+item status를 하나의 transaction에서 저장한다.
 
 SQLite file을 실행 중 단순 복사하지 않는다. backup download는 SQLite
 online backup API로 consistent snapshot을 만든다. Restore는 server를
@@ -307,6 +313,7 @@ v1에 구현하지 않지만 다음 seam은 막지 않는다.
 - optional release/environment/tags
 - SQLAlchemy repository boundary
 - trace-like model을 OTel adapter로 변환할 가능성
+- annotation의 `target_type`, `target_id`, owning `trace_id`
 
 이 seam을 이유로 plugin framework, event bus, abstract database dialect를
 미리 만들지는 않는다.

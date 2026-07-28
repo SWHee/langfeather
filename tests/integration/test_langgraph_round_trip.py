@@ -133,7 +133,9 @@ def test_langgraph_sdk_api_sqlite_round_trip(
         observations
     )
     assert all(observation["status"] == "completed" for observation in observations)
-    assert detail["feedback"] == []
+    assert detail["annotations"] == []
+    assert detail["memo"] is None
+    assert detail["score_configs"] == []
     assert all(
         "input" not in observation and "output" not in observation
         for observation in observations

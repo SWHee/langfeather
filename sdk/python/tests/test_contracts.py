@@ -9,7 +9,6 @@ import pytest
 from langfeather._contracts import (
     CompletedEnvelope,
     ContractValidationError,
-    Feedback,
 )
 
 FIXTURE_ROOT = Path(__file__).parents[3] / "tests" / "fixtures" / "envelopes"
@@ -38,15 +37,6 @@ def test_sdk_accepts_canonical_envelope_fixtures(fixture_name: str) -> None:
     assert len(envelope.observations) == len(raw["observations"])
 
 
-def test_sdk_accepts_feedback_before_trace_fixture() -> None:
-    raw = load_fixture("feedback-before-trace.json")
-
-    feedback = Feedback.from_mapping(raw)
-
-    assert feedback.trace_id == "tr_delayed_01"
-    assert feedback.value is False
-
-
 def test_sdk_rejects_unknown_schema_version() -> None:
     raw = load_fixture("completed.json")
     raw["schema_version"] = 2
@@ -61,4 +51,3 @@ def test_sdk_rejects_duplicate_observation_sequence() -> None:
 
     with pytest.raises(ContractValidationError, match="sequence"):
         CompletedEnvelope.from_mapping(raw)
-
