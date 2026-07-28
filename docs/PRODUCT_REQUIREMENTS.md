@@ -70,7 +70,7 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
 
 첫 화면은 dashboard가 아니라 trace list다.
 
-- 상단 navigation에서 `Traces`, `Annotation Queues`, `Scores`, `Evaluation`,
+- 상단 navigation에서 `Traces`, `Annotation Queues`, `Scores`, `Datasets`,
   `Local Data`를 분리
 - status, name, duration, node count, input summary, timestamp 표시
 - 최신순 pagination

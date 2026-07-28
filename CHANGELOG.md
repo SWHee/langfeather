@@ -11,11 +11,14 @@ follow Semantic Versioning while LangFeather remains in the `0.x` series.
 - Custom boolean, finite number, categorical single/multiple score definitions.
 - Trace-level structured annotations and one shared memo per trace.
 - Fixed manual annotation queues with explicit complete/edit workflow.
+- Dataset and dataset example deletion from the Datasets view.
 
 ### Changed
 
-- The top navigation now separates Traces, Annotation Queues, Scores, and
-  Local Data.
+- The top navigation now separates Traces, Annotation Queues, Scores, Datasets,
+  and Local Data. Datasets opens as a searchable list; a dataset detail holds its
+  examples and experiments, and example creation moved into an Add example
+  dialog.
 - Queue completion is explicit and independent of score coverage.
 - Used score structures are immutable and archived instead of deleted.
 

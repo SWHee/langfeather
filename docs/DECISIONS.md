@@ -52,7 +52,7 @@
 | Internal nodes | callback event가 발생한 모든 내부 run을 저장한다. | 관찰 가능한 실행의 완전성을 우선한다. |
 | UI noise | 내부 node는 기본 collapse할 수 있지만 삭제하지 않는다. | 완전성과 가독성을 함께 제공한다. |
 | UI simplicity | 화면에는 현재 작업에 꼭 필요한 component와 설명만 둔다. | 사용자가 실행 경로와 원본 data에 바로 집중하게 한다. |
-| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Evaluation`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. | trace 확인, 수동 평가, evaluation regression, local data 관리를 분리한다. |
+| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Datasets`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. Experiment는 항상 dataset에 속하므로 별도 top-level 항목 대신 dataset 상세의 tab으로 둔다. | trace 확인, 수동 평가, dataset 편집, experiment regression, local data 관리를 분리한다. |
 | Score management UI | `Scores`는 검색 가능한 table을 기본 화면으로 두고 create form은 `New Score` 동작 뒤의 별도 집중 UI에 둔다. | 자주 하는 조회와 드문 schema 생성을 같은 시각적 우선순위로 두지 않는다. |
 | Queue navigation UI | annotation queue 생성/목록과 선택 queue의 상세 review를 같은 화면에 동시에 표시하지 않는다. | queue 탐색과 trace 평가의 작업 맥락을 분리한다. |
 | Detail layout | 작은 execution graph와 더 넓은 선택 observation Input/Output inspector를 나란히 두고 `Node View`와 `Runnable View`를 사용한다. | 실행 구조보다 실제 data 확인에 더 많은 공간을 준다. |

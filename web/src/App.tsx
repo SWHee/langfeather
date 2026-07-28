@@ -31,7 +31,7 @@ import {
 } from "./components/ObservationInspector";
 import { useDismissiblePopover } from "./components/useDismissiblePopover";
 import { RuntimeExecutionGraph } from "./graph/RuntimeExecutionGraph";
-import { EvaluationView } from "./evaluation/EvaluationViews";
+import { DatasetsView } from "./evaluation/DatasetsView";
 import "./styles.css";
 
 const STATUS_LABEL: Record<TraceStatus, string> = {
@@ -830,7 +830,7 @@ function TraceDetailPanel({
 
 export function App() {
   const [activeView, setActiveView] = useState<
-    "traces" | "queues" | "scores" | "evaluation" | "data"
+    "traces" | "queues" | "scores" | "datasets" | "data"
   >("traces");
   const [listRevision, setListRevision] = useState(0);
   const [detailRevision, setDetailRevision] = useState(0);
@@ -1131,10 +1131,10 @@ export function App() {
           </button>
           <button
             type="button"
-            aria-pressed={activeView === "evaluation"}
-            onClick={() => setActiveView("evaluation")}
+            aria-pressed={activeView === "datasets"}
+            onClick={() => setActiveView("datasets")}
           >
-            Evaluation
+            Datasets
           </button>
           <button
             type="button"
@@ -1230,7 +1230,7 @@ export function App() {
       )}
       {activeView === "queues" && <AnnotationQueuesView />}
       {activeView === "scores" && <ScoresView />}
-      {activeView === "evaluation" && <EvaluationView />}
+      {activeView === "datasets" && <DatasetsView />}
       {activeView === "data" && (
         <main className="local-data-page">
           <LocalDataControls onReset={resetAll} />

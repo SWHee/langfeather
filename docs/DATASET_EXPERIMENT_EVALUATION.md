@@ -15,9 +15,9 @@ Server는 dataset, snapshot, result만 저장한다. target과 evaluator Python 
 
 1. LangFeather server/UI를 실행하고 trace를 확인한다.
 2. trace 상세의 `… → Add to Dataset`으로 root input을 dataset example에 추가한다.
-3. `Evaluation → Datasets`에서 expected output과 metadata를 검토한다.
+3. `Datasets`에서 dataset을 열어 expected output과 metadata를 검토한다.
 4. application code 또는 별도 regression script에서 `langfeather.evaluate()`를 실행한다.
-5. `Evaluation → Experiments`에서 case별 output, score, trace와 같은 revision의
+5. dataset 상세의 `Experiments` tab에서 case별 output, score, trace와 같은 revision의
    experiment를 나란히 비교한다.
 
 `Add to Dataset`은 trace input만 저장한다. 관찰한 output은 정답이 아닐 수 있으므로
@@ -26,8 +26,8 @@ example은 중복 생성하지 않는다.
 
 ## Dataset 만들기
 
-UI에서 **Evaluation → Datasets → New**를 선택해 빈 dataset을 만든 뒤 example을
-추가할 수 있다. API를 직접 사용할 때는 다음과 같다.
+UI에서 **Datasets → New Dataset**을 선택해 빈 dataset을 만든 뒤 상세 화면의
+**Add example**로 example을 추가할 수 있다. API를 직접 사용할 때는 다음과 같다.
 
 ```bash
 curl -X POST http://127.0.0.1:4319/api/v1/datasets \
@@ -46,6 +46,16 @@ curl -X POST http://127.0.0.1:4319/api/v1/datasets \
 Dataset example은 `input`, nullable `expected_output`, optional `metadata`,
 optional `source_trace_id`를 가진다. example을 추가·수정·삭제하면 dataset revision이
 증가한다.
+
+## Dataset과 example 삭제
+
+dataset 상세의 example 행 메뉴에서 `영구 삭제`를 선택하면 해당 example만 지워지고
+revision이 증가한다. 이미 실행한 experiment는 시작 시점 snapshot을 보관하므로 영향을
+받지 않는다.
+
+dataset 목록의 행 메뉴에서 `영구 삭제`를 선택하면 dataset과 모든 example을 지운다.
+단, experiment 기록이 있는 dataset은 regression evidence를 보존하기 위해 삭제할 수
+없고 server가 409를 반환한다.
 
 Application code에서 dataset을 관리할 때는 SDK helper를 사용할 수 있다. Dataset
 name은 server/database에서 unique하므로 `get_or_create_dataset()`은 startup script나
