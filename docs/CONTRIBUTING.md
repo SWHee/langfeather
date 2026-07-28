@@ -24,6 +24,39 @@ make test
 Use the runnable examples under [`examples/`](../examples/) to demonstrate a
 trace behavior. The root [README](../README.md) explains the local Docker path.
 
+## Keep your fork current
+
+Register the original repository once:
+
+```bash
+git remote add upstream https://github.com/SungjinWi99/langfeather.git
+```
+
+Before starting a branch, confirm `git status --short` is empty and sync all
+three `main` branches:
+
+```bash
+git status --short
+./scripts/sync.sh
+git switch -c fix/short-task-name
+```
+
+After a pull request is merged, remove its local branch. Add `-r` to remove the
+same branch from your fork as well:
+
+```bash
+git status --short
+
+# Delete the local branch only.
+./scripts/cleanup.sh fix/short-task-name
+
+# Or delete both the local branch and the branch on your fork.
+./scripts/cleanup.sh fix/short-task-name -r
+```
+
+Both scripts stop on uncommitted changes. `cleanup.sh` also refuses protected
+or unmerged branches and asks for confirmation before deletion.
+
 ## Make a focused change
 
 - Read [`AGENTS.md`](../AGENTS.md) before editing. It is the repository's
