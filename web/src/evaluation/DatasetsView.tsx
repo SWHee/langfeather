@@ -50,6 +50,7 @@ export function DatasetsView({
   const [experiments, setExperiments] = useState<ExperimentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [addExampleOpen, setAddExampleOpen] = useState(false);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
@@ -326,6 +327,17 @@ export function DatasetsView({
 
   const selectedSummary =
     datasets.find((item) => item.dataset_id === selectedDatasetId) ?? null;
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredDatasets = datasets.filter((item) =>
+    `${item.name} ${item.description ?? ""}`
+      .toLocaleLowerCase()
+      .includes(normalizedQuery),
+  );
+  const filteredSelection = filteredDatasets.some(
+    (item) => item.dataset_id === selectedDatasetId,
+  )
+    ? selectedDatasetId
+    : null;
   const displayedDataset =
     dataset?.dataset_id === selectedDatasetId ? dataset : null;
   const relatedExperiments =
@@ -338,7 +350,9 @@ export function DatasetsView({
     ? "불러오는 중…"
     : loadError
       ? "Dataset을 선택할 수 없음"
-      : "Dataset 없음";
+      : datasets.length === 0
+        ? "Dataset 없음"
+        : "검색 결과 없음";
 
   return (
     <main className="management-page evaluation-page">
@@ -363,25 +377,34 @@ export function DatasetsView({
       </header>
 
       <section className="evaluation-dataset-context" aria-label="Dataset 문맥">
-        <label className="evaluation-dataset-selector">
+        <div className="evaluation-dataset-selector">
           <span>Dataset</span>
+          <label className="management-search">
+            <span aria-hidden="true" className="search-icon" />
+            <input
+              aria-label="Dataset 검색"
+              placeholder="Search by name or description..."
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
           <select
             aria-label="Dataset 선택"
-            value={selectedDatasetId ?? ""}
-            disabled={loading || loadError || datasets.length === 0}
+            value={filteredSelection ?? ""}
+            disabled={loading || loadError || filteredDatasets.length === 0}
             onChange={(event) => selectDataset(event.target.value)}
           >
-            {datasets.length === 0 ? (
+            {filteredDatasets.length === 0 ? (
               <option value="">{selectorPlaceholder}</option>
             ) : (
-              datasets.map((item) => (
+              filteredDatasets.map((item) => (
                 <option key={item.dataset_id} value={item.dataset_id}>
                   {item.name}
                 </option>
               ))
             )}
           </select>
-        </label>
+        </div>
         <span className="dataset-revision-badge">
           revision {displayedRevision ?? "—"}
         </span>

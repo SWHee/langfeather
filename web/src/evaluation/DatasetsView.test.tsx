@@ -218,6 +218,35 @@ describe("DatasetsView", () => {
     expect(screen.getByText("아직 example이 없습니다.")).toBeInTheDocument();
   });
 
+  it("filters dataset options by name and description", async () => {
+    const user = userEvent.setup();
+    mockLists(fetchMock, { datasets: [dataset, secondDataset] });
+
+    render(<DatasetsView />);
+
+    const search = await screen.findByRole("textbox", {
+      name: "Dataset 검색",
+    });
+    await user.type(search, "PROMPT-ONLY");
+
+    expect(
+      screen.getByRole("option", { name: "Prompt checks" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "RAG regression" }),
+    ).not.toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, "rag regression");
+
+    expect(
+      screen.getByRole("option", { name: "RAG regression" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Prompt checks" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("hides example creation behind a button", async () => {
     mockLists(fetchMock);
 
