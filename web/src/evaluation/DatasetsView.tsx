@@ -22,6 +22,7 @@ import { ManagementDialog, OverflowMenu } from "../components/ManagementChrome";
 import { CompareView } from "./CompareView";
 import { DatasetExperiments } from "./DatasetExperiments";
 import { preview } from "./formatters";
+import type { EvaluationUrlState } from "../url";
 
 type DetailTab = "compare" | "experiments" | "examples";
 
@@ -110,8 +111,12 @@ function Toast({ status }: { status: Status }) {
 
 export function DatasetsView({
   onOpenTrace,
+  urlState,
+  onUrlStateChange,
 }: {
   onOpenTrace?: (traceId: string) => void;
+  urlState?: EvaluationUrlState;
+  onUrlStateChange?: (state: EvaluationUrlState) => void;
 }) {
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [experiments, setExperiments] = useState<ExperimentSummary[]>([]);
@@ -121,9 +126,16 @@ export function DatasetsView({
   const [createOpen, setCreateOpen] = useState(false);
   const [addExampleOpen, setAddExampleOpen] = useState(false);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
-    null,
+    urlState?.datasetId ?? null,
   );
-  const [detailTab, setDetailTab] = useState<DetailTab>("compare");
+  const [detailTab, setDetailTab] = useState<DetailTab>(
+    urlState?.tab ?? "compare",
+  );
+  const [comparisonUrlState, setComparisonUrlState] = useState(() => ({
+    experimentIds: urlState?.experimentIds ?? [],
+    metricKeys: urlState?.metricKeys ?? [],
+    caseId: urlState?.caseId ?? null,
+  }));
   const selectedDatasetIdRef = useRef(selectedDatasetId);
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [detailError, setDetailError] = useState(false);
@@ -141,6 +153,26 @@ export function DatasetsView({
 
   const notify = (text: string) => setStatus({ text, tone: "info" });
   const warn = (text: string) => setStatus({ text, tone: "error" });
+  const clearComparisonUrlState = () => {
+    setComparisonUrlState({
+      experimentIds: [],
+      metricKeys: [],
+      caseId: null,
+    });
+  };
+
+  useEffect(() => {
+    onUrlStateChange?.({
+      datasetId: selectedDatasetId,
+      tab: detailTab,
+      ...comparisonUrlState,
+    });
+  }, [
+    comparisonUrlState,
+    detailTab,
+    onUrlStateChange,
+    selectedDatasetId,
+  ]);
 
   const loadLists = () => {
     setLoading(true);
@@ -149,20 +181,22 @@ export function DatasetsView({
       .then(([datasetResponse, experimentResponse]) => {
         setDatasets(datasetResponse.items);
         setExperiments(experimentResponse.items);
-        setSelectedDatasetId((current) => {
-          if (
-            current !== null &&
-            datasetResponse.items.some((item) => item.dataset_id === current)
-          ) {
-            return current;
-          }
-          return datasetResponse.items[0]?.dataset_id ?? null;
-        });
+        const current = selectedDatasetIdRef.current;
+        const next =
+          current !== null &&
+          datasetResponse.items.some((item) => item.dataset_id === current)
+            ? current
+            : (datasetResponse.items[0]?.dataset_id ?? null);
+        if (next !== current) {
+          clearComparisonUrlState();
+        }
+        setSelectedDatasetId(next);
       })
       .catch(() => {
         setDatasets([]);
         setExperiments([]);
         setSelectedDatasetId(null);
+        clearComparisonUrlState();
         setDataset(null);
         setLoadError(true);
       })
@@ -207,6 +241,7 @@ export function DatasetsView({
             items.filter((item) => item.dataset_id !== selectedDatasetId),
           );
           setSelectedDatasetId(null);
+          clearComparisonUrlState();
           notify("이 Dataset은 삭제되었습니다.");
           void getDatasets()
             .then((response) => {
@@ -227,6 +262,7 @@ export function DatasetsView({
     }
     setDetailError(false);
     setSelectedDatasetId(datasetId);
+    clearComparisonUrlState();
     setDataset(null);
     setAddExampleOpen(false);
   };
@@ -263,6 +299,7 @@ export function DatasetsView({
       .then((created) => {
         setDatasets((items) => [created, ...items]);
         setSelectedDatasetId(created.dataset_id);
+        clearComparisonUrlState();
         setDataset(created);
         setDetailError(false);
         setDetailTab("compare");
@@ -473,6 +510,7 @@ export function DatasetsView({
         setDatasets(remaining);
         if (selectedDatasetId === summary.dataset_id) {
           setSelectedDatasetId(remaining[0]?.dataset_id ?? null);
+          clearComparisonUrlState();
           setDataset(null);
           setDetailError(false);
           setAddExampleOpen(false);
@@ -794,6 +832,8 @@ export function DatasetsView({
                 datasetId={displayedDataset.dataset_id}
                 experiments={relatedExperiments}
                 onOpenTrace={onOpenTrace}
+                urlState={comparisonUrlState}
+                onUrlStateChange={setComparisonUrlState}
               />
             </div>
           ) : detailTab === "experiments" ? (

@@ -235,6 +235,38 @@ describe("CompareView", () => {
     ).toBeInTheDocument();
   });
 
+  it("restores ordered experiments, metrics, and a case from URL-owned state", async () => {
+    const onUrlStateChange = vi.fn();
+    render(
+      <CompareView
+        experiments={summaries}
+        urlState={{
+          experimentIds: ["exp_candidate", "exp_baseline"],
+          metricKeys: ["exact_match"],
+          caseId: "example_0",
+        }}
+        onUrlStateChange={onUrlStateChange}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Exact match" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Candidate/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Baseline/ })).toBeChecked();
+    expect(
+      screen.getByText("첫 번째 experiment를 기준으로 선택한 지표만 표시합니다."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Case 상세 비교" }),
+    ).toBeInTheDocument();
+    expect(onUrlStateChange).toHaveBeenLastCalledWith({
+      experimentIds: ["exp_candidate", "exp_baseline"],
+      metricKeys: ["exact_match"],
+      caseId: "example_0",
+    });
+  });
+
   it("renders only selected metrics with exact boolean rates and number means", async () => {
     const user = userEvent.setup();
     render(<CompareView experiments={summaries} />);

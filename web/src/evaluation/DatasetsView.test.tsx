@@ -165,6 +165,49 @@ describe("DatasetsView", () => {
     ).toBeInTheDocument();
   });
 
+  it("restores the dataset and detail tab from URL-owned state", async () => {
+    const onUrlStateChange = vi.fn();
+    mockLists(fetchMock, {
+      datasets: [dataset, secondDataset],
+    });
+
+    render(
+      <DatasetsView
+        urlState={{
+          datasetId: secondDataset.dataset_id,
+          tab: "examples",
+          experimentIds: [],
+          metricKeys: [],
+          caseId: null,
+        }}
+        onUrlStateChange={onUrlStateChange}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: secondDataset.name,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+    ).toHaveValue(secondDataset.dataset_id);
+    expect(screen.getByRole("tab", { name: "Examples (0)" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() =>
+      expect(onUrlStateChange).toHaveBeenLastCalledWith({
+        datasetId: secondDataset.dataset_id,
+        tab: "examples",
+        experimentIds: [],
+        metricKeys: [],
+        caseId: null,
+      }),
+    );
+  });
+
   it("removes a dataset whose detail was deleted and selects the first remaining dataset", async () => {
     let datasetListCalls = 0;
     fetchMock.mockImplementation((input) => {

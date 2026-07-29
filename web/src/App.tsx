@@ -33,6 +33,11 @@ import { useDismissiblePopover } from "./components/useDismissiblePopover";
 import { RuntimeExecutionGraph } from "./graph/RuntimeExecutionGraph";
 import { DatasetsView } from "./evaluation/DatasetsView";
 import "./styles.css";
+import {
+  readAppUrlState,
+  replaceAppUrlState,
+  type EvaluationUrlState,
+} from "./url";
 
 const STATUS_LABEL: Record<TraceStatus, string> = {
   completed: "완료",
@@ -829,9 +834,11 @@ function TraceDetailPanel({
 }
 
 export function App() {
-  const [activeView, setActiveView] = useState<
-    "traces" | "queues" | "scores" | "datasets" | "data"
-  >("traces");
+  const [initialUrlState] = useState(readAppUrlState);
+  const [activeView, setActiveView] = useState(initialUrlState.view);
+  const [evaluationUrlState, setEvaluationUrlState] =
+    useState<EvaluationUrlState>(initialUrlState.evaluation);
+  const [evaluationMountRevision, setEvaluationMountRevision] = useState(0);
   const [listRevision, setListRevision] = useState(0);
   const [detailRevision, setDetailRevision] = useState(0);
   const [payloadRevision, setPayloadRevision] = useState(0);
@@ -842,9 +849,11 @@ export function App() {
   const [activeFilters, setActiveFilters] =
     useState<TraceFilterDraft>(EMPTY_FILTERS);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(
+    initialUrlState.traceId,
+  );
   const [detailState, setDetailState] = useState<LoadState<TraceDetail>>({
-    status: "idle",
+    status: initialUrlState.traceId === null ? "idle" : "loading",
   });
   const [selectedObservationId, setSelectedObservationId] = useState<
     string | null
@@ -853,6 +862,31 @@ export function App() {
     status: "idle",
   });
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    replaceAppUrlState({
+      view: activeView,
+      evaluation: evaluationUrlState,
+      traceId: selectedTraceId,
+    });
+  }, [activeView, evaluationUrlState, selectedTraceId]);
+
+  useEffect(() => {
+    const restoreUrlState = () => {
+      const restored = readAppUrlState();
+      setActiveView(restored.view);
+      setEvaluationUrlState(restored.evaluation);
+      setEvaluationMountRevision((revision) => revision + 1);
+      setSelectedTraceId(restored.traceId);
+      setSelectedObservationId(null);
+      setPayloadState({ status: "idle" });
+      setDetailState({
+        status: restored.traceId === null ? "idle" : "loading",
+      });
+    };
+    window.addEventListener("popstate", restoreUrlState);
+    return () => window.removeEventListener("popstate", restoreUrlState);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1238,6 +1272,9 @@ export function App() {
       {activeView === "scores" && <ScoresView />}
       {activeView === "datasets" && (
         <DatasetsView
+          key={evaluationMountRevision}
+          urlState={evaluationUrlState}
+          onUrlStateChange={setEvaluationUrlState}
           onOpenTrace={(traceId) => {
             selectTrace(traceId);
             setActiveView("traces");

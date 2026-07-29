@@ -20,6 +20,7 @@ import {
   CASE_STATUS_LABEL,
   EXPERIMENT_STATUS_LABEL,
 } from "./labels";
+import type { EvaluationUrlState } from "../url";
 
 type ComparisonLoadState =
   | { status: "idle" }
@@ -644,28 +645,55 @@ export function CompareView({
   experiments,
   datasetId,
   onOpenTrace,
+  urlState,
+  onUrlStateChange,
 }: {
   experiments: readonly ExperimentSummary[];
   datasetId?: string;
   onOpenTrace?: (traceId: string) => void;
+  urlState?: Pick<
+    EvaluationUrlState,
+    "experimentIds" | "metricKeys" | "caseId"
+  >;
+  onUrlStateChange?: (
+    state: Pick<
+      EvaluationUrlState,
+      "experimentIds" | "metricKeys" | "caseId"
+    >,
+  ) => void;
 }) {
   const [selectedExperimentIds, setSelectedExperimentIds] = useState<string[]>(
-    [],
+    urlState?.experimentIds ?? [],
   );
   const [selectedEvaluatorKeys, setSelectedEvaluatorKeys] = useState<string[]>(
-    [],
+    urlState?.metricKeys ?? [],
   );
   const [loadState, setLoadState] = useState<ComparisonLoadState>({
     status: "idle",
   });
   const [requestRevision, setRequestRevision] = useState(0);
   const [selectedExampleId, setSelectedExampleId] = useState<string | null>(
-    null,
+    urlState?.caseId ?? null,
   );
   const [caseAnchorExperimentId, setCaseAnchorExperimentId] = useState<
     string | null
   >(null);
-  const hasManualEvaluatorSelection = useRef(false);
+  const hasManualEvaluatorSelection = useRef(
+    (urlState?.metricKeys.length ?? 0) > 0,
+  );
+
+  useEffect(() => {
+    onUrlStateChange?.({
+      experimentIds: selectedExperimentIds,
+      metricKeys: selectedEvaluatorKeys,
+      caseId: selectedExampleId,
+    });
+  }, [
+    onUrlStateChange,
+    selectedEvaluatorKeys,
+    selectedExampleId,
+    selectedExperimentIds,
+  ]);
 
   useEffect(() => {
     if (selectedExperimentIds.length < 2) {
