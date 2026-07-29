@@ -4,6 +4,10 @@ import { getExperiment } from "../api/client";
 import type { Experiment, ExperimentSummary } from "../api/types";
 import { compareExperiments } from "./comparison";
 import { duration, formatDateTime, preview } from "./formatters";
+import {
+  CASE_STATUS_LABEL,
+  EXPERIMENT_STATUS_LABEL,
+} from "./labels";
 
 function ExperimentResultSummary({ experiment }: { experiment: Experiment }) {
   const comparison = compareExperiments([experiment])[0];
@@ -179,12 +183,12 @@ export function DatasetExperiments({
                         <span
                           className={`experiment-status status-${item.status}`}
                         >
-                          {item.status}
+                          {EXPERIMENT_STATUS_LABEL[item.status]}
                         </span>
                       </td>
                       <td data-label="진행">
                         {item.completed_case_count}/{item.case_count} ·{" "}
-                        {item.failed_case_count} failed
+                        {item.failed_case_count} 실패
                         <button
                           className="link-button"
                           type="button"
@@ -254,8 +258,8 @@ export function DatasetExperiments({
           <h2>{displayed.name}</h2>
           <p>
             Dataset revision {displayed.dataset_revision} ·{" "}
-            {displayed.completed_case_count} completed ·{" "}
-            {displayed.failed_case_count} target failures
+            {displayed.completed_case_count} 완료 ·{" "}
+            {displayed.failed_case_count} target 실패
           </p>
         </div>
         <div className="experiment-compare-note">
@@ -293,7 +297,7 @@ export function DatasetExperiments({
             {displayed.cases.map((item) => (
               <tr key={item.experiment_case_id} data-status={item.status}>
                 <td data-label="Case">
-                  <strong>{item.status}</strong>
+                  <strong>{CASE_STATUS_LABEL[item.status]}</strong>
                   <small>{duration(item.duration_us)}</small>
                 </td>
                 <td data-label="Expected / actual">

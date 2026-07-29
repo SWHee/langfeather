@@ -520,7 +520,7 @@ describe("DatasetsView", () => {
       screen.getByRole("button", { name: "baseline" }),
     ).toBeInTheDocument();
     expect(screen.getByText("rev 1")).toBeInTheDocument();
-    expect(screen.getByText("1/1 · 0 failed")).toBeInTheDocument();
+    expect(screen.getByText("1/1 · 0 실패")).toBeInTheDocument();
   });
 
   it("deletes an example and reloads the revised dataset", async () => {

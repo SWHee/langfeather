@@ -80,6 +80,8 @@ describe("DatasetExperiments", () => {
     render(<DatasetExperiments experiments={[summary]} />);
 
     expect(screen.getByRole("button", { name: "baseline" })).toBeInTheDocument();
+    expect(screen.getByText("완료")).toBeInTheDocument();
+    expect(screen.queryByText("completed")).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -152,9 +154,11 @@ describe("DatasetExperiments", () => {
       await screen.findByRole("heading", { level: 2, name: "baseline" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Dataset revision 3 · 1 completed · 0 target failures/),
+      screen.getByText(/Dataset revision 3 · 1 완료 · 0 target 실패/),
     ).toBeInTheDocument();
     expect(screen.getByText("exact_match: true")).toBeInTheDocument();
+    expect(screen.getByText("완료")).toBeInTheDocument();
+    expect(screen.queryByText("completed")).not.toBeInTheDocument();
     expect(screen.getByText("1.50 s")).toBeInTheDocument();
     expect(screen.getByText("tr_run")).toBeInTheDocument();
   });

@@ -12,29 +12,20 @@ import type {
   ExperimentCase,
   ExperimentEvaluator,
   ExperimentResult,
-  ExperimentStatus,
   ExperimentSummary,
 } from "../api/types";
 import { compareExperiments, type EvaluatorStat } from "./comparison";
 import { formatDateTime, preview } from "./formatters";
+import {
+  CASE_STATUS_LABEL,
+  EXPERIMENT_STATUS_LABEL,
+} from "./labels";
 
 type ComparisonLoadState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error" }
   | { status: "success"; experiments: Experiment[] };
-
-const EXPERIMENT_STATUS_LABEL: Record<ExperimentStatus, string> = {
-  running: "실행 중",
-  completed: "완료",
-  cancelled: "취소",
-};
-
-const CASE_STATUS_LABEL: Record<ExperimentCase["status"], string> = {
-  pending: "대기",
-  completed: "완료",
-  failed: "실패",
-};
 
 const EMPTY_EXPERIMENTS: readonly Experiment[] = [];
 
