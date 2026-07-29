@@ -4139,3 +4139,90 @@ pre,
     justify-content: flex-start;
   }
 }
+
+/* STEP 6 Case 식별성과 JSON 증거 */
+.case-input-preview {
+  display: block;
+  margin-bottom: 8px;
+  color: #172033;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.case-json-pair {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.case-json-evidence {
+  display: grid;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #e4e7ec;
+  border-radius: 7px;
+  background: #f9fafb;
+  gap: 7px;
+}
+
+.case-json-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  color: #344054;
+  font-size: 0.7rem;
+  gap: 8px;
+}
+
+.case-json-copy {
+  min-height: 30px;
+  padding: 3px 7px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  color: #475467;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.case-json-preview {
+  min-width: 0;
+  overflow: hidden;
+  color: #344054;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-json-evidence details {
+  min-width: 0;
+  color: #53627a;
+  font-size: 0.68rem;
+}
+
+.case-json-evidence summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.case-json-evidence pre {
+  max-height: 260px;
+  padding: 8px;
+  overflow: auto;
+  margin: 7px 0 0;
+  border-radius: 6px;
+  color: #344054;
+  background: #fff;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.compare-case-list button > strong {
+  color: #344054;
+  font-size: 0.65rem;
+}

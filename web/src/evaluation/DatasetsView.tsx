@@ -804,6 +804,7 @@ export function DatasetsView({
               <DatasetExperiments
                 key={displayedDataset.dataset_id}
                 experiments={relatedExperiments}
+                onRequestCompare={() => selectTab("compare")}
               />
             </div>
           ) : (

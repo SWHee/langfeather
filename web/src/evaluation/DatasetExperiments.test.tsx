@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -139,6 +139,11 @@ describe("DatasetExperiments", () => {
   });
 
   it("loads case results and the pinned dataset revision on selection", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     fetchMock.mockImplementation((input) => {
       const url = String(input);
       if (url.endsWith("/experiments/exp_1")) {
@@ -161,6 +166,23 @@ describe("DatasetExperiments", () => {
     expect(screen.queryByText("completed")).not.toBeInTheDocument();
     expect(screen.getByText("1.50 s")).toBeInTheDocument();
     expect(screen.getByText("tr_run")).toBeInTheDocument();
+
+    const caseRow = screen.getByRole("row", { name: /지원 대상은/ });
+    expect(within(caseRow).getByText("Expected")).toBeInTheDocument();
+    expect(within(caseRow).getByText("Actual (output)")).toBeInTheDocument();
+    const expected = within(caseRow).getByRole("group", {
+      name: "Expected JSON",
+    });
+    await userEvent.click(
+      within(expected).getByRole("button", { name: "Expected JSON 복사" }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      '{\n  "answer": "청년"\n}',
+    );
+    await userEvent.click(within(expected).getByText("전체 보기"));
+    expect(within(expected).getByText("전체 보기").parentElement).toHaveAttribute(
+      "open",
+    );
   });
 
   it("keeps detail focused on one experiment and points to the Compare tab", async () => {

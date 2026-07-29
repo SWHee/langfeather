@@ -63,6 +63,29 @@ const experiment = {
   failed_case_count: 0,
 };
 
+const experimentDetail = {
+  ...experiment,
+  target_metadata: {},
+  evaluators: [],
+  cases: [
+    {
+      experiment_case_id: "exc_1",
+      dataset_example_id: "dse_1",
+      position: 0,
+      input: { question: "지원 대상은?" },
+      expected_output: { answer: "청년" },
+      metadata: {},
+      status: "completed",
+      output: { answer: "청년" },
+      error: null,
+      duration_us: 1_500_000,
+      trace_id: "tr_run",
+      completed_at: "2026-07-28T11:00:09.000000Z",
+      evaluator_results: [],
+    },
+  ],
+};
+
 function mockLists(
   fetchMock: ReturnType<typeof vi.fn<typeof fetch>>,
   options: {
@@ -521,6 +544,44 @@ describe("DatasetsView", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("rev 1")).toBeInTheDocument();
     expect(screen.getByText("1/1 · 0 실패")).toBeInTheDocument();
+  });
+
+  it("moves from an experiment detail to the Compare tab", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/datasets")) {
+        return Promise.resolve(jsonResponse({ items: [dataset] }));
+      }
+      if (url.endsWith("/experiments")) {
+        return Promise.resolve(jsonResponse({ items: [experiment] }));
+      }
+      if (url.endsWith(`/datasets/${dataset.dataset_id}`)) {
+        return Promise.resolve(jsonResponse(dataset));
+      }
+      if (url.endsWith(`/experiments/${experiment.experiment_id}`)) {
+        return Promise.resolve(jsonResponse(experimentDetail));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<DatasetsView />);
+    await userEvent.click(
+      await screen.findByRole("tab", { name: "Experiments (1)" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "baseline" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Compare 탭으로 이동" }),
+    );
+
+    expect(screen.getByRole("tab", { name: "Compare" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      screen.getByRole("tabpanel", { name: "Compare" }),
+    ).toBeInTheDocument();
   });
 
   it("deletes an example and reloads the revised dataset", async () => {

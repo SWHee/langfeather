@@ -351,7 +351,45 @@ function matchesCaseFilter(
 }
 
 function jsonEvidence(value: ExperimentCase["output"]): string {
-  return value === null ? "출력값 없음" : JSON.stringify(value, null, 2);
+  return JSON.stringify(value, null, 2) ?? "null";
+}
+
+function JsonEvidence({
+  label,
+  value,
+}: {
+  label: string;
+  value: ExperimentCase["output"];
+}) {
+  const copy = () => {
+    if (typeof navigator.clipboard?.writeText !== "function") {
+      return;
+    }
+    void navigator.clipboard
+      .writeText(jsonEvidence(value))
+      .catch(() => undefined);
+  };
+
+  return (
+    <div className="case-json-evidence" role="group" aria-label={`${label} JSON`}>
+      <div className="case-json-heading">
+        <strong>{label}</strong>
+        <button
+          className="case-json-copy"
+          type="button"
+          aria-label={`${label} JSON 복사`}
+          onClick={copy}
+        >
+          복사
+        </button>
+      </div>
+      <code className="case-json-preview">{preview(value)}</code>
+      <details>
+        <summary>전체 보기</summary>
+        <pre>{jsonEvidence(value)}</pre>
+      </details>
+    </div>
+  );
 }
 
 function CaseComparison({
@@ -452,6 +490,7 @@ function CaseComparison({
                 onClick={() => onSelectExample(choice.datasetExampleId)}
               >
                 <small>Case {choice.position + 1}</small>
+                <strong>Input</strong>
                 <span>{preview(choice.input)}</span>
               </button>
             ))
@@ -466,6 +505,7 @@ function CaseComparison({
             const traceId = experimentCase?.trace_id ?? null;
             return (
               <article
+                aria-label={`${experiment.name} case 결과`}
                 className="compare-case-result"
                 key={experiment.experiment_id}
               >
@@ -513,9 +553,15 @@ function CaseComparison({
                         );
                       })}
                     </dl>
-                    <div className="compare-output">
-                      <strong>출력값</strong>
-                      <pre>{jsonEvidence(experimentCase.output)}</pre>
+                    <div className="case-json-pair compare-output">
+                      <JsonEvidence
+                        label="Expected"
+                        value={experimentCase.expected_output}
+                      />
+                      <JsonEvidence
+                        label="Actual (output)"
+                        value={experimentCase.output}
+                      />
                     </div>
                     {traceId !== null && onOpenTrace !== undefined && (
                       <button

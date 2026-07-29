@@ -450,4 +450,48 @@ describe("CompareView", () => {
 
     expect(onOpenTrace).toHaveBeenCalledWith("tr_baseline_0");
   });
+
+  it("identifies cases by input and exposes labeled, copyable JSON evidence", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    render(<CompareView experiments={summaries} />);
+
+    await selectExperiments(user);
+    await screen.findByRole("checkbox", { name: /Exact match/ });
+    await user.click(
+      screen.getByRole("row", { name: /Baseline case 비교 열기/ }),
+    );
+
+    const caseList = screen.getByRole("navigation", { name: "비교할 case" });
+    expect(
+      within(caseList).getByRole("button", { name: /question 0/ }),
+    ).toBeInTheDocument();
+    const baselineResult = screen.getByRole("article", {
+      name: "Baseline case 결과",
+    });
+    expect(within(baselineResult).getByText("Expected")).toBeInTheDocument();
+    expect(
+      within(baselineResult).getByText("Actual (output)"),
+    ).toBeInTheDocument();
+
+    const actual = within(baselineResult).getByRole("group", {
+      name: "Actual (output) JSON",
+    });
+    await user.click(
+      within(actual).getByRole("button", {
+        name: "Actual (output) JSON 복사",
+      }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      '{\n  "answer": "actual 0"\n}',
+    );
+    await user.click(within(actual).getByText("전체 보기"));
+    expect(within(actual).getByText("전체 보기").parentElement).toHaveAttribute(
+      "open",
+    );
+  });
 });

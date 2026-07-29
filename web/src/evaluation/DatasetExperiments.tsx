@@ -1,13 +1,53 @@
 import { Fragment, useEffect, useState } from "react";
 
 import { getExperiment } from "../api/client";
-import type { Experiment, ExperimentSummary } from "../api/types";
+import type { Experiment, ExperimentSummary, JsonValue } from "../api/types";
 import { compareExperiments } from "./comparison";
 import { duration, formatDateTime, preview } from "./formatters";
 import {
   CASE_STATUS_LABEL,
   EXPERIMENT_STATUS_LABEL,
 } from "./labels";
+
+function formatJson(value: JsonValue | null): string {
+  return JSON.stringify(value, null, 2) ?? "null";
+}
+
+function JsonEvidence({
+  label,
+  value,
+}: {
+  label: string;
+  value: JsonValue | null;
+}) {
+  const copy = () => {
+    if (typeof navigator.clipboard?.writeText !== "function") {
+      return;
+    }
+    void navigator.clipboard.writeText(formatJson(value)).catch(() => undefined);
+  };
+
+  return (
+    <div className="case-json-evidence" role="group" aria-label={`${label} JSON`}>
+      <div className="case-json-heading">
+        <strong>{label}</strong>
+        <button
+          className="case-json-copy"
+          type="button"
+          aria-label={`${label} JSON 복사`}
+          onClick={copy}
+        >
+          복사
+        </button>
+      </div>
+      <code className="case-json-preview">{preview(value)}</code>
+      <details>
+        <summary>전체 보기</summary>
+        <pre>{formatJson(value)}</pre>
+      </details>
+    </div>
+  );
+}
 
 function ExperimentResultSummary({ experiment }: { experiment: Experiment }) {
   const comparison = compareExperiments([experiment])[0];
@@ -287,7 +327,7 @@ export function DatasetExperiments({
         <table className="management-table experiment-case-table">
           <thead>
             <tr>
-              <th scope="col">Case</th>
+              <th scope="col">Input / case</th>
               <th scope="col">Expected / actual</th>
               <th scope="col">Scores</th>
               <th scope="col">Trace</th>
@@ -296,13 +336,21 @@ export function DatasetExperiments({
           <tbody>
             {displayed.cases.map((item) => (
               <tr key={item.experiment_case_id} data-status={item.status}>
-                <td data-label="Case">
+                <td data-label="Input / case">
+                  <code className="case-input-preview">
+                    {preview(item.input)}
+                  </code>
                   <strong>{CASE_STATUS_LABEL[item.status]}</strong>
                   <small>{duration(item.duration_us)}</small>
                 </td>
                 <td data-label="Expected / actual">
-                  <code>{preview(item.expected_output)}</code>
-                  <code>{preview(item.output)}</code>
+                  <div className="case-json-pair">
+                    <JsonEvidence
+                      label="Expected"
+                      value={item.expected_output}
+                    />
+                    <JsonEvidence label="Actual (output)" value={item.output} />
+                  </div>
                 </td>
                 <td data-label="Scores">
                   {item.evaluator_results.map((result) => (
