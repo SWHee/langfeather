@@ -125,11 +125,27 @@ export function DatasetsView({
           setDataset(response);
         }
       })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setDataset(null);
-          setDetailError(true);
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted) {
+          return;
         }
+        setDataset(null);
+        if (cause instanceof ApiError && cause.status === 404) {
+          setDetailError(false);
+          setDatasets((items) =>
+            items.filter((item) => item.dataset_id !== selectedDatasetId),
+          );
+          setSelectedDatasetId(null);
+          notify("이 Dataset은 삭제되었습니다.");
+          void getDatasets()
+            .then((response) => {
+              setDatasets(response.items);
+              setSelectedDatasetId(response.items[0]?.dataset_id ?? null);
+            })
+            .catch(() => setLoadError(true));
+          return;
+        }
+        setDetailError(true);
       });
     return () => controller.abort();
   }, [detailRequestRevision, selectedDatasetId]);

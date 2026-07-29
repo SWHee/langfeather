@@ -142,6 +142,48 @@ describe("DatasetsView", () => {
     ).toBeInTheDocument();
   });
 
+  it("removes a dataset whose detail was deleted and selects the first remaining dataset", async () => {
+    let datasetListCalls = 0;
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/datasets")) {
+        datasetListCalls += 1;
+        return Promise.resolve(
+          jsonResponse({
+            items:
+              datasetListCalls === 1 ? [dataset, secondDataset] : [secondDataset],
+          }),
+        );
+      }
+      if (url.endsWith("/experiments")) {
+        return Promise.resolve(jsonResponse({ items: [] }));
+      }
+      if (url.endsWith(`/datasets/${dataset.dataset_id}`)) {
+        return Promise.resolve(jsonResponse({ detail: "not found" }, 404));
+      }
+      if (url.endsWith(`/datasets/${secondDataset.dataset_id}`)) {
+        return Promise.resolve(jsonResponse(secondDataset));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<DatasetsView />);
+
+    expect(
+      await screen.findByText("이 Dataset은 삭제되었습니다."),
+    ).toHaveAttribute("data-tone", "info");
+    expect(datasetListCalls).toBe(2);
+    expect(
+      screen.queryByRole("option", { name: "RAG regression" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+    ).toHaveValue(secondDataset.dataset_id);
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Prompt checks" }),
+    ).toBeInTheDocument();
+  });
+
   it("switches every tab to the selected dataset context", async () => {
     const user = userEvent.setup();
     mockLists(fetchMock, {
