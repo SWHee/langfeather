@@ -327,4 +327,62 @@ describe("DatasetsView", () => {
       "info",
     );
   });
+
+  it("keeps the newly selected dataset when a slower mutation refetch resolves late", async () => {
+    const user = userEvent.setup();
+    const stale: { release?: () => void } = {};
+    let exampleDeleted = false;
+    mockLists(fetchMock, {
+      datasets: [dataset, secondDataset],
+      onMutate: (method) => {
+        if (method !== "DELETE") {
+          return null;
+        }
+        exampleDeleted = true;
+        return new Response(null, { status: 204 });
+      },
+    });
+    const baseMock = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      if (
+        (init?.method ?? "GET") === "GET" &&
+        url.endsWith(`/datasets/${dataset.dataset_id}`) &&
+        exampleDeleted &&
+        stale.release === undefined
+      ) {
+        return new Promise<Response>((resolve) => {
+          stale.release = () =>
+            resolve(jsonResponse({ ...dataset, revision: 9 }));
+        });
+      }
+      return baseMock(input, init);
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("tab", { name: /Examples/ }));
+    await user.click(
+      await screen.findByRole("button", { name: "Example 1 actions" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "영구 삭제" }));
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+      secondDataset.dataset_id,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("revision 4")).toBeInTheDocument(),
+    );
+
+    stale.release?.();
+
+    await waitFor(() =>
+      expect(screen.getByText("revision 4")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("revision 9")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Dataset 세부 정보를 불러오는 중…"),
+    ).not.toBeInTheDocument();
+  });
 });

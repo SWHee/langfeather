@@ -1236,7 +1236,14 @@ export function App() {
       )}
       {activeView === "queues" && <AnnotationQueuesView />}
       {activeView === "scores" && <ScoresView />}
-      {activeView === "datasets" && <DatasetsView />}
+      {activeView === "datasets" && (
+        <DatasetsView
+          onOpenTrace={(traceId) => {
+            selectTrace(traceId);
+            setActiveView("traces");
+          }}
+        />
+      )}
       {activeView === "data" && (
         <main className="local-data-page">
           <LocalDataControls onReset={resetAll} />

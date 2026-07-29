@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import {
   addDatasetExample,
@@ -41,7 +41,11 @@ function Toast({ status }: { status: Status }) {
   );
 }
 
-export function DatasetsView() {
+export function DatasetsView({
+  onOpenTrace,
+}: {
+  onOpenTrace?: (traceId: string) => void;
+}) {
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [experiments, setExperiments] = useState<ExperimentSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +56,7 @@ export function DatasetsView() {
     null,
   );
   const [detailTab, setDetailTab] = useState<DetailTab>("compare");
+  const selectedDatasetIdRef = useRef(selectedDatasetId);
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [detailError, setDetailError] = useState(false);
   const [detailRequestRevision, setDetailRequestRevision] = useState(0);
@@ -98,6 +103,10 @@ export function DatasetsView() {
   }, []);
 
   useEffect(() => {
+    selectedDatasetIdRef.current = selectedDatasetId;
+  }, [selectedDatasetId]);
+
+  useEffect(() => {
     if (status === null) {
       return;
     }
@@ -142,12 +151,15 @@ export function DatasetsView() {
   };
 
   const applyDataset = (updated: Dataset) => {
-    setDataset(updated);
     setDatasets((items) =>
       items.map((item) =>
         item.dataset_id === updated.dataset_id ? updated : item,
       ),
     );
+    if (selectedDatasetIdRef.current !== updated.dataset_id) {
+      return;
+    }
+    setDataset(updated);
   };
 
   const create = () => {
@@ -494,6 +506,7 @@ export function DatasetsView() {
               <CompareView
                 key={displayedDataset.dataset_id}
                 experiments={relatedExperiments}
+                onOpenTrace={onOpenTrace}
               />
             </div>
           ) : detailTab === "experiments" ? (

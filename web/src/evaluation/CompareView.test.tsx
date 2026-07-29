@@ -274,9 +274,10 @@ describe("CompareView", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
-  it("opens case details with a trace detail link", async () => {
+  it("opens the linked trace from a case detail", async () => {
     const user = userEvent.setup();
-    render(<CompareView experiments={summaries} />);
+    const onOpenTrace = vi.fn();
+    render(<CompareView experiments={summaries} onOpenTrace={onOpenTrace} />);
 
     await selectExperiments(user);
     await user.click(
@@ -288,8 +289,10 @@ describe("CompareView", () => {
     await user.click(screen.getByRole("button", { name: /question 0/ }));
 
     const detail = screen.getByRole("region", { name: "Case 상세 비교" });
-    expect(
-      within(detail).getByRole("link", { name: "Trace 상세 열기" }),
-    ).toHaveAttribute("href", "/traces/tr_baseline_0");
+    await user.click(
+      within(detail).getAllByRole("button", { name: "Trace 상세 열기" })[0]!,
+    );
+
+    expect(onOpenTrace).toHaveBeenCalledWith("tr_baseline_0");
   });
 });

@@ -277,4 +277,27 @@ describe("hasDatasetRevisionMismatch", () => {
     expect(hasDatasetRevisionMismatch([baseline, olderRevision])).toBe(true);
     expect(hasDatasetRevisionMismatch([])).toBe(false);
   });
+
+  it("does not subtract results of the same key declared with different types", () => {
+    const key = "accuracy";
+    const comparison = compareExperiments([
+      experiment({
+        id: "baseline",
+        evaluators: [evaluator(key, "boolean")],
+        cases: [
+          experimentCase(0, [result(key, true)]),
+          experimentCase(1, [result(key, false)]),
+        ],
+      }),
+      experiment({
+        id: "candidate",
+        evaluators: [evaluator(key, "number")],
+        cases: [experimentCase(0, [result(key, 5)])],
+      }),
+    ]);
+
+    expect(comparison[0]?.stats.get(key)?.value).toBe(0.5);
+    expect(comparison[1]?.stats.get(key)?.value).toBe(5);
+    expect(comparison[1]?.stats.get(key)?.delta).toBeNull();
+  });
 });

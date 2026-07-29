@@ -51,24 +51,28 @@ function formatValue(stat: EvaluatorStat): string {
 
 function formatDelta(stat: EvaluatorStat): string {
   if (stat.delta === null) {
-    return "기준";
+    return "기준 차이 계산 불가";
   }
   const sign = stat.delta > 0 ? "+" : "";
   return stat.dataType === "boolean"
-    ? `${sign}${(stat.delta * 100).toFixed(1)}%p`
-    : `${sign}${formatNumber(stat.delta)}`;
+    ? `기준 대비 ${sign}${(stat.delta * 100).toFixed(1)}%p`
+    : `기준 대비 ${sign}${formatNumber(stat.delta)}`;
 }
 
 function evaluatorUnion(experiments: readonly Experiment[]) {
   const evaluators = new Map<string, ExperimentEvaluator>();
+  const conflictingKeys = new Set<string>();
   for (const experiment of experiments) {
     for (const evaluator of experiment.evaluators) {
-      if (!evaluators.has(evaluator.key)) {
+      const known = evaluators.get(evaluator.key);
+      if (known === undefined) {
         evaluators.set(evaluator.key, evaluator);
+      } else if (known.data_type !== evaluator.data_type) {
+        conflictingKeys.add(evaluator.key);
       }
     }
   }
-  return [...evaluators.values()];
+  return { evaluators: [...evaluators.values()], conflictingKeys };
 }
 
 function metricBarWidth(
@@ -281,12 +285,14 @@ function CaseComparison({
   selectedExampleId,
   onSelectExample,
   onClose,
+  onOpenTrace,
 }: {
   experiments: readonly Experiment[];
   evaluators: readonly ExperimentEvaluator[];
   selectedExampleId: string;
   onSelectExample: (exampleId: string) => void;
   onClose: () => void;
+  onOpenTrace?: (traceId: string) => void;
 }) {
   const choices = caseChoices(experiments);
   const baselineCase = experiments[0]?.cases.find(
@@ -329,6 +335,7 @@ function CaseComparison({
             const experimentCase = experiment.cases.find(
               ({ dataset_example_id: id }) => id === selectedExampleId,
             );
+            const traceId = experimentCase?.trace_id ?? null;
             return (
               <article
                 className="compare-case-result"
@@ -382,13 +389,14 @@ function CaseComparison({
                       <strong>출력값</strong>
                       <pre>{jsonEvidence(experimentCase.output)}</pre>
                     </div>
-                    {experimentCase.trace_id !== null && (
-                      <a
+                    {traceId !== null && onOpenTrace !== undefined && (
+                      <button
                         className="compare-trace-link"
-                        href={`/traces/${encodeURIComponent(experimentCase.trace_id)}`}
+                        type="button"
+                        onClick={() => onOpenTrace(traceId)}
                       >
                         Trace 상세 열기
-                      </a>
+                      </button>
                     )}
                   </>
                 )}
@@ -403,8 +411,10 @@ function CaseComparison({
 
 export function CompareView({
   experiments,
+  onOpenTrace,
 }: {
   experiments: readonly ExperimentSummary[];
+  onOpenTrace?: (traceId: string) => void;
 }) {
   const [selectedExperimentIds, setSelectedExperimentIds] = useState<string[]>(
     [],
@@ -452,7 +462,7 @@ export function CompareView({
 
   const loadedExperiments =
     loadState.status === "success" ? loadState.experiments : EMPTY_EXPERIMENTS;
-  const evaluators = useMemo(
+  const { evaluators, conflictingKeys } = useMemo(
     () => evaluatorUnion(loadedExperiments),
     [loadedExperiments],
   );
@@ -605,17 +615,19 @@ export function CompareView({
             <div className="compare-choice-list compare-evaluator-list">
               {evaluators.map((evaluator) => {
                 const selected = selectedEvaluatorKeys.includes(evaluator.key);
+                const conflicting = conflictingKeys.has(evaluator.key);
                 const maximumReached =
                   selectedEvaluatorKeys.length >= 4 && !selected;
+                const disabled = conflicting || maximumReached;
                 return (
                   <label
-                    data-disabled={maximumReached}
+                    data-disabled={disabled}
                     data-selected={selected}
                     key={evaluator.key}
                   >
                     <input
                       checked={selected}
-                      disabled={maximumReached}
+                      disabled={disabled}
                       type="checkbox"
                       onChange={() => toggleEvaluator(evaluator.key)}
                     />
@@ -625,7 +637,11 @@ export function CompareView({
                         {evaluator.key} · {evaluator.data_type}
                       </small>
                     </span>
-                    {maximumReached && <em>최대 4개</em>}
+                    {conflicting ? (
+                      <em>experiment마다 결과 유형이 달라 비교할 수 없음</em>
+                    ) : (
+                      maximumReached && <em>최대 4개</em>
+                    )}
                   </label>
                 );
               })}
@@ -807,7 +823,9 @@ export function CompareView({
                               ) : (
                                 <>
                                   <strong>{formatValue(stat)}</strong>
-                                  <small>기준 대비 {formatDelta(stat)}</small>
+                                  {comparison !== comparisons[0] && (
+                                    <small>{formatDelta(stat)}</small>
+                                  )}
                                 </>
                               )}
                             </td>
@@ -835,6 +853,7 @@ export function CompareView({
                 setSelectedExampleId(null);
                 setCaseAnchorExperimentId(null);
               }}
+              onOpenTrace={onOpenTrace}
               onSelectExample={setSelectedExampleId}
             />
           )}

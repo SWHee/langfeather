@@ -101,13 +101,14 @@ export function compareExperiments(
 
   for (const comparison of comparisons.slice(1)) {
     for (const [evaluatorKey, stat] of comparison.stats) {
-      const baselineValue = baseline.stats.get(evaluatorKey)?.value;
+      const baselineStat = baseline.stats.get(evaluatorKey);
       stat.delta =
         stat.value === null ||
-        baselineValue === null ||
-        baselineValue === undefined
+        baselineStat === undefined ||
+        baselineStat.value === null ||
+        baselineStat.dataType !== stat.dataType
           ? null
-          : stat.value - baselineValue;
+          : stat.value - baselineStat.value;
     }
   }
 
