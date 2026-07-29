@@ -87,6 +87,11 @@ React SPA
 ├── score management
 ├── trace annotation editor
 ├── annotation queue review
+├── evaluation workspace
+│   ├── dataset selector
+│   ├── experiment comparison
+│   ├── experiment list
+│   └── dataset examples
 └── settings
     ├── backup
     └── reset
@@ -291,7 +296,8 @@ Multi-stage Docker build:
 3. Runtime image에는 Python server, migration, static assets만 포함한다.
 4. entrypoint가 migration을 적용하고 Uvicorn single worker를 실행한다.
 
-기본 compose:
+기본 compose는 GHCR publication path가 확정되기 전까지 local build를 사용한다
+(`compose.yaml`). Publication 이후 사용할 image 기반 형태는 다음과 같다.
 
 ```yaml
 services:

@@ -189,5 +189,7 @@ failed    + []                         → 200
 - Automatic evaluator 결과는 boolean과 finite number만 지원한다.
 - categorical automatic evaluator, managed LLM judge, prompt management, 비용 계산은
   제공하지 않는다.
-- Dataset JSONL import/export는 아직 제공하지 않는다. 필요한 경우 API client 또는
-  script로 example을 생성하고, 지원 범위를 넓히기 전 별도 contract를 추가한다.
+- Dataset 상세의 `Import JSONL`과 `Export JSONL`로 example을 옮길 수 있다.
+  한 줄에는 `input`, nullable `expected_output`, optional `metadata`를 가진 JSON
+  object 하나를 작성한다. import는 유효한 줄을 순서대로 추가하고 실패한 줄 번호를
+  알려 주므로 일부 줄만 저장될 수 있다. `source_trace_id`는 내보내지 않는다.

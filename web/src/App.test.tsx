@@ -2,6 +2,7 @@ import {fireEvent, render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {App} from "./App";
+import {readAppUrlState, replaceAppUrlState} from "./url";
 
 const traceListItem = {
   trace_id: "tr_student_01",
@@ -120,6 +121,91 @@ const failedObservationPayload = {
   },
 } as const;
 
+const urlDataset = {
+  dataset_id: "ds_url",
+  name: "URL regression",
+  description: null,
+  revision: 1,
+  example_count: 1,
+  created_at: "2026-07-29T00:00:00.000Z",
+  updated_at: "2026-07-29T00:00:00.000Z",
+  examples: [
+    {
+      dataset_example_id: "dse_url",
+      position: 0,
+      input: {question: "URL state?"},
+      expected_output: {answer: "kept"},
+      metadata: {},
+      source_trace_id: traceListItem.trace_id,
+      created_at: "2026-07-29T00:00:00.000Z",
+      updated_at: "2026-07-29T00:00:00.000Z",
+    },
+  ],
+};
+
+function urlExperiment(id: string, name: string) {
+  return {
+    experiment_id: id,
+    dataset_id: urlDataset.dataset_id,
+    dataset_revision: 1,
+    name,
+    status: "completed",
+    started_at: "2026-07-29T00:00:00.000Z",
+    ended_at: "2026-07-29T00:00:01.000Z",
+    case_count: 1,
+    completed_case_count: 1,
+    failed_case_count: 0,
+    target_metadata: {},
+    evaluators: [
+      {
+        experiment_evaluator_id: `${id}_evaluator`,
+        key: "exact_match",
+        name: "Exact match",
+        data_type: "boolean",
+        position: 0,
+      },
+    ],
+    cases: [
+      {
+        experiment_case_id: `${id}_case`,
+        dataset_example_id: "dse_url",
+        position: 0,
+        input: {question: "URL state?"},
+        expected_output: {answer: "kept"},
+        metadata: {},
+        status: "completed",
+        output: {answer: "kept"},
+        error: null,
+        duration_us: 1_000,
+        trace_id: traceListItem.trace_id,
+        completed_at: "2026-07-29T00:00:01.000Z",
+        evaluator_results: [
+          {
+            evaluator_key: "exact_match",
+            value: true,
+            error_message: null,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+const urlBaseline = urlExperiment("exp_url_baseline", "URL baseline");
+const urlCandidate = urlExperiment("exp_url_candidate", "URL candidate");
+const urlExperimentSummaries = [urlBaseline, urlCandidate].map((item) => ({
+  experiment_id: item.experiment_id,
+  dataset_id: item.dataset_id,
+  dataset_revision: item.dataset_revision,
+  name: item.name,
+  status: item.status,
+  started_at: item.started_at,
+  ended_at: item.ended_at,
+  case_count: item.case_count,
+  completed_case_count: item.completed_case_count,
+  failed_case_count: item.failed_case_count,
+}));
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -131,12 +217,148 @@ describe("LangFeather trace explorer", () => {
   const fetchMock = vi.fn<typeof fetch>();
 
   beforeEach(() => {
+    window.history.replaceState(null, "", "/");
     vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("round-trips every supported URL state field", () => {
+    replaceAppUrlState({
+      view: "datasets",
+      evaluation: {
+        datasetId: "ds_url",
+        tab: "examples",
+        experimentIds: ["exp_candidate", "exp_baseline"],
+        metricKeys: ["faithfulness", "exact_match"],
+        caseId: "dse_url",
+      },
+      traceId: "tr_url",
+    });
+
+    expect(readAppUrlState()).toEqual({
+      view: "datasets",
+      evaluation: {
+        datasetId: "ds_url",
+        tab: "examples",
+        experimentIds: ["exp_candidate", "exp_baseline"],
+        metricKeys: ["faithfulness", "exact_match"],
+        caseId: "dse_url",
+      },
+      traceId: "tr_url",
+    });
+    expect(window.location.search).toContain(
+      "experiments=exp_candidate%2Cexp_baseline",
+    );
+  });
+
+  it("opens a trace deep link as the actual selected trace", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      `/?view=traces&trace=${traceListItem.trace_id}`,
+    );
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url === "/api/v1/traces") {
+        return Promise.resolve(
+          jsonResponse({items: [traceListItem], next_cursor: null}),
+        );
+      }
+      if (url === `/api/v1/traces/${traceListItem.trace_id}`) {
+        return Promise.resolve(jsonResponse(traceDetail));
+      }
+      if (url === "/api/v1/observations/obs_root") {
+        return Promise.resolve(jsonResponse(rootObservationPayload));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {name: "Execution"}),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("button", {name: /policy-rag/})
+        .find((button) => button.classList.contains("trace-card")),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps experiment and metric selections after opening a trace and returning to Evaluation", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(
+      null,
+      "",
+      "/?view=datasets&dataset=ds_url&tab=compare&experiments=exp_url_candidate,exp_url_baseline&metrics=exact_match&case=dse_url",
+    );
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url === "/api/v1/traces") {
+        return Promise.resolve(
+          jsonResponse({items: [traceListItem], next_cursor: null}),
+        );
+      }
+      if (url === "/api/v1/datasets") {
+        return Promise.resolve(jsonResponse({items: [urlDataset]}));
+      }
+      if (url === "/api/v1/experiments") {
+        return Promise.resolve(
+          jsonResponse({items: urlExperimentSummaries}),
+        );
+      }
+      if (url === `/api/v1/datasets/${urlDataset.dataset_id}`) {
+        return Promise.resolve(jsonResponse(urlDataset));
+      }
+      if (url === `/api/v1/experiments/${urlBaseline.experiment_id}`) {
+        return Promise.resolve(jsonResponse(urlBaseline));
+      }
+      if (url === `/api/v1/experiments/${urlCandidate.experiment_id}`) {
+        return Promise.resolve(jsonResponse(urlCandidate));
+      }
+      if (url === `/api/v1/traces/${traceListItem.trace_id}`) {
+        return Promise.resolve(jsonResponse(traceDetail));
+      }
+      if (url === "/api/v1/observations/obs_root") {
+        return Promise.resolve(jsonResponse(rootObservationPayload));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {level: 3, name: "Exact match"}),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getAllByRole("button", {name: "Trace 상세 열기"})[0]!,
+    );
+    expect(
+      await screen.findByRole("heading", {name: "Execution"}),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: "Evaluation"}));
+
+    expect(
+      await screen.findByRole("checkbox", {name: /URL candidate/}),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {name: /URL baseline/}),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {name: /Exact match/}),
+    ).toBeChecked();
+    expect(readAppUrlState().evaluation).toEqual({
+      datasetId: "ds_url",
+      tab: "compare",
+      experimentIds: ["exp_url_candidate", "exp_url_baseline"],
+      metricKeys: ["exact_match"],
+      caseId: "dse_url",
+    });
   });
 
   it("shows a loading state while the trace list is pending", () => {
@@ -171,6 +393,32 @@ describe("LangFeather trace explorer", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("opens the Evaluation workspace from the top navigation", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/traces")) {
+        return new Promise<Response>(() => undefined);
+      }
+      if (url.endsWith("/datasets") || url.endsWith("/experiments")) {
+        return Promise.resolve(jsonResponse({items: []}));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<App />);
+
+    const evaluation = screen.getByRole("button", {name: "Evaluation"});
+    expect(evaluation).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(evaluation);
+
+    expect(
+      await screen.findByRole("heading", {name: "Datasets & Experiments"}),
+    ).toBeInTheDocument();
+    expect(evaluation).toHaveAttribute("aria-pressed", "true");
   });
 
   it("shows advanced trace filters only when Filters is toggled on", async () => {

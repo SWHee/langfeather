@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DatasetsView } from "./DatasetsView";
+import { DatasetsView, examplesToJsonl } from "./DatasetsView";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -40,6 +40,16 @@ const emptiedDataset = {
   examples: [],
 };
 
+const secondDataset = {
+  ...dataset,
+  dataset_id: "ds_prompt_checks",
+  name: "Prompt checks",
+  description: "prompt-only cases",
+  revision: 4,
+  example_count: 0,
+  examples: [],
+};
+
 const experiment = {
   experiment_id: "exp_1",
   dataset_id: "ds_regression",
@@ -53,19 +63,43 @@ const experiment = {
   failed_case_count: 0,
 };
 
+const experimentDetail = {
+  ...experiment,
+  target_metadata: {},
+  evaluators: [],
+  cases: [
+    {
+      experiment_case_id: "exc_1",
+      dataset_example_id: "dse_1",
+      position: 0,
+      input: { question: "지원 대상은?" },
+      expected_output: { answer: "청년" },
+      metadata: {},
+      status: "completed",
+      output: { answer: "청년" },
+      error: null,
+      duration_us: 1_500_000,
+      trace_id: "tr_run",
+      completed_at: "2026-07-28T11:00:09.000000Z",
+      evaluator_results: [],
+    },
+  ],
+};
+
 function mockLists(
   fetchMock: ReturnType<typeof vi.fn<typeof fetch>>,
   options: {
     datasets?: unknown[];
     experiments?: unknown[];
-    detail?: () => unknown;
+    detail?: (datasetId: string) => unknown;
     onMutate?: (method: string, url: string) => Response | null;
   } = {},
 ) {
   const {
     datasets = [dataset],
     experiments = [experiment],
-    detail = () => dataset,
+    detail = (datasetId) =>
+      datasetId === secondDataset.dataset_id ? secondDataset : dataset,
     onMutate,
   } = options;
   fetchMock.mockImplementation((input, init) => {
@@ -83,8 +117,11 @@ function mockLists(
     if (url.endsWith("/experiments")) {
       return Promise.resolve(jsonResponse({ items: experiments }));
     }
-    if (url.endsWith("/datasets/ds_regression")) {
-      return Promise.resolve(jsonResponse(detail()));
+    const detailMatch = url.match(/\/datasets\/([^/?]+)$/);
+    if (detailMatch?.[1] !== undefined) {
+      return Promise.resolve(
+        jsonResponse(detail(decodeURIComponent(detailMatch[1]))),
+      );
     }
     return Promise.reject(new Error(`unexpected request: ${url}`));
   });
@@ -103,36 +140,194 @@ describe("DatasetsView", () => {
     vi.restoreAllMocks();
   });
 
-  it("lists datasets with their example and experiment counts", async () => {
+  it("selects the first dataset and opens Compare by default", async () => {
     mockLists(fetchMock);
 
     render(<DatasetsView />);
 
-    const row = (
-      await screen.findByRole("button", { name: "RAG regression" })
-    ).closest("tr") as HTMLElement;
-    expect(within(row).getByText("reviewed failures")).toBeInTheDocument();
-    // 1 experiment, 1 example.
-    expect(within(row).getAllByText("1")).toHaveLength(2);
-    // The detail request only fires once a dataset is opened.
-    expect(fetchMock).not.toHaveBeenCalledWith(
-      "/api/v1/datasets/ds_regression",
-      expect.any(Object),
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Datasets & Experiments",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+    ).toHaveValue("ds_regression");
+    expect(screen.getByText("revision 1")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Compare" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
+    expect(
+      await screen.findByText("Experiment가 1개뿐이라 비교할 수 없습니다."),
+    ).toBeInTheDocument();
   });
 
-  it("opens a dataset and hides example creation behind a button", async () => {
-    mockLists(fetchMock);
+  it("restores the dataset and detail tab from URL-owned state", async () => {
+    const onUrlStateChange = vi.fn();
+    mockLists(fetchMock, {
+      datasets: [dataset, secondDataset],
+    });
 
-    render(<DatasetsView />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "RAG regression" }),
+    render(
+      <DatasetsView
+        urlState={{
+          datasetId: secondDataset.dataset_id,
+          tab: "examples",
+          experimentIds: [],
+          metricKeys: [],
+          caseId: null,
+        }}
+        onUrlStateChange={onUrlStateChange}
+      />,
     );
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "RAG regression" }),
+      await screen.findByRole("heading", {
+        level: 2,
+        name: secondDataset.name,
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByText("revision 1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+    ).toHaveValue(secondDataset.dataset_id);
+    expect(screen.getByRole("tab", { name: "Examples (0)" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() =>
+      expect(onUrlStateChange).toHaveBeenLastCalledWith({
+        datasetId: secondDataset.dataset_id,
+        tab: "examples",
+        experimentIds: [],
+        metricKeys: [],
+        caseId: null,
+      }),
+    );
+  });
+
+  it("removes a dataset whose detail was deleted and selects the first remaining dataset", async () => {
+    let datasetListCalls = 0;
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/datasets")) {
+        datasetListCalls += 1;
+        return Promise.resolve(
+          jsonResponse({
+            items:
+              datasetListCalls === 1 ? [dataset, secondDataset] : [secondDataset],
+          }),
+        );
+      }
+      if (url.endsWith("/experiments")) {
+        return Promise.resolve(jsonResponse({ items: [] }));
+      }
+      if (url.endsWith(`/datasets/${dataset.dataset_id}`)) {
+        return Promise.resolve(jsonResponse({ detail: "not found" }, 404));
+      }
+      if (url.endsWith(`/datasets/${secondDataset.dataset_id}`)) {
+        return Promise.resolve(jsonResponse(secondDataset));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<DatasetsView />);
+
+    expect(
+      await screen.findByText("이 Dataset은 삭제되었습니다."),
+    ).toHaveAttribute("data-tone", "info");
+    expect(datasetListCalls).toBe(2);
+    expect(
+      screen.queryByRole("option", { name: "RAG regression" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+    ).toHaveValue(secondDataset.dataset_id);
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Prompt checks" }),
+    ).toBeInTheDocument();
+  });
+
+  it("switches every tab to the selected dataset context", async () => {
+    const user = userEvent.setup();
+    mockLists(fetchMock, {
+      datasets: [dataset, secondDataset],
+    });
+
+    render(<DatasetsView />);
+    const selector = await screen.findByRole("combobox", {
+      name: "Dataset 선택",
+    });
+
+    await user.selectOptions(selector, "ds_prompt_checks");
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Prompt checks",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("revision 4")).toBeInTheDocument();
+
+    const compareTab = screen.getByRole("tab", { name: "Compare" });
+    const compareQuickstart = screen.getByRole("region", {
+      name: "평가 시작 예제",
+    });
+    expect(compareQuickstart).toHaveTextContent(
+      'dataset="ds_prompt_checks"',
+    );
+    compareTab.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: "Experiments (0)" })).toHaveFocus();
+    expect(
+      screen.getByText("아직 experiment가 없습니다."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "평가 시작 예제" }),
+    ).toHaveTextContent('dataset="ds_prompt_checks"');
+
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: "Examples (0)" })).toHaveFocus();
+    expect(screen.getByText("아직 example이 없습니다.")).toBeInTheDocument();
+  });
+
+  it("filters dataset options by name and description", async () => {
+    const user = userEvent.setup();
+    mockLists(fetchMock, { datasets: [dataset, secondDataset] });
+
+    render(<DatasetsView />);
+
+    const search = await screen.findByRole("textbox", {
+      name: "Dataset 검색",
+    });
+    await user.type(search, "PROMPT-ONLY");
+
+    expect(
+      screen.getByRole("option", { name: "Prompt checks" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "RAG regression" }),
+    ).not.toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, "rag regression");
+
+    expect(
+      screen.getByRole("option", { name: "RAG regression" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Prompt checks" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides example creation behind a button", async () => {
+    mockLists(fetchMock);
+
+    render(<DatasetsView />);
+    await screen.findByRole("heading", { level: 2, name: "RAG regression" });
+
     expect(screen.queryByLabelText("Input")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Add example" }));
@@ -146,13 +341,252 @@ describe("DatasetsView", () => {
     ).toBeInTheDocument();
   });
 
+  it("identifies the JSON field that contains a parse error", async () => {
+    const user = userEvent.setup();
+    mockLists(fetchMock);
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("button", { name: "Add example" }));
+
+    const dialog = screen.getByRole("dialog");
+    await user.clear(within(dialog).getByLabelText("Input"));
+    await user.type(within(dialog).getByLabelText("Input"), "{{");
+    await user.click(within(dialog).getByRole("button", { name: "Example 저장" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Input JSON 오류",
+    );
+
+    await user.clear(within(dialog).getByLabelText("Input"));
+    fireEvent.change(within(dialog).getByLabelText("Input"), {
+      target: { value: '{"ok":true}' },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Expected output"), {
+      target: { value: "[" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Example 저장" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Expected output JSON 오류",
+    );
+
+    await user.clear(within(dialog).getByLabelText("Expected output"));
+    fireEvent.change(within(dialog).getByLabelText("Metadata"), {
+      target: { value: "[]" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Example 저장" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Metadata는 JSON object여야 합니다.",
+    );
+  });
+
+  it("confirms before saving an empty input object", async () => {
+    const user = userEvent.setup();
+    mockLists(fetchMock, {
+      onMutate: (method, url) =>
+        method === "POST" && url.endsWith("/datasets/ds_regression/examples")
+          ? jsonResponse(dataset)
+          : null,
+    });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("button", { name: "Add example" }));
+    await user.click(screen.getByRole("button", { name: "Example 저장" }));
+
+    expect(confirm).toHaveBeenCalledWith("비어 있는 input입니다. 저장할까요?");
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(false);
+
+    confirm.mockReturnValue(true);
+    await user.click(screen.getByRole("button", { name: "Example 저장" }));
+    expect(await screen.findByText("Example을 추가했습니다.")).toBeInTheDocument();
+  });
+
+  it("edits an example with metadata through the existing PATCH endpoint", async () => {
+    const user = userEvent.setup();
+    const updated = {
+      ...dataset,
+      revision: 2,
+      examples: [
+        {
+          ...dataset.examples[0],
+          input: { question: "수정된 질문" },
+          expected_output: { answer: "수정된 답" },
+          metadata: { category: "regression" },
+        },
+      ],
+    };
+    mockLists(fetchMock, {
+      onMutate: (method, url) =>
+        method === "PATCH" &&
+        url.endsWith("/datasets/ds_regression/examples/dse_1")
+          ? jsonResponse(updated)
+          : null,
+    });
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("tab", { name: "Examples (1)" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Example 1 actions" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "수정" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Example 수정" });
+    expect(within(dialog).getByLabelText("Metadata")).toHaveValue("{}");
+    fireEvent.change(within(dialog).getByLabelText("Input"), {
+      target: { value: '{"question":"수정된 질문"}' },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Expected output"), {
+      target: { value: '{"answer":"수정된 답"}' },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Metadata"), {
+      target: { value: '{"category":"regression"}' },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Example 수정" }));
+
+    expect(await screen.findByText("Example을 수정했습니다.")).toBeInTheDocument();
+    const patchCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "PATCH",
+    );
+    expect(patchCall).toBeDefined();
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({
+      input: { question: "수정된 질문" },
+      expected_output: { answer: "수정된 답" },
+      metadata: { category: "regression" },
+    });
+    expect(screen.getByText("revision 2")).toBeInTheDocument();
+  });
+
+  it("exports examples as round-trip JSONL without source trace fields", () => {
+    const jsonl = examplesToJsonl(dataset.examples);
+    const records = jsonl
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as unknown);
+
+    expect(records).toEqual([
+      {
+        input: { question: "지원 대상은?" },
+        expected_output: { answer: "청년" },
+        metadata: {},
+      },
+    ]);
+    expect(jsonl).toMatch(/\n$/);
+  });
+
+  it("imports valid JSONL lines and reports every failed source line", async () => {
+    const user = userEvent.setup();
+    let postCalls = 0;
+    const importedDataset = {
+      ...dataset,
+      revision: 2,
+      example_count: 2,
+      examples: [
+        ...dataset.examples,
+        {
+          ...dataset.examples[0],
+          dataset_example_id: "dse_imported",
+          position: 1,
+          input: { question: "첫 줄" },
+          expected_output: null,
+          metadata: { source: "jsonl" },
+          source_trace_id: null,
+        },
+      ],
+    };
+    mockLists(fetchMock, {
+      onMutate: (method, url) => {
+        if (
+          method !== "POST" ||
+          !url.endsWith("/datasets/ds_regression/examples")
+        ) {
+          return null;
+        }
+        postCalls += 1;
+        return postCalls === 1
+          ? jsonResponse(importedDataset)
+          : jsonResponse({ detail: "write failed" }, 500);
+      },
+    });
+
+    render(<DatasetsView />);
+    await screen.findByRole("heading", { level: 2, name: "RAG regression" });
+    const file = new File(
+      [
+        '{"input":{"question":"첫 줄"},"metadata":{"source":"jsonl"}}\n',
+        '{"input":\n',
+        '{"input":{"question":"셋째 줄"},"expected_output":{"answer":"답"}}\n',
+      ],
+      "examples.jsonl",
+      { type: "application/x-ndjson" },
+    );
+
+    const importInput = screen.getByLabelText("JSONL 가져오기");
+    await waitFor(() => expect(importInput).toBeEnabled());
+    await user.upload(importInput, file);
+
+    expect(
+      await screen.findByText("JSONL import: 1개 추가, 실패한 줄 2, 3."),
+    ).toHaveAttribute("data-tone", "error");
+    expect(postCalls).toBe(2);
+    expect(screen.getByText("revision 2")).toBeInTheDocument();
+    const postBodies = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => JSON.parse(String(init?.body)) as unknown);
+    expect(postBodies).toEqual([
+      [
+        {
+          input: { question: "첫 줄" },
+          expected_output: null,
+          metadata: { source: "jsonl" },
+        },
+      ],
+      [
+        {
+          input: { question: "셋째 줄" },
+          expected_output: { answer: "답" },
+          metadata: {},
+        },
+      ],
+    ]);
+  });
+
+  it("renders loading, empty, and API failure states", async () => {
+    fetchMock.mockReturnValue(new Promise<Response>(() => undefined));
+    const loadingView = render(<DatasetsView />);
+
+    expect(
+      screen.getByText("Evaluation 데이터를 불러오는 중…"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+    ).toBeDisabled();
+
+    loadingView.unmount();
+    fetchMock.mockReset();
+    mockLists(fetchMock, { datasets: [], experiments: [] });
+    const emptyView = render(<DatasetsView />);
+
+    expect(await screen.findByText("아직 Dataset이 없습니다.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+    ).toBeDisabled();
+
+    emptyView.unmount();
+    fetchMock.mockReset();
+    fetchMock.mockRejectedValue(new Error("offline"));
+    render(<DatasetsView />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Evaluation 데이터를 불러오지 못했습니다.",
+    );
+  });
+
   it("shows the dataset's experiments on the experiments tab", async () => {
     mockLists(fetchMock);
 
     render(<DatasetsView />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "RAG regression" }),
-    );
+    await screen.findByRole("heading", { level: 2, name: "RAG regression" });
     await userEvent.click(
       await screen.findByRole("tab", { name: "Experiments (1)" }),
     );
@@ -161,7 +595,45 @@ describe("DatasetsView", () => {
       screen.getByRole("button", { name: "baseline" }),
     ).toBeInTheDocument();
     expect(screen.getByText("rev 1")).toBeInTheDocument();
-    expect(screen.getByText("1/1 · 0 failed")).toBeInTheDocument();
+    expect(screen.getByText("1/1 · 0 실패")).toBeInTheDocument();
+  });
+
+  it("moves from an experiment detail to the Compare tab", async () => {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/datasets")) {
+        return Promise.resolve(jsonResponse({ items: [dataset] }));
+      }
+      if (url.endsWith("/experiments")) {
+        return Promise.resolve(jsonResponse({ items: [experiment] }));
+      }
+      if (url.endsWith(`/datasets/${dataset.dataset_id}`)) {
+        return Promise.resolve(jsonResponse(dataset));
+      }
+      if (url.endsWith(`/experiments/${experiment.experiment_id}`)) {
+        return Promise.resolve(jsonResponse(experimentDetail));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<DatasetsView />);
+    await userEvent.click(
+      await screen.findByRole("tab", { name: "Experiments (1)" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "baseline" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Compare 탭으로 이동" }),
+    );
+
+    expect(screen.getByRole("tab", { name: "Compare" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      screen.getByRole("tabpanel", { name: "Compare" }),
+    ).toBeInTheDocument();
   });
 
   it("deletes an example and reloads the revised dataset", async () => {
@@ -183,7 +655,7 @@ describe("DatasetsView", () => {
 
     render(<DatasetsView />);
     await userEvent.click(
-      await screen.findByRole("button", { name: "RAG regression" }),
+      await screen.findByRole("tab", { name: "Examples (1)" }),
     );
     await userEvent.click(
       await screen.findByRole("button", { name: "Example 1 actions" }),
@@ -221,11 +693,11 @@ describe("DatasetsView", () => {
     expect(blocked).toHaveAttribute("role", "alert");
     expect(blocked).toHaveAttribute("data-tone", "error");
     expect(
-      screen.getByRole("button", { name: "RAG regression" }),
+      screen.getByRole("option", { name: "RAG regression" }),
     ).toBeInTheDocument();
   });
 
-  it("removes a deleted dataset from the list", async () => {
+  it("removes a deleted dataset from the workspace", async () => {
     mockLists(fetchMock, {
       onMutate: (method) =>
         method === "DELETE" ? new Response(null, { status: 204 }) : null,
@@ -240,7 +712,7 @@ describe("DatasetsView", () => {
 
     await waitFor(() =>
       expect(
-        screen.queryByRole("button", { name: "RAG regression" }),
+        screen.queryByRole("option", { name: "RAG regression" }),
       ).not.toBeInTheDocument(),
     );
     expect(screen.getByText("아직 Dataset이 없습니다.")).toBeInTheDocument();
@@ -248,5 +720,63 @@ describe("DatasetsView", () => {
       "data-tone",
       "info",
     );
+  });
+
+  it("keeps the newly selected dataset when a slower mutation refetch resolves late", async () => {
+    const user = userEvent.setup();
+    const stale: { release?: () => void } = {};
+    let exampleDeleted = false;
+    mockLists(fetchMock, {
+      datasets: [dataset, secondDataset],
+      onMutate: (method) => {
+        if (method !== "DELETE") {
+          return null;
+        }
+        exampleDeleted = true;
+        return new Response(null, { status: 204 });
+      },
+    });
+    const baseMock = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      if (
+        (init?.method ?? "GET") === "GET" &&
+        url.endsWith(`/datasets/${dataset.dataset_id}`) &&
+        exampleDeleted &&
+        stale.release === undefined
+      ) {
+        return new Promise<Response>((resolve) => {
+          stale.release = () =>
+            resolve(jsonResponse({ ...dataset, revision: 9 }));
+        });
+      }
+      return baseMock(input, init);
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("tab", { name: /Examples/ }));
+    await user.click(
+      await screen.findByRole("button", { name: "Example 1 actions" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "영구 삭제" }));
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Dataset 선택" }),
+      secondDataset.dataset_id,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("revision 4")).toBeInTheDocument(),
+    );
+
+    stale.release?.();
+
+    await waitFor(() =>
+      expect(screen.getByText("revision 4")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("revision 9")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Dataset 세부 정보를 불러오는 중…"),
+    ).not.toBeInTheDocument();
   });
 });

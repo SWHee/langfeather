@@ -44,8 +44,10 @@ LangChain/LangGraph application의 실제 실행 흐름을 최소한의 코드�
 - client disk spool을 추가하지 않는다.
 - trace payload를 truncate, summarize, sample, redact하지 않는다.
 - 비용 계산과 provider 가격표를 추가하지 않는다.
-- prompt management, dataset experiment, evaluator runner, RBAC, billing을
-  추가하지 않는다.
+- prompt management, RBAC, billing을 추가하지 않는다.
+- dataset과 experiment는 `docs/DECISIONS.md`의 Locked 결정에 따라 지원하되,
+  server는 evaluator callable을 실행하지 않는다. target과 evaluator는 SDK를
+  호출한 사용자 Python process에서 실행하고 server는 결과만 저장한다.
 - UI에 확인되지 않은 graph edge를 추론해서 표시하지 않는다.
 - trace 전송 실패로 관측 대상 application의 정상 흐름을 막지 않는다.
 - production server는 Uvicorn worker 하나만 사용한다.

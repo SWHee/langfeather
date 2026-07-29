@@ -334,6 +334,22 @@ export function addDatasetExample(
   );
 }
 
+export function updateDatasetExample(
+  datasetId: string,
+  exampleId: string,
+  patch: {
+    input?: JsonValue;
+    expected_output?: JsonValue | null;
+    metadata?: { [key: string]: JsonValue };
+  },
+): Promise<Dataset> {
+  return mutateJson<Dataset>(
+    `/datasets/${encodeURIComponent(datasetId)}/examples/${encodeURIComponent(exampleId)}`,
+    "PATCH",
+    patch,
+  );
+}
+
 export function deleteDataset(datasetId: string): Promise<void> {
   return mutateJson<void>(
     `/datasets/${encodeURIComponent(datasetId)}`,
