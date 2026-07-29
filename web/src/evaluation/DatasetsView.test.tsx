@@ -138,8 +138,8 @@ describe("DatasetsView", () => {
     );
     expect(screen.getAllByRole("tab")).toHaveLength(3);
     expect(
-      await screen.findByTestId("compare-placeholder"),
-    ).toBeEmptyDOMElement();
+      await screen.findByText("Experiment가 1개뿐이라 비교할 수 없습니다."),
+    ).toBeInTheDocument();
   });
 
   it("switches every tab to the selected dataset context", async () => {

@@ -17,6 +17,7 @@ import type {
   JsonValue,
 } from "../api/types";
 import { ManagementDialog, OverflowMenu } from "../components/ManagementChrome";
+import { CompareView } from "./CompareView";
 import { DatasetExperiments } from "./DatasetExperiments";
 import { preview } from "./formatters";
 
@@ -489,8 +490,12 @@ export function DatasetsView() {
               id="evaluation-panel-compare"
               role="tabpanel"
               aria-labelledby="evaluation-tab-compare"
-              data-testid="compare-placeholder"
-            />
+            >
+              <CompareView
+                key={displayedDataset.dataset_id}
+                experiments={relatedExperiments}
+              />
+            </div>
           ) : detailTab === "experiments" ? (
             <div
               id="evaluation-panel-experiments"
