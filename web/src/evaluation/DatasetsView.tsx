@@ -9,9 +9,11 @@ import {
   getDataset,
   getDatasets,
   getExperiments,
+  updateDatasetExample,
 } from "../api/client";
 import type {
   Dataset,
+  DatasetExample,
   DatasetSummary,
   ExperimentSummary,
   JsonValue,
@@ -65,6 +67,8 @@ export function DatasetsView({
   const [description, setDescription] = useState("");
   const [inputDraft, setInputDraft] = useState("{}");
   const [expectedDraft, setExpectedDraft] = useState("");
+  const [metadataDraft, setMetadataDraft] = useState("");
+  const [editingExampleId, setEditingExampleId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
@@ -209,33 +213,108 @@ export function DatasetsView({
       .finally(() => setPending(false));
   };
 
-  const addExample = () => {
+  const resetExampleForm = () => {
+    setInputDraft("{}");
+    setExpectedDraft("");
+    setMetadataDraft("");
+    setEditingExampleId(null);
+    setFormError(null);
+  };
+
+  const openAddExample = () => {
+    resetExampleForm();
+    setAddExampleOpen(true);
+  };
+
+  const openEditExample = (example: DatasetExample) => {
+    setInputDraft(JSON.stringify(example.input));
+    setExpectedDraft(
+      example.expected_output === null
+        ? ""
+        : JSON.stringify(example.expected_output),
+    );
+    setMetadataDraft(JSON.stringify(example.metadata));
+    setEditingExampleId(example.dataset_example_id);
+    setFormError(null);
+    setAddExampleOpen(true);
+  };
+
+  const closeExampleDialog = () => {
+    setAddExampleOpen(false);
+    resetExampleForm();
+  };
+
+  const saveExample = () => {
     if (dataset === null) {
       return;
     }
     let input: JsonValue;
     let expectedOutput: JsonValue | null = null;
+    let metadata: { [key: string]: JsonValue } = {};
     try {
       input = JSON.parse(inputDraft) as JsonValue;
-      if (expectedDraft.trim() !== "") {
+    } catch (cause: unknown) {
+      setFormError(
+        `Input JSON 오류${cause instanceof SyntaxError ? `: ${cause.message}` : ""}`,
+      );
+      return;
+    }
+    if (expectedDraft.trim() !== "") {
+      try {
         expectedOutput = JSON.parse(expectedDraft) as JsonValue;
+      } catch (cause: unknown) {
+        setFormError(
+          `Expected output JSON 오류${cause instanceof SyntaxError ? `: ${cause.message}` : ""}`,
+        );
+        return;
       }
-    } catch {
-      setFormError("Input과 expected output은 유효한 JSON이어야 합니다.");
+    }
+    if (metadataDraft.trim() !== "") {
+      let parsedMetadata: JsonValue;
+      try {
+        parsedMetadata = JSON.parse(metadataDraft) as JsonValue;
+      } catch (cause: unknown) {
+        setFormError(
+          `Metadata JSON 오류${cause instanceof SyntaxError ? `: ${cause.message}` : ""}`,
+        );
+        return;
+      }
+      if (
+        parsedMetadata === null ||
+        typeof parsedMetadata !== "object" ||
+        Array.isArray(parsedMetadata)
+      ) {
+        setFormError("Metadata는 JSON object여야 합니다.");
+        return;
+      }
+      metadata = parsedMetadata;
+    }
+    if (
+      input !== null &&
+      typeof input === "object" &&
+      !Array.isArray(input) &&
+      Object.keys(input).length === 0 &&
+      !window.confirm("비어 있는 input입니다. 저장할까요?")
+    ) {
       return;
     }
     setPending(true);
     setFormError(null);
-    void addDatasetExample(dataset.dataset_id, {
-      input,
-      expected_output: expectedOutput,
-    })
+    const request = { input, expected_output: expectedOutput, metadata };
+    const operation =
+      editingExampleId === null
+        ? addDatasetExample(dataset.dataset_id, request)
+        : updateDatasetExample(
+            dataset.dataset_id,
+            editingExampleId,
+            request,
+          );
+    void operation
       .then((updated) => {
         applyDataset(updated);
-        setInputDraft("{}");
-        setExpectedDraft("");
-        setAddExampleOpen(false);
-        notify("Example을 추가했습니다.");
+        const action = editingExampleId === null ? "추가" : "수정";
+        closeExampleDialog();
+        notify(`Example을 ${action}했습니다.`);
       })
       .catch(() => setFormError("Example을 저장하지 못했습니다."))
       .finally(() => setPending(false));
@@ -465,10 +544,7 @@ export function DatasetsView({
               className="primary-button"
               type="button"
               disabled={displayedDataset === null}
-              onClick={() => {
-                setFormError(null);
-                setAddExampleOpen(true);
-              }}
+              onClick={openAddExample}
             >
               <span aria-hidden="true" className="button-plus">
                 +
@@ -572,10 +648,7 @@ export function DatasetsView({
                   <button
                     className="secondary-button"
                     type="button"
-                    onClick={() => {
-                      setFormError(null);
-                      setAddExampleOpen(true);
-                    }}
+                    onClick={openAddExample}
                   >
                     첫 example 추가하기
                   </button>
@@ -611,6 +684,11 @@ export function DatasetsView({
                                 label={`Example ${item.position + 1} actions`}
                                 actions={[
                                   {
+                                    label: "수정",
+                                    icon: "edit",
+                                    onSelect: () => openEditExample(item),
+                                  },
+                                  {
                                     label: "영구 삭제",
                                     icon: "trash",
                                     danger: true,
@@ -636,12 +714,12 @@ export function DatasetsView({
 
       {addExampleOpen && (
         <ManagementDialog
-          title="Add example"
-          titleId="add-example-title"
+          title={editingExampleId === null ? "Add example" : "Example 수정"}
+          titleId="dataset-example-title"
           className="dataset-example-dialog"
           onClose={() => {
             if (!pending) {
-              setAddExampleOpen(false);
+              closeExampleDialog();
             }
           }}
         >
@@ -649,7 +727,7 @@ export function DatasetsView({
             className="management-form"
             onSubmit={(event) => {
               event.preventDefault();
-              addExample();
+              saveExample();
             }}
           >
             <label>
@@ -673,6 +751,17 @@ export function DatasetsView({
                 onChange={(event) => setExpectedDraft(event.target.value)}
               />
             </label>
+            <label>
+              <span>Metadata (optional)</span>
+              <textarea
+                aria-label="Metadata"
+                rows={4}
+                spellCheck={false}
+                placeholder='{"category":"regression"}'
+                value={metadataDraft}
+                onChange={(event) => setMetadataDraft(event.target.value)}
+              />
+            </label>
             <p className="management-form-note">
               Expected output은 의도적으로 비워 둘 수 있습니다.
             </p>
@@ -682,7 +771,7 @@ export function DatasetsView({
               </p>
             )}
             <button className="primary-button" type="submit" disabled={pending}>
-              Example 저장
+              {editingExampleId === null ? "Example 저장" : "Example 수정"}
             </button>
           </form>
         </ManagementDialog>

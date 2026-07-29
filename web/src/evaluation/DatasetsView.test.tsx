@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -264,6 +264,122 @@ describe("DatasetsView", () => {
         "Expected output은 의도적으로 비워 둘 수 있습니다.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("identifies the JSON field that contains a parse error", async () => {
+    const user = userEvent.setup();
+    mockLists(fetchMock);
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("button", { name: "Add example" }));
+
+    const dialog = screen.getByRole("dialog");
+    await user.clear(within(dialog).getByLabelText("Input"));
+    await user.type(within(dialog).getByLabelText("Input"), "{{");
+    await user.click(within(dialog).getByRole("button", { name: "Example 저장" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Input JSON 오류",
+    );
+
+    await user.clear(within(dialog).getByLabelText("Input"));
+    fireEvent.change(within(dialog).getByLabelText("Input"), {
+      target: { value: '{"ok":true}' },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Expected output"), {
+      target: { value: "[" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Example 저장" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Expected output JSON 오류",
+    );
+
+    await user.clear(within(dialog).getByLabelText("Expected output"));
+    fireEvent.change(within(dialog).getByLabelText("Metadata"), {
+      target: { value: "[]" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Example 저장" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Metadata는 JSON object여야 합니다.",
+    );
+  });
+
+  it("confirms before saving an empty input object", async () => {
+    const user = userEvent.setup();
+    mockLists(fetchMock, {
+      onMutate: (method, url) =>
+        method === "POST" && url.endsWith("/datasets/ds_regression/examples")
+          ? jsonResponse(dataset)
+          : null,
+    });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("button", { name: "Add example" }));
+    await user.click(screen.getByRole("button", { name: "Example 저장" }));
+
+    expect(confirm).toHaveBeenCalledWith("비어 있는 input입니다. 저장할까요?");
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(false);
+
+    confirm.mockReturnValue(true);
+    await user.click(screen.getByRole("button", { name: "Example 저장" }));
+    expect(await screen.findByText("Example을 추가했습니다.")).toBeInTheDocument();
+  });
+
+  it("edits an example with metadata through the existing PATCH endpoint", async () => {
+    const user = userEvent.setup();
+    const updated = {
+      ...dataset,
+      revision: 2,
+      examples: [
+        {
+          ...dataset.examples[0],
+          input: { question: "수정된 질문" },
+          expected_output: { answer: "수정된 답" },
+          metadata: { category: "regression" },
+        },
+      ],
+    };
+    mockLists(fetchMock, {
+      onMutate: (method, url) =>
+        method === "PATCH" &&
+        url.endsWith("/datasets/ds_regression/examples/dse_1")
+          ? jsonResponse(updated)
+          : null,
+    });
+
+    render(<DatasetsView />);
+    await user.click(await screen.findByRole("tab", { name: "Examples (1)" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Example 1 actions" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "수정" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Example 수정" });
+    expect(within(dialog).getByLabelText("Metadata")).toHaveValue("{}");
+    fireEvent.change(within(dialog).getByLabelText("Input"), {
+      target: { value: '{"question":"수정된 질문"}' },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Expected output"), {
+      target: { value: '{"answer":"수정된 답"}' },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Metadata"), {
+      target: { value: '{"category":"regression"}' },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Example 수정" }));
+
+    expect(await screen.findByText("Example을 수정했습니다.")).toBeInTheDocument();
+    const patchCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "PATCH",
+    );
+    expect(patchCall).toBeDefined();
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({
+      input: { question: "수정된 질문" },
+      expected_output: { answer: "수정된 답" },
+      metadata: { category: "regression" },
+    });
+    expect(screen.getByText("revision 2")).toBeInTheDocument();
   });
 
   it("renders loading, empty, and API failure states", async () => {
