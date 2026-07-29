@@ -8,6 +8,7 @@ import {
   CASE_STATUS_LABEL,
   EXPERIMENT_STATUS_LABEL,
 } from "./labels";
+import { EvaluateQuickstart } from "./CompareView";
 
 function formatJson(value: JsonValue | null): string {
   return JSON.stringify(value, null, 2) ?? "null";
@@ -97,9 +98,11 @@ function ExperimentResultSummary({ experiment }: { experiment: Experiment }) {
 
 export function DatasetExperiments({
   experiments,
+  datasetId,
   onRequestCompare,
 }: {
   experiments: ExperimentSummary[];
+  datasetId?: string;
   onRequestCompare?: () => void;
 }) {
   const [selectedExperimentId, setSelectedExperimentId] = useState<
@@ -175,6 +178,9 @@ export function DatasetExperiments({
             Python SDK에서 <code>langfeather.evaluate()</code>를 실행하면 여기에
             나타납니다.
           </p>
+          {datasetId !== undefined && (
+            <EvaluateQuickstart datasetId={datasetId} />
+          )}
         </div>
       </section>
     );

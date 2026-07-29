@@ -29,6 +29,63 @@ type ComparisonLoadState =
 
 const EMPTY_EXPERIMENTS: readonly Experiment[] = [];
 
+function evaluateExample(datasetId: string): string {
+  return `import langfeather
+
+langfeather.configure(endpoint="http://127.0.0.1:4319")
+
+def answer(case: dict[str, str]) -> str:
+    return "청년" if case["question"] == "지원 대상은?" else "확인 필요"
+
+run = langfeather.evaluate(
+    dataset=${JSON.stringify(datasetId)},
+    name="baseline-after-retrieval-change",
+    target=answer,
+    evaluators=[langfeather.exact_match()],
+    target_metadata={"git_sha": "abc123"},
+)
+print(run.completed_case_count, run.failed_case_count)`;
+}
+
+export function EvaluateQuickstart({ datasetId }: { datasetId: string }) {
+  const source = evaluateExample(datasetId);
+  const copy = () => {
+    if (typeof navigator.clipboard?.writeText !== "function") {
+      return;
+    }
+    void navigator.clipboard.writeText(source).catch(() => undefined);
+  };
+
+  return (
+    <section
+      className="evaluate-quickstart"
+      aria-label="평가 시작 예제"
+      role="region"
+    >
+      <div className="evaluate-quickstart-heading">
+        <strong>Python에서 평가 실행</strong>
+        <button
+          className="secondary-button"
+          type="button"
+          aria-label="evaluate 예제 복사"
+          onClick={copy}
+        >
+          예제 복사
+        </button>
+      </div>
+      <pre>
+        <code>{source}</code>
+      </pre>
+      <p>
+        dataset/experiment 기능은 최근 소스에만 있으므로 이전에 SDK를
+        설치했다면{" "}
+        <code>pip install -e &quot;&lt;경로&gt;/sdk/python[langchain]&quot;</code>
+        으로 재설치하세요.
+      </p>
+    </section>
+  );
+}
+
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("ko-KR", {
     maximumFractionDigits: 4,
@@ -585,9 +642,11 @@ function CaseComparison({
 
 export function CompareView({
   experiments,
+  datasetId,
   onOpenTrace,
 }: {
   experiments: readonly ExperimentSummary[];
+  datasetId?: string;
   onOpenTrace?: (traceId: string) => void;
 }) {
   const [selectedExperimentIds, setSelectedExperimentIds] = useState<string[]>(
@@ -724,6 +783,9 @@ export function CompareView({
       <section className="compare-empty-state">
         <strong>아직 experiment가 없습니다.</strong>
         <p>Python SDK에서 평가를 실행하면 비교할 결과가 나타납니다.</p>
+        {datasetId !== undefined && (
+          <EvaluateQuickstart datasetId={datasetId} />
+        )}
       </section>
     );
   }

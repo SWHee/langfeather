@@ -187,6 +187,34 @@ describe("CompareView", () => {
     });
   });
 
+  it("shows a complete copyable evaluate example for an empty dataset", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<CompareView datasetId="ds_empty_compare" experiments={[]} />);
+
+    const quickstart = screen.getByRole("region", {
+      name: "평가 시작 예제",
+    });
+    expect(quickstart).toHaveTextContent('dataset="ds_empty_compare"');
+    expect(quickstart).toHaveTextContent("def answer(case: dict[str, str])");
+    expect(quickstart).toHaveTextContent("target_metadata");
+    expect(quickstart).not.toHaveTextContent("…");
+    await user.click(
+      within(quickstart).getByRole("button", { name: "evaluate 예제 복사" }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining('dataset="ds_empty_compare"'),
+    );
+    expect(quickstart).toHaveTextContent(
+      'pip install -e "<경로>/sdk/python[langchain]"',
+    );
+  });
+
   it("automatically selects metrics shared by all selected experiments", async () => {
     const user = userEvent.setup();
     render(<CompareView experiments={summaries} />);

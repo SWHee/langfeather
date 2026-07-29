@@ -69,10 +69,33 @@ describe("DatasetExperiments", () => {
     vi.unstubAllGlobals();
   });
 
-  it("points at the SDK when a dataset has no experiments", () => {
-    render(<DatasetExperiments experiments={[]} />);
+  it("shows a complete copyable evaluate example when a dataset has no experiments", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    render(
+      <DatasetExperiments
+        datasetId="ds_empty_experiments"
+        experiments={[]}
+      />,
+    );
 
     expect(screen.getByText("아직 experiment가 없습니다.")).toBeInTheDocument();
+    const quickstart = screen.getByRole("region", {
+      name: "평가 시작 예제",
+    });
+    expect(quickstart).toHaveTextContent('dataset="ds_empty_experiments"');
+    expect(quickstart).toHaveTextContent("def answer(case: dict[str, str])");
+    expect(quickstart).toHaveTextContent("target_metadata");
+    expect(quickstart).not.toHaveTextContent("…");
+    await userEvent.click(
+      within(quickstart).getByRole("button", { name: "evaluate 예제 복사" }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining('dataset="ds_empty_experiments"'),
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

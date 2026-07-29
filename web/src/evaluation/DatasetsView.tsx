@@ -791,6 +791,7 @@ export function DatasetsView({
             >
               <CompareView
                 key={displayedDataset.dataset_id}
+                datasetId={displayedDataset.dataset_id}
                 experiments={relatedExperiments}
                 onOpenTrace={onOpenTrace}
               />
@@ -803,6 +804,7 @@ export function DatasetsView({
             >
               <DatasetExperiments
                 key={displayedDataset.dataset_id}
+                datasetId={displayedDataset.dataset_id}
                 experiments={relatedExperiments}
                 onRequestCompare={() => selectTab("compare")}
               />

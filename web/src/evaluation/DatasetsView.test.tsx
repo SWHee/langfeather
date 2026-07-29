@@ -229,12 +229,21 @@ describe("DatasetsView", () => {
     expect(screen.getByText("revision 4")).toBeInTheDocument();
 
     const compareTab = screen.getByRole("tab", { name: "Compare" });
+    const compareQuickstart = screen.getByRole("region", {
+      name: "평가 시작 예제",
+    });
+    expect(compareQuickstart).toHaveTextContent(
+      'dataset="ds_prompt_checks"',
+    );
     compareTab.focus();
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "Experiments (0)" })).toHaveFocus();
     expect(
       screen.getByText("아직 experiment가 없습니다."),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "평가 시작 예제" }),
+    ).toHaveTextContent('dataset="ds_prompt_checks"');
 
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "Examples (0)" })).toHaveFocus();
