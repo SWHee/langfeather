@@ -76,6 +76,66 @@ describe("DatasetExperiments", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("does not preload experiment details when the list opens", () => {
+    render(<DatasetExperiments experiments={[summary]} />);
+
+    expect(screen.getByRole("button", { name: "baseline" })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("lazily renders evaluator and duration summaries for an expanded row", async () => {
+    const aggregateDetail = {
+      ...detail,
+      case_count: 2,
+      completed_case_count: 2,
+      evaluators: [
+        ...detail.evaluators,
+        {
+          experiment_evaluator_id: "exe_2",
+          key: "relevance",
+          name: "Relevance",
+          data_type: "number",
+          position: 1,
+        },
+      ],
+      cases: [
+        {
+          ...detail.cases[0],
+          duration_us: 1_000_000,
+          evaluator_results: [
+            { evaluator_key: "exact_match", value: true, error_message: null },
+            { evaluator_key: "relevance", value: 3, error_message: null },
+          ],
+        },
+        {
+          ...detail.cases[0],
+          experiment_case_id: "exc_2",
+          dataset_example_id: "dse_2",
+          position: 1,
+          duration_us: 3_000_000,
+          evaluator_results: [
+            { evaluator_key: "exact_match", value: false, error_message: null },
+            { evaluator_key: "relevance", value: 5, error_message: null },
+          ],
+        },
+      ],
+    };
+    fetchMock.mockResolvedValue(jsonResponse(aggregateDetail));
+
+    render(<DatasetExperiments experiments={[summary]} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "baseline 결과 요약 펼치기" }),
+    );
+
+    expect(await screen.findByText("Exact match 50.0% 통과 (1/2)")).toBeInTheDocument();
+    expect(screen.getByText("Relevance 평균 4")).toBeInTheDocument();
+    expect(screen.getByText("평균 실행 시간 2.00 s")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(
+      /\/experiments\/exp_1$/,
+    );
+  });
+
   it("loads case results and the pinned dataset revision on selection", async () => {
     fetchMock.mockImplementation((input) => {
       const url = String(input);

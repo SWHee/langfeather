@@ -1,8 +1,55 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { getExperiment } from "../api/client";
 import type { Experiment, ExperimentSummary } from "../api/types";
+import { compareExperiments } from "./comparison";
 import { duration, formatDateTime, preview } from "./formatters";
+
+function ExperimentResultSummary({ experiment }: { experiment: Experiment }) {
+  const comparison = compareExperiments([experiment])[0];
+  const completedDurations = experiment.cases.flatMap(({ duration_us }) =>
+    duration_us === null ? [] : [duration_us],
+  );
+  const averageDuration =
+    completedDurations.length === 0
+      ? null
+      : completedDurations.reduce((total, value) => total + value, 0) /
+        completedDurations.length;
+
+  return (
+    <div
+      className="experiment-run-note"
+      aria-label={`${experiment.name} 결과 요약`}
+    >
+      <div>
+        {experiment.evaluators.length === 0 ? (
+          <span>등록된 evaluator가 없습니다.</span>
+        ) : (
+          experiment.evaluators.map((evaluator) => {
+            const stat = comparison?.stats.get(evaluator.key);
+            let value = "평가값 없음";
+            if (stat?.value !== null && stat?.value !== undefined) {
+              value =
+                evaluator.data_type === "boolean"
+                  ? `${(stat.value * 100).toFixed(1)}% 통과 (${Math.round(
+                      stat.value * stat.scoredCount,
+                    )}/${stat.scoredCount})`
+                  : `평균 ${stat.value.toLocaleString("ko-KR", {
+                      maximumFractionDigits: 2,
+                    })}`;
+            }
+            return (
+              <span className="evaluation-result" key={evaluator.key}>
+                {evaluator.name} {value}
+              </span>
+            );
+          })
+        )}
+      </div>
+      <span>평균 실행 시간 {duration(averageDuration)}</span>
+    </div>
+  );
+}
 
 export function DatasetExperiments({
   experiments,
@@ -16,6 +63,15 @@ export function DatasetExperiments({
   >(null);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [expandedExperimentId, setExpandedExperimentId] = useState<
+    string | null
+  >(null);
+  const [summaryExperiments, setSummaryExperiments] = useState<
+    Record<string, Experiment>
+  >({});
+  const [summaryLoadErrorId, setSummaryLoadErrorId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (selectedExperimentId === null) {
@@ -36,6 +92,32 @@ export function DatasetExperiments({
       });
     return () => controller.abort();
   }, [selectedExperimentId]);
+
+  useEffect(() => {
+    if (
+      expandedExperimentId === null ||
+      summaryExperiments[expandedExperimentId] !== undefined ||
+      summaryLoadErrorId === expandedExperimentId
+    ) {
+      return;
+    }
+    const controller = new AbortController();
+    void getExperiment(expandedExperimentId, controller.signal)
+      .then((response) => {
+        if (!controller.signal.aborted) {
+          setSummaryExperiments((current) => ({
+            ...current,
+            [response.experiment_id]: response,
+          }));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setSummaryLoadErrorId(expandedExperimentId);
+        }
+      });
+    return () => controller.abort();
+  }, [expandedExperimentId, summaryExperiments, summaryLoadErrorId]);
 
   const displayed =
     experiment?.experiment_id === selectedExperimentId ? experiment : null;
@@ -74,37 +156,81 @@ export function DatasetExperiments({
               </tr>
             </thead>
             <tbody>
-              {experiments.map((item) => (
-                <tr key={item.experiment_id}>
-                  <td data-label="이름">
-                    <button
-                      className="table-name-button"
-                      type="button"
-                      onClick={() => {
-                        setLoadError(false);
-                        setSelectedExperimentId(item.experiment_id);
-                      }}
-                    >
-                      {item.name}
-                    </button>
-                  </td>
-                  <td data-label="상태">
-                    <span className={`experiment-status status-${item.status}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td data-label="진행">
-                    {item.completed_case_count}/{item.case_count} ·{" "}
-                    {item.failed_case_count} failed
-                  </td>
-                  <td data-label="Dataset revision">
-                    rev {item.dataset_revision}
-                  </td>
-                  <td data-label="실행 시각">
-                    {formatDateTime(item.started_at)}
-                  </td>
-                </tr>
-              ))}
+              {experiments.map((item) => {
+                const isExpanded =
+                  expandedExperimentId === item.experiment_id;
+                const summary = summaryExperiments[item.experiment_id];
+                return (
+                  <Fragment key={item.experiment_id}>
+                    <tr>
+                      <td data-label="이름">
+                        <button
+                          className="table-name-button"
+                          type="button"
+                          onClick={() => {
+                            setLoadError(false);
+                            setSelectedExperimentId(item.experiment_id);
+                          }}
+                        >
+                          {item.name}
+                        </button>
+                      </td>
+                      <td data-label="상태">
+                        <span
+                          className={`experiment-status status-${item.status}`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                      <td data-label="진행">
+                        {item.completed_case_count}/{item.case_count} ·{" "}
+                        {item.failed_case_count} failed
+                        <button
+                          className="link-button"
+                          type="button"
+                          aria-expanded={isExpanded}
+                          aria-label={`${item.name} 결과 요약 ${
+                            isExpanded ? "접기" : "펼치기"
+                          }`}
+                          onClick={() => {
+                            if (isExpanded) {
+                              setExpandedExperimentId(null);
+                            } else {
+                              setSummaryLoadErrorId(null);
+                              setExpandedExperimentId(item.experiment_id);
+                            }
+                          }}
+                        >
+                          {isExpanded ? "요약 접기" : "결과 요약"}
+                        </button>
+                      </td>
+                      <td data-label="Dataset revision">
+                        rev {item.dataset_revision}
+                      </td>
+                      <td data-label="실행 시각">
+                        {formatDateTime(item.started_at)}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={5} data-label="결과 요약">
+                          {summary !== undefined ? (
+                            <ExperimentResultSummary experiment={summary} />
+                          ) : summaryLoadErrorId === item.experiment_id ? (
+                            <span role="alert">
+                              결과 요약을 불러오지 못했습니다.
+                            </span>
+                          ) : null}
+                          {summary === undefined &&
+                            summaryLoadErrorId !== item.experiment_id && (
+                              <span>결과 요약을 불러오는 중…</span>
+                            )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
