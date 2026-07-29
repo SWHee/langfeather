@@ -173,6 +173,32 @@ describe("LangFeather trace explorer", () => {
     );
   });
 
+  it("opens the Evaluation workspace from the top navigation", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/traces")) {
+        return new Promise<Response>(() => undefined);
+      }
+      if (url.endsWith("/datasets") || url.endsWith("/experiments")) {
+        return Promise.resolve(jsonResponse({items: []}));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<App />);
+
+    const evaluation = screen.getByRole("button", {name: "Evaluation"});
+    expect(evaluation).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(evaluation);
+
+    expect(
+      await screen.findByRole("heading", {name: "Datasets & Experiments"}),
+    ).toBeInTheDocument();
+    expect(evaluation).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("shows advanced trace filters only when Filters is toggled on", async () => {
     const user = userEvent.setup();
     fetchMock.mockReturnValueOnce(new Promise<Response>(() => undefined));

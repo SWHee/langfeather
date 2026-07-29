@@ -1131,10 +1131,16 @@ export function App() {
           </button>
           <button
             type="button"
+            aria-label="Evaluation"
             aria-pressed={activeView === "datasets"}
             onClick={() => setActiveView("datasets")}
           >
-            Datasets
+            <span className="desktop-nav-label" aria-hidden="true">
+              Evaluation
+            </span>
+            <span className="mobile-nav-label" aria-hidden="true">
+              Eval
+            </span>
           </button>
           <button
             type="button"
