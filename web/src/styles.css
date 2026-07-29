@@ -4110,3 +4110,32 @@ pre,
   font-size: 0.8125rem;
   gap: 8px;
 }
+
+/* STEP 11 Dataset JSONL import/export controls */
+.dataset-jsonl-actions {
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dataset-jsonl-import {
+  cursor: pointer;
+}
+
+.dataset-jsonl-import[data-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 700px) {
+  .evaluation-dataset-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dataset-jsonl-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

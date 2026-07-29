@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DatasetsView } from "./DatasetsView";
+import { DatasetsView, examplesToJsonl } from "./DatasetsView";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -380,6 +380,100 @@ describe("DatasetsView", () => {
       metadata: { category: "regression" },
     });
     expect(screen.getByText("revision 2")).toBeInTheDocument();
+  });
+
+  it("exports examples as round-trip JSONL without source trace fields", () => {
+    const jsonl = examplesToJsonl(dataset.examples);
+    const records = jsonl
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as unknown);
+
+    expect(records).toEqual([
+      {
+        input: { question: "지원 대상은?" },
+        expected_output: { answer: "청년" },
+        metadata: {},
+      },
+    ]);
+    expect(jsonl).toMatch(/\n$/);
+  });
+
+  it("imports valid JSONL lines and reports every failed source line", async () => {
+    const user = userEvent.setup();
+    let postCalls = 0;
+    const importedDataset = {
+      ...dataset,
+      revision: 2,
+      example_count: 2,
+      examples: [
+        ...dataset.examples,
+        {
+          ...dataset.examples[0],
+          dataset_example_id: "dse_imported",
+          position: 1,
+          input: { question: "첫 줄" },
+          expected_output: null,
+          metadata: { source: "jsonl" },
+          source_trace_id: null,
+        },
+      ],
+    };
+    mockLists(fetchMock, {
+      onMutate: (method, url) => {
+        if (
+          method !== "POST" ||
+          !url.endsWith("/datasets/ds_regression/examples")
+        ) {
+          return null;
+        }
+        postCalls += 1;
+        return postCalls === 1
+          ? jsonResponse(importedDataset)
+          : jsonResponse({ detail: "write failed" }, 500);
+      },
+    });
+
+    render(<DatasetsView />);
+    await screen.findByRole("heading", { level: 2, name: "RAG regression" });
+    const file = new File(
+      [
+        '{"input":{"question":"첫 줄"},"metadata":{"source":"jsonl"}}\n',
+        '{"input":\n',
+        '{"input":{"question":"셋째 줄"},"expected_output":{"answer":"답"}}\n',
+      ],
+      "examples.jsonl",
+      { type: "application/x-ndjson" },
+    );
+
+    const importInput = screen.getByLabelText("JSONL 가져오기");
+    await waitFor(() => expect(importInput).toBeEnabled());
+    await user.upload(importInput, file);
+
+    expect(
+      await screen.findByText("JSONL import: 1개 추가, 실패한 줄 2, 3."),
+    ).toHaveAttribute("data-tone", "error");
+    expect(postCalls).toBe(2);
+    expect(screen.getByText("revision 2")).toBeInTheDocument();
+    const postBodies = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => JSON.parse(String(init?.body)) as unknown);
+    expect(postBodies).toEqual([
+      [
+        {
+          input: { question: "첫 줄" },
+          expected_output: null,
+          metadata: { source: "jsonl" },
+        },
+      ],
+      [
+        {
+          input: { question: "셋째 줄" },
+          expected_output: { answer: "답" },
+          metadata: {},
+        },
+      ],
+    ]);
   });
 
   it("renders loading, empty, and API failure states", async () => {

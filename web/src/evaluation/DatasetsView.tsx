@@ -29,6 +29,71 @@ type Status = { text: string; tone: "info" | "error" };
 
 const DETAIL_TABS: DetailTab[] = ["compare", "experiments", "examples"];
 
+type JsonlExample = {
+  input: JsonValue;
+  expected_output: JsonValue | null;
+  metadata: { [key: string]: JsonValue };
+};
+
+// Exported for a contract-focused round-trip test alongside the component.
+// eslint-disable-next-line react-refresh/only-export-components
+export function examplesToJsonl(examples: readonly DatasetExample[]): string {
+  if (examples.length === 0) {
+    return "";
+  }
+  return `${examples
+    .map((example) =>
+      JSON.stringify({
+        input: example.input,
+        expected_output: example.expected_output,
+        metadata: example.metadata,
+      }),
+    )
+    .join("\n")}\n`;
+}
+
+function parseJsonlExample(value: unknown): JsonlExample {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("example must be a JSON object");
+  }
+  const record = value as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(record, "input")) {
+    throw new Error("input is required");
+  }
+  const rawMetadata = record.metadata ?? {};
+  if (
+    typeof rawMetadata !== "object" ||
+    rawMetadata === null ||
+    Array.isArray(rawMetadata)
+  ) {
+    throw new Error("metadata must be a JSON object");
+  }
+  return {
+    input: record.input as JsonValue,
+    expected_output: Object.prototype.hasOwnProperty.call(
+      record,
+      "expected_output",
+    )
+      ? (record.expected_output as JsonValue | null)
+      : null,
+    metadata: rawMetadata as { [key: string]: JsonValue },
+  };
+}
+
+function readTextFile(file: File): Promise<string> {
+  if (typeof file.text === "function") {
+    return file.text();
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result ?? "")));
+    reader.addEventListener("error", () =>
+      reject(reader.error ?? new Error("file read failed")),
+    );
+    reader.readAsText(file);
+  });
+}
+
 /* A blocked delete must not read like a completed one. */
 function Toast({ status }: { status: Status }) {
   return (
@@ -69,6 +134,7 @@ export function DatasetsView({
   const [expectedDraft, setExpectedDraft] = useState("");
   const [metadataDraft, setMetadataDraft] = useState("");
   const [editingExampleId, setEditingExampleId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
@@ -320,6 +386,77 @@ export function DatasetsView({
       .finally(() => setPending(false));
   };
 
+  const exportJsonl = () => {
+    if (dataset === null) {
+      return;
+    }
+    const contents = examplesToJsonl(dataset.examples);
+    const blob = new Blob([contents], { type: "application/x-ndjson" });
+    const url = URL.createObjectURL(blob);
+    const safeName =
+      dataset.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") ||
+      dataset.dataset_id;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeName}.jsonl`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    notify(`Example ${dataset.examples.length}개를 JSONL로 내보냈습니다.`);
+  };
+
+  const importJsonl = async (file: File) => {
+    if (dataset === null) {
+      return;
+    }
+    const datasetId = dataset.dataset_id;
+    setImporting(true);
+    let contents: string;
+    try {
+      contents = await readTextFile(file);
+    } catch {
+      warn("JSONL 파일을 읽지 못했습니다.");
+      setImporting(false);
+      return;
+    }
+
+    let imported = 0;
+    let latestDataset: Dataset | null = null;
+    const failedLines: number[] = [];
+    const lines = contents.split(/\r?\n/);
+    for (const [index, rawLine] of lines.entries()) {
+      const lineNumber = index + 1;
+      if (rawLine.trim() === "") {
+        continue;
+      }
+      let example: JsonlExample;
+      try {
+        example = parseJsonlExample(JSON.parse(rawLine) as unknown);
+      } catch {
+        failedLines.push(lineNumber);
+        continue;
+      }
+      try {
+        latestDataset = await addDatasetExample(datasetId, example);
+        imported += 1;
+      } catch {
+        failedLines.push(lineNumber);
+      }
+    }
+    if (latestDataset !== null) {
+      applyDataset(latestDataset);
+    }
+    if (failedLines.length === 0) {
+      notify(`JSONL import: ${imported}개를 추가했습니다.`);
+    } else {
+      warn(
+        `JSONL import: ${imported}개 추가, 실패한 줄 ${failedLines.join(", ")}.`,
+      );
+    }
+    setImporting(false);
+  };
+
   const removeDataset = (summary: DatasetSummary) => {
     if (
       !window.confirm(
@@ -540,17 +677,51 @@ export function DatasetsView({
               <h2>{selectedSummary.name}</h2>
               <p>{selectedSummary.description ?? "설명이 없습니다."}</p>
             </div>
-            <button
-              className="primary-button"
-              type="button"
-              disabled={displayedDataset === null}
-              onClick={openAddExample}
-            >
-              <span aria-hidden="true" className="button-plus">
-                +
-              </span>
-              Add example
-            </button>
+            <div className="dataset-detail-actions dataset-jsonl-actions">
+              <label
+                className="secondary-button dataset-jsonl-import"
+                data-disabled={displayedDataset === null || importing}
+              >
+                Import JSONL
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept=".jsonl,application/x-ndjson,application/json"
+                  aria-label="JSONL 가져오기"
+                  disabled={displayedDataset === null || importing}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file !== undefined) {
+                      void importJsonl(file);
+                    }
+                  }}
+                />
+              </label>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={
+                  displayedDataset === null ||
+                  displayedDataset.examples.length === 0 ||
+                  importing
+                }
+                onClick={exportJsonl}
+              >
+                Export JSONL
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={displayedDataset === null || importing}
+                onClick={openAddExample}
+              >
+                <span aria-hidden="true" className="button-plus">
+                  +
+                </span>
+                Add example
+              </button>
+            </div>
           </header>
 
           <div
