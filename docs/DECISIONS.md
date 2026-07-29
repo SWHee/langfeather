@@ -52,7 +52,9 @@
 | Internal nodes | callback event가 발생한 모든 내부 run을 저장한다. | 관찰 가능한 실행의 완전성을 우선한다. |
 | UI noise | 내부 node는 기본 collapse할 수 있지만 삭제하지 않는다. | 완전성과 가독성을 함께 제공한다. |
 | UI simplicity | 화면에는 현재 작업에 꼭 필요한 component와 설명만 둔다. | 사용자가 실행 경로와 원본 data에 바로 집중하게 한다. |
-| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Datasets`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. Experiment는 항상 dataset에 속하므로 별도 top-level 항목 대신 dataset 상세의 tab으로 둔다. | trace 확인, 수동 평가, dataset 편집, experiment regression, local data 관리를 분리한다. |
+| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Evaluation`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. `Evaluation`은 dataset을 선택한 뒤 `Compare`, `Experiments`, `Examples` tab을 제공하며, experiment는 여전히 선택된 dataset 문맥 안에만 존재하고 별도 top-level 항목을 만들지 않는다. | trace 확인, 수동 평가, dataset 편집, experiment regression, local data 관리를 분리한다. |
+| Evaluation comparison | 같은 dataset revision의 experiment만 비교한다. experiment는 2~4개, 평가 지표는 최대 4개까지 사용자가 직접 선택하며 선택하지 않은 지표를 자동으로 그리지 않는다. boolean은 통과율, finite number는 평균으로 집계하고 median/percentile 같은 파생 통계는 추가하지 않는다. | 비교 기준을 사용자가 통제하게 하고 snapshot된 regression 근거를 훼손하지 않는다. |
+| Evaluation honesty | 전체 case 수, 정상 평가 결과 수, evaluator 오류 수, 평가값이 없는 case 수, target 실행이 실패한 case 수를 숨기지 않는다. 오류를 제외한 평균만 표시하지 않는다. | 낙관적 집계가 실패를 가리지 않게 한다. |
 | Score management UI | `Scores`는 검색 가능한 table을 기본 화면으로 두고 create form은 `New Score` 동작 뒤의 별도 집중 UI에 둔다. | 자주 하는 조회와 드문 schema 생성을 같은 시각적 우선순위로 두지 않는다. |
 | Queue navigation UI | annotation queue 생성/목록과 선택 queue의 상세 review를 같은 화면에 동시에 표시하지 않는다. | queue 탐색과 trace 평가의 작업 맥락을 분리한다. |
 | Detail layout | 작은 execution graph와 더 넓은 선택 observation Input/Output inspector를 나란히 두고 `Node View`와 `Runnable View`를 사용한다. | 실행 구조보다 실제 data 확인에 더 많은 공간을 준다. |
@@ -88,6 +90,30 @@
 | Local web safety | production CORS off, trusted local Host, JSON-only mutation을 사용한다. | 인증 없이 기본 browser 공격 표면을 줄인다. |
 | Experiment result writes | case 결과와 experiment finish는 write-once이며 재전송은 409다. | 기록된 비교 기준을 나중에 덮어쓸 수 없게 한다. |
 | Completed case scores | completed case는 선언된 evaluator를 전부 보고해야 한다. | 완료 집계가 비어 있는 점수를 가리키지 않게 한다. |
+
+## Decision Changes
+
+### 2026-07-29 `Datasets` top navigation을 `Evaluation`으로 바꾼다
+
+- 이유: dataset 편집, experiment 목록, experiment 비교가 하나의 평가 작업
+  흐름인데 `Datasets`라는 이름은 example 편집만 연상시킨다. 비교 화면을
+  dataset 상세 안에 더 깊게 중첩하면 작업 맥락이 끊긴다.
+- 영향: top navigation label과 화면 제목만 바뀐다. experiment는 이전 결정대로
+  선택된 dataset 문맥 안에만 존재하며 별도 top-level 항목을 만들지 않는다.
+  API, data contract, migration은 바뀌지 않는다.
+- migration: 없음. UI label 변경이다.
+
+### 2026-07-29 evaluation 비교 UI를 v1 범위에 포함한다
+
+- 이유: `AGENTS.md`의 Non-negotiable Boundaries와 `docs/AGENT_HARNESS.md`의
+  web 담당 금지 항목이 dataset experiment, evaluator runner, aggregate
+  dashboard, experiment UI를 금지하고 있었으나, 이 문서의 Locked 결정이 이미
+  dataset/experiment/evaluator runner를 확정했고 Phase 8이 구현을 마쳤다.
+  두 문서는 Phase 7 시점 기준의 단계적 조율 규칙이었고 실제 지원 범위와
+  어긋난 상태로 남아 있었다.
+- 영향: `AGENTS.md`와 `docs/AGENT_HARNESS.md`의 해당 문구를 실제 지원 범위에
+  맞게 정정한다. server가 evaluator를 실행하지 않는다는 경계는 그대로 유지한다.
+- migration: 없음. 문서 정정이다.
 
 ## Deliberately Deferred
 

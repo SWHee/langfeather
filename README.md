@@ -261,15 +261,17 @@ LangFeather v1은 의도적으로 작게 유지합니다.
 - Best-effort bounded in-memory delivery; client disk spool 없음
 
 Cloud hosting, authentication, multi-project workspace, JavaScript SDK, cost
-calculation, prompt management, dataset/evaluator, automatic payload redaction과
-retention은 범위 밖입니다. 전체 rationale은
-[docs/DECISIONS.md](docs/DECISIONS.md)를 참고하세요.
+calculation, prompt management, server-side evaluator 실행, managed LLM judge,
+automatic payload redaction과 retention은 범위 밖입니다. Dataset과 experiment는
+지원하지만 target과 evaluator는 사용자 Python process에서 실행합니다. 전체
+rationale은 [docs/DECISIONS.md](docs/DECISIONS.md)를 참고하세요.
 
 ## Backup과 reset
 
 UI는 일관된 SQLite backup을 내려받을 수 있고, `RESET`을 입력하면 trace,
-observation, score, annotation, memo, annotation queue data를 모두 초기화할 수
-있습니다. Backup에는 raw payload가 들어 있으므로 안전한 local 위치에 보관하세요.
+observation, score, annotation, memo, annotation queue, dataset, experiment
+data를 모두 초기화할 수 있습니다. Backup에는 raw payload가 들어 있으므로 안전한
+local 위치에 보관하세요.
 
 Restore는 의도적으로 offline-only입니다. 먼저 server를 멈춘 후 backup directory를
 Compose container에 mount합니다.

@@ -99,12 +99,13 @@ web/**
 - React Flow layout
 - inspector와 JSON viewer
 - score/annotation/queue/session/delete/settings UX
+- dataset/experiment evaluation 비교 UI
 - responsive behavior
 
 금지:
 
 - mock contract를 실제 API와 다르게 독자 확장
-- aggregate dashboard와 experiment UI 추가
+- 범용 BI dashboard와 data contract에 없는 지표 추가
 - inferred graph edge 표시
 
 ### QA and Release Specialist

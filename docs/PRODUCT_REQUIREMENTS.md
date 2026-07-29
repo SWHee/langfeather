@@ -274,11 +274,18 @@ v1은 다음 demo가 재현될 때 완료다.
 5. custom score와 trace 메모를 저장하고 categorical multiple의 빈 배열과
    미기록을 구분할 수 있다.
 6. 고정 annotation queue를 만들고 각 trace를 명시적으로 완료·수정할 수 있다.
-7. trace 하나를 삭제하고 전체 data를 reset할 수 있다.
-8. backup을 내려받고 server를 중지한 상태에서 CLI로 깨끗한 volume에
-   복원할 수 있다.
-9. collector를 중단해도 sample application 결과와 exception behavior가
-   달라지지 않는다.
-10. amd64와 arm64 image가 build된다.
-11. installation, instrumentation, limitations 문서가 신규 사용자 기준으로
+7. 검토한 trace input을 dataset example로 고정하고 expected output을 직접
+   입력할 수 있다.
+8. SDK `evaluate()`로 experiment를 실행하면 case별 결과와 evaluator 값이
+   저장되고 dataset revision과 함께 immutable history로 남는다.
+9. 같은 dataset revision의 experiment 2개 이상을 선택하고 원하는 평가 지표만
+   골라 통과율 또는 평균과 experiment 간 차이를 비교할 수 있다. 이때 evaluator
+   오류 수와 평가값이 없는 case 수가 함께 표시된다.
+10. trace 하나를 삭제하고 전체 data를 reset할 수 있다.
+11. backup을 내려받고 server를 중지한 상태에서 CLI로 깨끗한 volume에
+    복원할 수 있다.
+12. collector를 중단해도 sample application 결과와 exception behavior가
+    달라지지 않는다.
+13. amd64와 arm64 image가 build된다.
+14. installation, instrumentation, limitations 문서가 신규 사용자 기준으로
     검증된다.
