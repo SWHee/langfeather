@@ -99,13 +99,7 @@ describe("DatasetExperiments", () => {
     expect(screen.getByText("tr_run")).toBeInTheDocument();
   });
 
-  it("offers comparison only against experiments on the same revision", async () => {
-    const otherRevision: ExperimentSummary = {
-      ...summary,
-      experiment_id: "exp_2",
-      name: "older revision",
-      dataset_revision: 2,
-    };
+  it("keeps detail focused on one experiment and points to the Compare tab", async () => {
     const sameRevision: ExperimentSummary = {
       ...summary,
       experiment_id: "exp_3",
@@ -121,16 +115,42 @@ describe("DatasetExperiments", () => {
 
     render(
       <DatasetExperiments
-        experiments={[summary, otherRevision, sameRevision]}
+        experiments={[summary, sameRevision]}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "baseline" }));
 
-    const select = await screen.findByLabelText(/Compare with/);
-    const options = Array.from(
-      select.querySelectorAll("option"),
-      (option) => option.textContent,
+    expect(
+      await screen.findByText("Experiment 비교는 Compare 탭에서 확인하세요."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Compare with/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Compare 탭으로 이동" }),
+    ).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers Compare tab navigation when the parent provides it", async () => {
+    const onRequestCompare = vi.fn();
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/experiments/exp_1")) {
+        return Promise.resolve(jsonResponse(detail));
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(
+      <DatasetExperiments
+        experiments={[summary]}
+        onRequestCompare={onRequestCompare}
+      />,
     );
-    expect(options).toEqual(["No comparison", "tuned prompt"]);
+    await userEvent.click(screen.getByRole("button", { name: "baseline" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Compare 탭으로 이동" }),
+    );
+
+    expect(onRequestCompare).toHaveBeenCalledOnce();
   });
 });

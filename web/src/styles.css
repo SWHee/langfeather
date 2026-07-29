@@ -4017,3 +4017,12 @@ pre,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* STEP 3 Experiment 상세의 비교 탭 안내 */
+.experiment-compare-note {
+  display: grid;
+  justify-items: end;
+  color: #667085;
+  font-size: 0.8125rem;
+  gap: 8px;
+}

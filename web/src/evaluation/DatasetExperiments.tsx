@@ -6,17 +6,15 @@ import { duration, formatDateTime, preview } from "./formatters";
 
 export function DatasetExperiments({
   experiments,
+  onRequestCompare,
 }: {
   experiments: ExperimentSummary[];
+  onRequestCompare?: () => void;
 }) {
   const [selectedExperimentId, setSelectedExperimentId] = useState<
     string | null
   >(null);
-  const [comparisonExperimentId, setComparisonExperimentId] = useState<
-    string | null
-  >(null);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
-  const [comparison, setComparison] = useState<Experiment | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -39,29 +37,8 @@ export function DatasetExperiments({
     return () => controller.abort();
   }, [selectedExperimentId]);
 
-  useEffect(() => {
-    if (comparisonExperimentId === null) {
-      return;
-    }
-    const controller = new AbortController();
-    void getExperiment(comparisonExperimentId, controller.signal)
-      .then((response) => {
-        if (!controller.signal.aborted) {
-          setComparison(response);
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setComparison(null);
-        }
-      });
-    return () => controller.abort();
-  }, [comparisonExperimentId]);
-
   const displayed =
     experiment?.experiment_id === selectedExperimentId ? experiment : null;
-  const displayedComparison =
-    comparison?.experiment_id === comparisonExperimentId ? comparison : null;
 
   if (experiments.length === 0) {
     return (
@@ -106,7 +83,6 @@ export function DatasetExperiments({
                       onClick={() => {
                         setLoadError(false);
                         setSelectedExperimentId(item.experiment_id);
-                        setComparisonExperimentId(null);
                       }}
                     >
                       {item.name}
@@ -145,7 +121,6 @@ export function DatasetExperiments({
             type="button"
             onClick={() => {
               setSelectedExperimentId(null);
-              setComparisonExperimentId(null);
             }}
           >
             ← Experiment 목록
@@ -157,73 +132,19 @@ export function DatasetExperiments({
             {displayed.failed_case_count} target failures
           </p>
         </div>
-        <label className="experiment-compare-select">
-          Compare with
-          <select
-            value={comparisonExperimentId ?? ""}
-            onChange={(event) =>
-              setComparisonExperimentId(event.target.value || null)
-            }
-          >
-            <option value="">No comparison</option>
-            {experiments
-              .filter(
-                (item) =>
-                  item.experiment_id !== displayed.experiment_id &&
-                  item.dataset_revision === displayed.dataset_revision,
-              )
-              .map((item) => (
-                <option key={item.experiment_id} value={item.experiment_id}>
-                  {item.name}
-                </option>
-              ))}
-          </select>
-        </label>
-      </div>
-
-      {displayedComparison !== null && (
-        <div className="management-table-scroll">
-          <table className="management-table experiment-case-table">
-            <caption>Same-case comparison</caption>
-            <thead>
-              <tr>
-                <th scope="col">Case</th>
-                <th scope="col">{displayed.name}</th>
-                <th scope="col">{displayedComparison.name}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayed.cases.map((item) => {
-                const compared = displayedComparison.cases.find(
-                  (candidate) =>
-                    candidate.dataset_example_id === item.dataset_example_id,
-                );
-                return (
-                  <tr key={item.experiment_case_id}>
-                    <td data-label="Case">
-                      <code>{preview(item.input)}</code>
-                    </td>
-                    <td data-label={displayed.name}>
-                      <strong>{item.status}</strong>
-                      <code>{preview(item.output)}</code>
-                    </td>
-                    <td data-label={displayedComparison.name}>
-                      {compared === undefined ? (
-                        "—"
-                      ) : (
-                        <>
-                          <strong>{compared.status}</strong>
-                          <code>{preview(compared.output)}</code>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="experiment-compare-note">
+          <span>Experiment 비교는 Compare 탭에서 확인하세요.</span>
+          {onRequestCompare !== undefined && (
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onRequestCompare}
+            >
+              Compare 탭으로 이동
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="experiment-run-note">
         <code>
