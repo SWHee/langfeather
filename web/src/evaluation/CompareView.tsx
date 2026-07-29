@@ -250,6 +250,20 @@ function formatCaseDelta(
   if (isBaseline) {
     return "기준";
   }
+  const delta = caseDelta(result, baselineResult, evaluator);
+  if (delta === null) {
+    return "기준 차이 계산 불가";
+  }
+  return evaluator.data_type === "boolean"
+    ? `${delta > 0 ? "+" : ""}${(delta * 100).toFixed(1)}%p`
+    : `${delta > 0 ? "+" : ""}${formatNumber(delta)}`;
+}
+
+function caseDelta(
+  result: ExperimentResult | undefined,
+  baselineResult: ExperimentResult | undefined,
+  evaluator: ExperimentEvaluator,
+): number | null {
   if (
     result === undefined ||
     baselineResult === undefined ||
@@ -258,22 +272,20 @@ function formatCaseDelta(
     result.value === null ||
     baselineResult.value === null
   ) {
-    return "기준 차이 계산 불가";
+    return null;
   }
   if (evaluator.data_type === "boolean") {
     const value = result.value === true ? 1 : 0;
     const baselineValue = baselineResult.value === true ? 1 : 0;
-    const delta = (value - baselineValue) * 100;
-    return `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%p`;
+    return value - baselineValue;
   }
   if (
     typeof result.value !== "number" ||
     typeof baselineResult.value !== "number"
   ) {
-    return "기준 차이 계산 불가";
+    return null;
   }
-  const delta = result.value - baselineResult.value;
-  return `${delta > 0 ? "+" : ""}${formatNumber(delta)}`;
+  return result.value - baselineResult.value;
 }
 
 interface CaseChoice {
@@ -281,6 +293,8 @@ interface CaseChoice {
   input: ExperimentCase["input"];
   position: number;
 }
+
+type CaseFilter = "all" | "worse" | "better" | "failed";
 
 function caseChoices(experiments: readonly Experiment[]): CaseChoice[] {
   const choices = new Map<string, CaseChoice>();
@@ -298,6 +312,51 @@ function caseChoices(experiments: readonly Experiment[]): CaseChoice[] {
   return [...choices.values()].sort(
     (left, right) => left.position - right.position,
   );
+}
+
+function matchesCaseFilter(
+  choice: CaseChoice,
+  experiments: readonly Experiment[],
+  evaluators: readonly ExperimentEvaluator[],
+  filter: CaseFilter,
+): boolean {
+  if (filter === "all") {
+    return true;
+  }
+  const cases = experiments.flatMap((experiment) => {
+    const experimentCase = experiment.cases.find(
+      ({ dataset_example_id: id }) => id === choice.datasetExampleId,
+    );
+    return experimentCase === undefined ? [] : [experimentCase];
+  });
+  if (filter === "failed") {
+    return cases.some(({ status }) => status === "failed");
+  }
+  const baselineCase = experiments[0]?.cases.find(
+    ({ dataset_example_id: id }) => id === choice.datasetExampleId,
+  );
+  if (baselineCase === undefined) {
+    return false;
+  }
+  const deltas = experiments.slice(1).flatMap((experiment) => {
+    const experimentCase = experiment.cases.find(
+      ({ dataset_example_id: id }) => id === choice.datasetExampleId,
+    );
+    if (experimentCase === undefined) {
+      return [];
+    }
+    return evaluators.flatMap((evaluator) => {
+      const delta = caseDelta(
+        resultFor(experimentCase, evaluator.key),
+        resultFor(baselineCase, evaluator.key),
+        evaluator,
+      );
+      return delta === null ? [] : [delta];
+    });
+  });
+  return filter === "worse"
+    ? deltas.some((delta) => delta < 0)
+    : deltas.some((delta) => delta > 0);
 }
 
 function jsonEvidence(value: ExperimentCase["output"]): string {
@@ -319,7 +378,33 @@ function CaseComparison({
   onClose: () => void;
   onOpenTrace?: (traceId: string) => void;
 }) {
-  const choices = caseChoices(experiments);
+  const [caseFilter, setCaseFilter] = useState<CaseFilter>("all");
+  const [caseSearch, setCaseSearch] = useState("");
+  const choices = useMemo(() => caseChoices(experiments), [experiments]);
+  const normalizedSearch = caseSearch.trim().toLocaleLowerCase();
+  const filteredChoices = useMemo(
+    () =>
+      choices.filter(
+        (choice) =>
+          matchesCaseFilter(choice, experiments, evaluators, caseFilter) &&
+          (normalizedSearch.length === 0 ||
+            preview(choice.input)
+              .toLocaleLowerCase()
+              .includes(normalizedSearch)),
+      ),
+    [caseFilter, choices, evaluators, experiments, normalizedSearch],
+  );
+  const selectionIsVisible = filteredChoices.some(
+    ({ datasetExampleId }) => datasetExampleId === selectedExampleId,
+  );
+  const firstFilteredExampleId = filteredChoices[0]?.datasetExampleId;
+
+  useEffect(() => {
+    if (!selectionIsVisible && firstFilteredExampleId !== undefined) {
+      onSelectExample(firstFilteredExampleId);
+    }
+  }, [firstFilteredExampleId, onSelectExample, selectionIsVisible]);
+
   const baselineCase = experiments[0]?.cases.find(
     ({ dataset_example_id: id }) => id === selectedExampleId,
   );
@@ -342,17 +427,44 @@ function CaseComparison({
 
       <div className="compare-case-layout">
         <nav className="compare-case-list" aria-label="비교할 case">
-          {choices.map((choice) => (
-            <button
-              aria-pressed={choice.datasetExampleId === selectedExampleId}
-              key={choice.datasetExampleId}
-              type="button"
-              onClick={() => onSelectExample(choice.datasetExampleId)}
+          <div className="compare-case-filters">
+            <input
+              aria-label="Case input 검색"
+              placeholder="Input 검색"
+              type="search"
+              value={caseSearch}
+              onChange={(event) => setCaseSearch(event.target.value)}
+            />
+            <select
+              aria-label="Case 결과 필터"
+              value={caseFilter}
+              onChange={(event) =>
+                setCaseFilter(event.target.value as CaseFilter)
+              }
             >
-              <small>Case {choice.position + 1}</small>
-              <span>{preview(choice.input)}</span>
-            </button>
-          ))}
+              <option value="all">전체</option>
+              <option value="worse">기준 대비 나빠진 case</option>
+              <option value="better">기준 대비 좋아진 case</option>
+              <option value="failed">Target 실행 실패 case</option>
+            </select>
+          </div>
+          {filteredChoices.length === 0 ? (
+            <p className="compare-case-filter-empty">
+              조건에 맞는 case가 없습니다.
+            </p>
+          ) : (
+            filteredChoices.map((choice) => (
+              <button
+                aria-pressed={choice.datasetExampleId === selectedExampleId}
+                key={choice.datasetExampleId}
+                type="button"
+                onClick={() => onSelectExample(choice.datasetExampleId)}
+              >
+                <small>Case {choice.position + 1}</small>
+                <span>{preview(choice.input)}</span>
+              </button>
+            ))
+          )}
         </nav>
 
         <div className="compare-case-results">

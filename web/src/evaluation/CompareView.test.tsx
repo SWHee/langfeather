@@ -316,6 +316,121 @@ describe("CompareView", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
+  it("filters cases by delta, target failure, and input preview search", async () => {
+    const filterBaseline = experiment(
+      "exp_filter_baseline",
+      "Filter baseline",
+      [
+        experimentCase("0", [result("exact_match", true)]),
+        experimentCase("1", [result("exact_match", true)]),
+        experimentCase("2", [result("exact_match", false)]),
+        experimentCase("3", [result("exact_match", true)]),
+      ],
+      { evaluators: [exactMatch] },
+    );
+    const filterCandidate = experiment(
+      "exp_filter_candidate",
+      "Filter candidate",
+      [
+        experimentCase("0", [result("exact_match", true)]),
+        experimentCase("1", [result("exact_match", false)]),
+        experimentCase("2", [result("exact_match", true)]),
+        experimentCase("3", [], { status: "failed" }),
+      ],
+      { evaluators: [exactMatch] },
+    );
+    filterBaseline.cases[0]!.input = { question: "neutral prompt" };
+    filterBaseline.cases[1]!.input = { question: "worse prompt" };
+    filterBaseline.cases[2]!.input = { question: "better prompt" };
+    filterBaseline.cases[3]!.input = { question: "failed prompt" };
+    getExperimentMock.mockImplementation((experimentId: string) =>
+      Promise.resolve(
+        experimentId === filterBaseline.experiment_id
+          ? filterBaseline
+          : filterCandidate,
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <CompareView
+        experiments={[summary(filterBaseline), summary(filterCandidate)]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: /Filter baseline/ }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: /Filter candidate/ }),
+    );
+    await screen.findByRole("heading", { level: 3, name: "Exact match" });
+    await user.click(
+      screen.getByRole("row", { name: /Filter baseline case 비교 열기/ }),
+    );
+
+    const caseList = screen.getByRole("navigation", { name: "비교할 case" });
+    expect(
+      within(caseList).getByRole("button", { name: /neutral prompt/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(caseList).getByRole("button", { name: /worse prompt/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(caseList).getByRole("button", { name: /better prompt/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(caseList).getByRole("button", { name: /failed prompt/ }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(
+      within(caseList).getByRole("combobox", { name: "Case 결과 필터" }),
+      "worse",
+    );
+    expect(
+      within(caseList).getByRole("button", { name: /worse prompt/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(caseList).queryByRole("button", { name: /better prompt/ }),
+    ).not.toBeInTheDocument();
+
+    await user.selectOptions(
+      within(caseList).getByRole("combobox", { name: "Case 결과 필터" }),
+      "better",
+    );
+    expect(
+      within(caseList).getByRole("button", { name: /better prompt/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(caseList).queryByRole("button", { name: /worse prompt/ }),
+    ).not.toBeInTheDocument();
+
+    await user.selectOptions(
+      within(caseList).getByRole("combobox", { name: "Case 결과 필터" }),
+      "failed",
+    );
+    expect(
+      within(caseList).getByRole("button", { name: /failed prompt/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(caseList).queryByRole("button", { name: /better prompt/ }),
+    ).not.toBeInTheDocument();
+
+    await user.selectOptions(
+      within(caseList).getByRole("combobox", { name: "Case 결과 필터" }),
+      "all",
+    );
+    await user.type(
+      within(caseList).getByRole("searchbox", { name: "Case input 검색" }),
+      "neutral",
+    );
+    expect(
+      within(caseList).getByRole("button", { name: /neutral prompt/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(caseList).queryByRole("button", { name: /failed prompt/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens the linked trace from a case detail", async () => {
     const user = userEvent.setup();
     const onOpenTrace = vi.fn();
