@@ -4018,6 +4018,59 @@ pre,
   }
 }
 
+/* STEP 7 Compare 기준선 조작성 */
+.compare-experiment-choice {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-experiment-choice > label {
+  min-width: 0;
+}
+
+.compare-baseline-status,
+.compare-baseline-button {
+  max-width: 112px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.compare-baseline-status {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.compare-baseline-button {
+  border: 1px solid #cfd5df;
+  color: #475467;
+  background: #fff;
+  cursor: pointer;
+}
+
+.compare-baseline-button:hover {
+  border-color: #9db8f7;
+  color: #1d4ed8;
+}
+
+@media (max-width: 460px) {
+  .compare-experiment-choice {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .compare-baseline-status,
+  .compare-baseline-button {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 /* STEP 3 Experiment 상세의 비교 탭 안내 */
 .experiment-compare-note {
   display: grid;

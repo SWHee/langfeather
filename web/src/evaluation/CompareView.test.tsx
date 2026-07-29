@@ -187,16 +187,24 @@ describe("CompareView", () => {
     });
   });
 
-  it("shows only guidance and no chart when no evaluator is selected", async () => {
+  it("automatically selects metrics shared by all selected experiments", async () => {
     const user = userEvent.setup();
     render(<CompareView experiments={summaries} />);
 
     await selectExperiments(user);
 
     expect(
-      await screen.findByText("비교할 평가 지표를 선택하세요."),
+      await screen.findByRole("checkbox", { name: /Exact match/ }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Relevance/ }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Exact match" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Relevance" }),
+    ).toBeInTheDocument();
   });
 
   it("renders only selected metrics with exact boolean rates and number means", async () => {
@@ -205,7 +213,7 @@ describe("CompareView", () => {
 
     await selectExperiments(user);
     await user.click(
-      await screen.findByRole("checkbox", { name: /Exact match/ }),
+      await screen.findByRole("checkbox", { name: /Relevance/ }),
     );
 
     expect(
@@ -231,13 +239,47 @@ describe("CompareView", () => {
     render(<CompareView experiments={summaries} />);
 
     await selectExperiments(user);
-    await user.click(
-      await screen.findByRole("checkbox", { name: /Exact match/ }),
-    );
+    await screen.findByRole("checkbox", { name: /Exact match/ });
 
     const chart = screen.getByRole("img", { name: /Exact match 비교/ });
     expect(within(chart).getByText("오류 1")).toBeInTheDocument();
     expect(within(chart).getByText("평가값 없음 1")).toBeInTheDocument();
+  });
+
+  it("recalculates deltas after changing the baseline", async () => {
+    const user = userEvent.setup();
+    render(<CompareView experiments={summaries} />);
+
+    await selectExperiments(user);
+    await screen.findByRole("heading", { level: 3, name: "Relevance" });
+
+    const candidateRow = screen.getByRole("row", {
+      name: /Candidate case 비교 열기/,
+    });
+    expect(within(candidateRow).getByText("기준 대비 +2")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Candidate을.*기준으로 설정/,
+      }),
+    );
+
+    const baselineRow = await screen.findByRole("row", {
+      name: /Baseline case 비교 열기/,
+    });
+    const updatedCandidateRow = screen.getByRole("row", {
+      name: /Candidate case 비교 열기/,
+    });
+    expect(within(baselineRow).getByText("기준 대비 -2")).toBeInTheDocument();
+    expect(within(updatedCandidateRow).getByText("기준")).toBeInTheDocument();
+  });
+
+  it("explains why selections are limited to four", () => {
+    render(<CompareView experiments={summaries} />);
+
+    expect(
+      screen.getAllByText(/화면 밀도와 가로 스크롤을 방지/),
+    ).toHaveLength(2);
   });
 
   it("disables experiments from a different dataset revision", async () => {
@@ -280,9 +322,7 @@ describe("CompareView", () => {
     render(<CompareView experiments={summaries} onOpenTrace={onOpenTrace} />);
 
     await selectExperiments(user);
-    await user.click(
-      await screen.findByRole("checkbox", { name: /Exact match/ }),
-    );
+    await screen.findByRole("checkbox", { name: /Exact match/ });
     await user.click(
       screen.getByRole("row", { name: /Baseline case 비교 열기/ }),
     );

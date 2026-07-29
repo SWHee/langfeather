@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import { getExperiment } from "../api/client";
 import type {
@@ -73,6 +79,25 @@ function evaluatorUnion(experiments: readonly Experiment[]) {
     }
   }
   return { evaluators: [...evaluators.values()], conflictingKeys };
+}
+
+function commonEvaluatorKeys(experiments: readonly Experiment[]): string[] {
+  const firstExperiment = experiments[0];
+  if (experiments.length < 2 || firstExperiment === undefined) {
+    return [];
+  }
+  return firstExperiment.evaluators
+    .filter((evaluator) =>
+      experiments.slice(1).every((experiment) =>
+        experiment.evaluators.some(
+          (candidate) =>
+            candidate.key === evaluator.key &&
+            candidate.data_type === evaluator.data_type,
+        ),
+      ),
+    )
+    .slice(0, 4)
+    .map(({ key }) => key);
 }
 
 function metricBarWidth(
@@ -432,6 +457,7 @@ export function CompareView({
   const [caseAnchorExperimentId, setCaseAnchorExperimentId] = useState<
     string | null
   >(null);
+  const hasManualEvaluatorSelection = useRef(false);
 
   useEffect(() => {
     if (selectedExperimentIds.length < 2) {
@@ -467,6 +493,16 @@ export function CompareView({
     [loadedExperiments],
   );
 
+  useEffect(() => {
+    if (
+      loadState.status !== "success" ||
+      hasManualEvaluatorSelection.current
+    ) {
+      return;
+    }
+    setSelectedEvaluatorKeys(commonEvaluatorKeys(loadState.experiments));
+  }, [loadState]);
+
   const selectedEvaluators = selectedEvaluatorKeys.flatMap((key) => {
     const evaluator = evaluators.find((candidate) => candidate.key === key);
     return evaluator === undefined ? [] : [evaluator];
@@ -483,7 +519,9 @@ export function CompareView({
       ? selectedExperimentIds.filter((id) => id !== experiment.experiment_id)
       : [...selectedExperimentIds, experiment.experiment_id];
     setSelectedExperimentIds(nextExperimentIds);
-    setSelectedEvaluatorKeys([]);
+    if (!hasManualEvaluatorSelection.current) {
+      setSelectedEvaluatorKeys([]);
+    }
     setSelectedExampleId(null);
     setCaseAnchorExperimentId(null);
     setLoadState({
@@ -492,6 +530,7 @@ export function CompareView({
   };
 
   const toggleEvaluator = (evaluatorKey: string) => {
+    hasManualEvaluatorSelection.current = true;
     setSelectedEvaluatorKeys((current) =>
       current.includes(evaluatorKey)
         ? current.filter((key) => key !== evaluatorKey)
@@ -499,6 +538,16 @@ export function CompareView({
     );
     setSelectedExampleId(null);
     setCaseAnchorExperimentId(null);
+  };
+
+  const setBaseline = (experimentId: string) => {
+    setSelectedExperimentIds((current) => [
+      experimentId,
+      ...current.filter((id) => id !== experimentId),
+    ]);
+    setSelectedExampleId(null);
+    setCaseAnchorExperimentId(null);
+    setLoadState({ status: "loading" });
   };
 
   const openCasesFor = (experimentId: string) => {
@@ -565,42 +614,65 @@ export function CompareView({
           <legend>
             Experiment <span>{selectedExperimentIds.length}/4 선택</span>
           </legend>
-          <p>같은 Dataset revision에서 2~4개를 선택하세요.</p>
+          <p>
+            같은 Dataset revision에서 2~4개를 선택하세요. 최대 4개는 화면
+            밀도와 가로 스크롤을 방지하기 위한 제한입니다.
+          </p>
           <div className="compare-choice-list">
             {experiments.map((experiment) => {
               const selected = selectedExperimentIds.includes(
                 experiment.experiment_id,
               );
+              const isBaseline =
+                selectedExperimentIds[0] === experiment.experiment_id;
               const revisionMismatch =
                 selectedRevision !== null &&
                 experiment.dataset_revision !== selectedRevision;
               const maximumReached =
                 selectedExperimentIds.length >= 4 && !selected;
               return (
-                <label
-                  data-disabled={revisionMismatch || maximumReached}
+                <div
+                  className="compare-experiment-choice"
                   data-selected={selected}
                   key={experiment.experiment_id}
                 >
-                  <input
-                    checked={selected}
-                    disabled={revisionMismatch || maximumReached}
-                    type="checkbox"
-                    onChange={() => toggleExperiment(experiment)}
-                  />
-                  <span>
-                    <strong>{experiment.name}</strong>
-                    <small>
-                      revision {experiment.dataset_revision} ·{" "}
-                      {EXPERIMENT_STATUS_LABEL[experiment.status]}
-                    </small>
-                  </span>
-                  {revisionMismatch ? (
-                    <em>revision {experiment.dataset_revision} 전용</em>
-                  ) : maximumReached ? (
-                    <em>최대 4개</em>
-                  ) : null}
-                </label>
+                  <label
+                    data-disabled={revisionMismatch || maximumReached}
+                    data-selected={selected}
+                  >
+                    <input
+                      checked={selected}
+                      disabled={revisionMismatch || maximumReached}
+                      type="checkbox"
+                      onChange={() => toggleExperiment(experiment)}
+                    />
+                    <span>
+                      <strong>{experiment.name}</strong>
+                      <small>
+                        revision {experiment.dataset_revision} ·{" "}
+                        {EXPERIMENT_STATUS_LABEL[experiment.status]}
+                      </small>
+                    </span>
+                    {revisionMismatch ? (
+                      <em>revision {experiment.dataset_revision} 전용</em>
+                    ) : maximumReached ? (
+                      <em>최대 4개</em>
+                    ) : null}
+                  </label>
+                  {selected &&
+                    (isBaseline ? (
+                      <span className="compare-baseline-status">현재 기준</span>
+                    ) : (
+                      <button
+                        className="compare-baseline-button"
+                        type="button"
+                        onClick={() => setBaseline(experiment.experiment_id)}
+                      >
+                        <span className="sr-only">{experiment.name}을 </span>
+                        기준으로 설정
+                      </button>
+                    ))}
+                </div>
               );
             })}
           </div>
@@ -610,7 +682,10 @@ export function CompareView({
           <legend>
             평가 지표 <span>{selectedEvaluatorKeys.length}/4 선택</span>
           </legend>
-          <p>선택한 experiment에 저장된 지표 중 최대 4개를 고르세요.</p>
+          <p>
+            선택한 experiment에 공통인 지표를 최대 4개까지 자동 선택합니다.
+            최대 4개는 화면 밀도와 가로 스크롤을 방지하기 위한 제한입니다.
+          </p>
           {loadState.status === "success" && evaluators.length > 0 ? (
             <div className="compare-choice-list compare-evaluator-list">
               {evaluators.map((evaluator) => {
