@@ -12,13 +12,17 @@ follow Semantic Versioning while LangFeather remains in the `0.x` series.
 - Trace-level structured annotations and one shared memo per trace.
 - Fixed manual annotation queues with explicit complete/edit workflow.
 - Dataset and dataset example deletion from the Datasets view.
+- Experiment comparison in the evaluation workspace. Pick two to four
+  experiments from the same dataset revision and up to four evaluators to
+  compare boolean pass rates and finite number averages, with evaluator error
+  and missing-value counts always shown alongside.
 
 ### Changed
 
-- The top navigation now separates Traces, Annotation Queues, Scores, Datasets,
-  and Local Data. Datasets opens as a searchable list; a dataset detail holds its
-  examples and experiments, and example creation moved into an Add example
-  dialog.
+- The top navigation now separates Traces, Annotation Queues, Scores,
+  Evaluation, and Local Data. Evaluation opens a dataset-scoped workspace whose
+  Compare, Experiments, and Examples tabs share the selected dataset, and
+  example creation moved into an Add example dialog.
 - Queue completion is explicit and independent of score coverage.
 - Used score structures are immutable and archived instead of deleted.
 
