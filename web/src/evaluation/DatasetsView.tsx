@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import {
   addDatasetExample,
@@ -153,13 +159,13 @@ export function DatasetsView({
 
   const notify = (text: string) => setStatus({ text, tone: "info" });
   const warn = (text: string) => setStatus({ text, tone: "error" });
-  const clearComparisonUrlState = () => {
+  const clearComparisonUrlState = useCallback(() => {
     setComparisonUrlState({
       experimentIds: [],
       metricKeys: [],
       caseId: null,
     });
-  };
+  }, []);
 
   useEffect(() => {
     onUrlStateChange?.({
@@ -174,7 +180,7 @@ export function DatasetsView({
     selectedDatasetId,
   ]);
 
-  const loadLists = () => {
+  const loadLists = useCallback(() => {
     setLoading(true);
     setLoadError(false);
     void Promise.all([getDatasets(), getExperiments()])
@@ -201,11 +207,11 @@ export function DatasetsView({
         setLoadError(true);
       })
       .finally(() => setLoading(false));
-  };
+  }, [clearComparisonUrlState]);
 
   useEffect(() => {
     void Promise.resolve().then(loadLists);
-  }, []);
+  }, [loadLists]);
 
   useEffect(() => {
     selectedDatasetIdRef.current = selectedDatasetId;
@@ -254,7 +260,7 @@ export function DatasetsView({
         setDetailError(true);
       });
     return () => controller.abort();
-  }, [detailRequestRevision, selectedDatasetId]);
+  }, [clearComparisonUrlState, detailRequestRevision, selectedDatasetId]);
 
   const selectDataset = (datasetId: string) => {
     if (datasetId === selectedDatasetId) {
