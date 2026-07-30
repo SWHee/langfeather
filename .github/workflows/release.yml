@@ -84,7 +84,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           labels: |
-            org.opencontainers.image.source=https://github.com/SungjinWi99/langfeather
+            org.opencontainers.image.source=https://github.com/SungjinWi99/LangFeather
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest

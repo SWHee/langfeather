@@ -60,6 +60,6 @@ Phase 6 release-hardening 단계로 남아 있습니다.
 - trace delivery는 bounded in-memory best-effort 방식
 - 원본 diagnostic payload를 자동 redaction하지 않고 local에 보관
 
-[Unreleased]: https://github.com/SungjinWi99/langfeather/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/SungjinWi99/langfeather/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/SungjinWi99/langfeather/releases/tag/v0.1.0
+[Unreleased]: https://github.com/SungjinWi99/LangFeather/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/SungjinWi99/LangFeather/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/SungjinWi99/LangFeather/releases/tag/v0.1.0

@@ -11,5 +11,5 @@
 - 자동 계측은 callback-visible `invoke`, `ainvoke`, `stream`, `astream`에 한정
 - static graph edge, LangChain batch 계열, 비용 계산, OTel, PostgreSQL, JavaScript SDK 미지원
 
-재현 가능한 동작 오류는 [GitHub Issues](https://github.com/SungjinWi99/langfeather/issues)에
+재현 가능한 동작 오류는 [GitHub Issues](https://github.com/SungjinWi99/LangFeather/issues)에
 남겨주세요.

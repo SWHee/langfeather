@@ -2,7 +2,7 @@
 
 LangFeather는 수강생이 AI와 함께 작은 개선을 안전하게 기여할 수 있게 하는 것을
 중요하게 생각합니다. bug, 설치/적용 경험, 기능 제안은 먼저
-[GitHub Issues](https://github.com/SungjinWi99/langfeather/issues)에 남겨주세요.
+[GitHub Issues](https://github.com/SungjinWi99/LangFeather/issues)에 남겨주세요.
 
 ## PR 전 확인
 

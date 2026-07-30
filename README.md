@@ -67,7 +67,7 @@ langfeather.flush(timeout=2)
 
 `0.2.0`은 실제 LangGraph project에서 사용해 보며 설치·적용 경험과 필요한 기능을
 확인하는 단계입니다. bug, 설치/적용 경험, 기능 제안은
-[GitHub Issues](https://github.com/SungjinWi99/langfeather/issues)에 남겨주세요.
+[GitHub Issues](https://github.com/SungjinWi99/LangFeather/issues)에 남겨주세요.
 
 작은 기능은 AI를 활용해 PR로 기여할 수 있습니다. 관련 spec, focused test, 변경 범위를
 확인하는 방법은 [기여 가이드](CONTRIBUTING.md)에 있습니다.

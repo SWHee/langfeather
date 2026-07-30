@@ -2,7 +2,7 @@
 
 이 문서는 Python SDK로 dataset과 experiment를 실행하는 방법을 설명합니다. UI에서
 monitoring과 annotation을 사용하는 방법은 repository의
-[Monitoring과 평가 가이드](https://github.com/SungjinWi99/langfeather/blob/main/docs/guides/monitoring-and-evaluation.md)를 참고하세요.
+[Monitoring과 평가 가이드](https://github.com/SungjinWi99/LangFeather/blob/main/docs/guides/monitoring-and-evaluation.md)를 참고하세요.
 
 LangFeather의 evaluation 기능은 debugging 중 확인한 사례를 regression dataset으로
 고정하고, 같은 사례에 대한 application 변경 전후 결과를 local에서 비교하기 위한

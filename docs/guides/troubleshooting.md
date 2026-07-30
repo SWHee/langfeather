@@ -25,5 +25,5 @@ stream은 소비를 시작한 뒤 종료, 실패, 취소될 때 terminal trace�
 ## 도움 요청
 
 재현 가능한 최소 code, 실행 명령, LangFeather version, error log를 포함해
-[GitHub Issues](https://github.com/SungjinWi99/langfeather/issues)에 남겨주세요.
+[GitHub Issues](https://github.com/SungjinWi99/LangFeather/issues)에 남겨주세요.
 trace payload에는 민감한 값을 넣지 마세요.
