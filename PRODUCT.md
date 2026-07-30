@@ -8,8 +8,8 @@ web
 
 ## Users
 
-개인 laptop 또는 desktop에서 LangChain/LangGraph 기반 RAG와 LLM application을
-만들고 디버깅하는 Python 개발자가 주 사용자다. 이들은 실행 경로와 node별 원본
+부트캠프에서 개인 LangChain/LangGraph 챗봇을 만들고 디버깅하는 Python 개발자가
+주 사용자다. 이들은 제한된 개발 resource 안에서 실행 경로와 node별 원본
 입출력·오류를 빠르게 확인하고, 실패 사례를 고정해 변경 전후를 반복 검토한다.
 
 ## Product Purpose
@@ -28,8 +28,8 @@ trace의 원본 payload와 실제 실행 관계를 local SQLite에 보존하면�
 ## Operating Context
 
 사용자는 `127.0.0.1:4319`의 browser UI에서 trace와 annotation queue를 검토한다.
-평가 dataset은 trace에서 snapshot을 만들거나 JSONL로 다루며, experiment는 SDK가
-사용자 process에서 실행하고 결과만 local server에 기록한다.
+평가 dataset은 trace에서 snapshot을 만들고, experiment는 SDK가 사용자 process에서
+실행하며 결과만 local server에 기록한다.
 
 ## Capabilities and Constraints
 
@@ -48,9 +48,10 @@ dashboard가 아니라 집중된 debugging workspace여야 한다.
 
 ## Evidence on Hand
 
-- `docs/PRODUCT_REQUIREMENTS.md`, `docs/DECISIONS.md`, `docs/DATA_CONTRACT.md`
+- `specs/product.md`, `specs/decisions.md`, `specs/data-contract.md`
 - SDK/server/web integration tests와 canonical trace fixtures
-- 현재 React UI의 Traces, Annotation Queues, Scores, Local Data surfaces
+- 현재 React UI의 Overview, Traces, Annotation Queues, Scores, Evaluation,
+  Local Data surfaces
 
 ## Product Principles
 

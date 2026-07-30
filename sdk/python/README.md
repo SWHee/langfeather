@@ -1,157 +1,100 @@
 # LangFeather Python SDK
 
-The SDK core has no runtime dependencies. Install the optional LangChain
-integration for LangChain or LangGraph applications:
+[English README](README_EN.md)
+
+LangFeather Python SDK는 LangChain·LangGraph 실행과 일반 Python 코드를 local
+LangFeather collector로 보냅니다. SDK는 application의 실행 결과를 바꾸지 않도록
+백그라운드에서 best-effort로 전송합니다.
+
+> 시작하기 전에 local collector와 UI를 실행하세요. 전체 설치 방법은
+> [프로젝트 README](../../README.md)를 참고하세요.
+
+## 설치
+
+LangChain 또는 LangGraph application에는 optional extra를 설치합니다.
 
 ```bash
 pip install "langfeather[langchain]"
 ```
 
-Wrap the top-level Runnable once:
+일반 Python 함수나 ASGI application만 관측한다면 core package만 설치하면 됩니다.
+
+```bash
+pip install langfeather
+```
+
+SDK endpoint는 다음 우선순위로 결정됩니다.
+
+1. `langfeather.configure(endpoint="http://...")`
+2. endpoint를 생략했을 때 `LANGFEATHER_ENDPOINT`
+3. 기본값 `http://127.0.0.1:4319`
+
+Host에서 application을 실행하면 기본 endpoint를 그대로 사용할 수 있습니다.
+같은 Docker Compose network 안의 application container에서는
+`http://langfeather:4319`처럼 collector service 주소를 지정하세요.
+
+## 사용법
+
+`StateGraph.compile()`의 결과처럼 실제로 호출하는 최상위 Runnable을 감쌉니다.
 
 ```python
 import langfeather
 
-langfeather.configure()  # optional
-graph = langfeather.wrap_runnable(graph)
+langfeather.configure(endpoint="http://127.0.0.1:4319")
+graph = langfeather.wrap_runnable(compiled_graph, name="my-langgraph-app")
+
 result = graph.invoke(
-    {"question": "hello"},
+    {"question": "검색 결과를 요약해줘"},
     {"configurable": {"thread_id": "example-session"}},
 )
+
+# 짧게 끝나는 CLI/script에서는 종료 전에 호출합니다.
 langfeather.flush(timeout=2)
 ```
 
-Configuration precedence is:
+UI에서 새 trace를 열어 root graph와 내부 Runnable·LLM·retriever·tool 실행을
+확인하세요. 기존 입력, 출력, streaming chunk, 예외는 wrapper를 씌우기 전과 같은
+형태로 application에 전달됩니다.
 
-1. `configure(endpoint="http://...")`
-2. the `LANGFEATHER_ENDPOINT` environment variable when `endpoint` is omitted
-3. `http://127.0.0.1:4319`
+## 다음 문서
 
-The endpoint is the server base URL; the SDK posts terminal envelopes to
-`/api/v1/traces/batch`. Configuration is lazy: importing or configuring the SDK
-does not start a sender thread or perform network I/O. The first completed trace
-starts a bounded background sender.
+- [계측하기](docs/instrumentation.md): `@observe`, `span()`, ASGI,
+  명시적 context propagation
+- [LangChain·LangGraph](docs/langchain-langgraph.md): 지원 호출 방식,
+  session 연결, callback 관측 범위
+- [전송과 제약](docs/delivery-and-limits.md): queue, retry, `flush()`,
+  shutdown, streaming의 제약
+- [Dataset, Experiment, Evaluator guide](docs/evaluation.md):
+  local Python process에서 실행하는 평가 기능
 
-For sessions, `config["metadata"]["session_id"]` takes precedence over
-LangGraph's `config["configurable"]["thread_id"]`.
-
-`invoke`, `ainvoke`, `stream`, and `astream` are trace-aware. Stream chunks are
-returned unchanged while LangFeather keeps an in-memory diagnostic aggregate
-and sends one terminal envelope after exhaustion, failure, cancellation,
-`close()`, or `aclose()`. Closing a started stream records `cancelled`; merely
-creating a stream without starting iteration does not execute or record it.
-
-The optional LangChain callback captures callback-visible chain, Runnable,
-LLM, retriever, and tool runs with their runtime parent relation. LLM model and
-token fields are copied only when LangChain exposes provider metadata; missing
-tokens are not estimated and cost is not calculated. Time to first token is
-recorded only after an actual `on_llm_new_token` callback.
-
-General Python code does not need LangChain:
-
-```python
-import langfeather
-
-@langfeather.observe(name="retrieve_documents")
-def retrieve_documents(query: str) -> list[str]:
-    with langfeather.span("local_lookup", input=query) as current_span:
-        documents = ["document"]
-        current_span.set_output(documents)
-    return documents
-```
-
-`@observe` supports synchronous functions, coroutines, generators, and async
-generators. Iterator chunks and application exceptions are returned unchanged.
-Closing a started generator records `cancelled`; creating one without iterating
-does not create a trace.
-
-`current_context()` returns an explicit context snapshot. Use
-`use_context(snapshot)` only when manually propagating the current trace into a
-new thread or an execution context that did not inherit Python `contextvars`.
-The snapshot is valid only while its owning trace is active. Work intentionally
-detached beyond the parent call starts a new root trace instead of appending to
-an envelope that has already been sent.
-
-Generic spans and callback-visible LangChain runs can alternate without
-flattening the call tree. For example, a `span()` inside a LangGraph node is a
-child of that node, and a Runnable invoked inside the span is a child of the
-span.
-
-Any HTTP ASGI application can be wrapped without importing FastAPI:
-
-```python
-app = langfeather.wrap_asgi(app)
-```
-
-Each HTTP request becomes a new root observation. A wrapped Runnable invoked
-inside the request becomes its child. The wrapper records request routing fields
-and response status/body, but intentionally omits request and response headers,
-including cookies and authorization values. Status and body chunks observed
-before an exception or disconnect remain in the terminal payload. A received
-`http.disconnect` records the request as `cancelled`.
-
-The serializer preserves Pydantic models, dataclasses, LangChain documents and
-messages, diagnostic standard-library types, non-string mapping keys, cycles,
-and unsupported values through explicit JSON markers. The SDK never walks an
-arbitrary object's `__dict__`.
-
-Delivery remains best-effort. The bounded in-memory queue discards the oldest
-waiting trace on overflow, retries only network errors, `408`, `429`, and `5xx`,
-and reports failures through warnings. Serialization, callback, queue, and
-collector failures do not replace application return values, chunks, exception
-instances, or their originating traceback frames. `shutdown()` stops accepting
-new envelopes after its bounded flush; call `configure()` explicitly before
-tracing again in the same process.
-
-## Local dataset evaluation
-
-`evaluate()` runs a dataset sequentially in the calling Python process. The
-server stores the dataset snapshot and results, but never imports or executes a
-target or evaluator. Create and review datasets in the Evaluation UI first,
-then pass its dataset ID to the SDK:
+## 최소 API
 
 ```python
 import langfeather
 
 langfeather.configure(endpoint="http://127.0.0.1:4319")
 
-dataset = langfeather.get_or_create_dataset(
-    name="rag-regression",
-    examples=[
-        langfeather.DatasetExample(
-            input={"question": "hello"},
-            expected_output={"answer": "hello"},
-        )
-    ],
-)
-
-run = langfeather.evaluate(
-    dataset=dataset.dataset_id,
-    name="baseline",
-    target=lambda item: {"answer": item["question"]},
-    evaluators=[langfeather.json_field("answer")],
-    target_metadata={"release": "abc123"},
-)
+@langfeather.observe(name="retrieve_documents", kind="retriever")
+def retrieve_documents(query: str) -> list[str]:
+    with langfeather.span("local_lookup", input={"query": query}) as operation:
+        documents = ["document"]
+        operation.set_output(documents)
+    return documents
 ```
 
-`target` can be a normal one-argument callable or a LangChain/LangGraph-like
-object with `invoke`. Use `aevaluate()` for an async callable or object with
-`ainvoke`. Every case receives a normal trace tagged with experiment, dataset,
-example, and case IDs. Target/evaluator failures are stored on that case and do
-not stop later cases; a control API failure raises `EvaluationError`. Only
-`Exception` counts as a case failure — `KeyboardInterrupt` stops the run and
-cancels the experiment, so a long run stays interruptible.
+`@observe`는 동기 함수, coroutine, generator, async generator를 지원합니다.
+직접 provider SDK를 호출하거나 LangChain callback에 나타나지 않는 도구는
+`@observe(kind="tool")` 또는 `span(kind="tool")`으로 감싸세요.
 
-Built-ins are `exact_match()`, `contains()`, and `json_field("field")`. A custom
-evaluator returns a boolean or finite number:
+## 데이터와 전달의 경계
 
-```python
-@langfeather.evaluator(key="has_answer", name="Has answer")
-def has_answer(*, input, output, expected_output, metadata) -> bool:
-    del input, expected_output, metadata
-    return isinstance(output, dict) and bool(output.get("answer"))
-```
+LangFeather는 debugging을 위해 trace payload를 자동으로 redact, truncate,
+summarize, sample하지 않습니다. 실제 secret이나 production data를 공유 database에
+넣지 마세요.
 
-See the [dataset, experiment, evaluator guide](../../docs/DATASET_EXPERIMENT_EVALUATION.md)
-for UI workflow, API examples, immutable snapshot semantics, write-once case
-result rules, and scope limits.
+전송은 bounded in-memory queue와 짧은 retry를 사용하는 best-effort 방식입니다.
+collector가 없거나 queue가 가득 차도 application의 반환값이나 예외를 바꾸지 않지만,
+그 trace는 유실될 수 있습니다. `flush()`가 `True`를 반환해도 SDK가 collector에
+전달 처리를 마쳤다는 뜻일 뿐, 서버 database에 저장됐다는 end-to-end 보장은
+아닙니다. 자세한 운영 의미는 [전송과 제약](docs/delivery-and-limits.md)을
+확인하세요.

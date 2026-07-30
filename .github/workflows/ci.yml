@@ -22,7 +22,11 @@ jobs:
       - run: uv run mypy -p langfeather -p langfeather_server
       - run: uv run mypy examples sdk/python/tests server/tests tests/integration scripts
       - run: make contract-check
-      - run: uv run pytest
+      # SDK/server에는 같은 basename의 test module이 있다. 별도 pytest process로
+      # 실행해 import-file mismatch 없이 각 package를 검증한다.
+      - run: make test-sdk
+      - run: make test-server
+      - run: make test-integration
 
   web:
     runs-on: ubuntu-latest

@@ -1,0 +1,21 @@
+name: Installation or adoption feedback
+description: 설치 또는 기존 LangGraph code 적용 과정에서의 경험을 공유합니다.
+title: "feedback: "
+labels: [feedback]
+body:
+  - type: textarea
+    attributes:
+      label: 하려던 일
+      description: collector 실행, SDK 설치, graph 적용 중 무엇을 하려 했나요?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 막힌 지점 또는 불편했던 점
+      description: 실행한 명령, 바꾼 code, 기대와 달랐던 점을 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 도움이 될 개선
+      description: 해결책이 아니라도 괜찮습니다. 어떤 debugging 질문을 해결하지 못했나요?
