@@ -122,7 +122,7 @@ jobs:
           docker run -d --rm --name langfeather-release-smoke \
             -p 127.0.0.1:4319:4319 \
             "${IMAGE_NAME}:${version}"
-          curl --fail --retry 20 --retry-connrefused --retry-delay 1 \
+          curl --fail --retry 20 --retry-all-errors --retry-connrefused --retry-delay 1 \
             http://127.0.0.1:4319/api/v1/health
       - name: Send one trace from the published SDK
         env:
