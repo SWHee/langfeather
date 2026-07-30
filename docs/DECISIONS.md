@@ -52,7 +52,11 @@
 | Internal nodes | callback event가 발생한 모든 내부 run을 저장한다. | 관찰 가능한 실행의 완전성을 우선한다. |
 | UI noise | 내부 node는 기본 collapse할 수 있지만 삭제하지 않는다. | 완전성과 가독성을 함께 제공한다. |
 | UI simplicity | 화면에는 현재 작업에 꼭 필요한 component와 설명만 둔다. | 사용자가 실행 경로와 원본 data에 바로 집중하게 한다. |
-| UI navigation | top navigation은 `Traces`, `Annotation Queues`, `Scores`, `Evaluation`, `Local Data`로 나누고 backup/reset은 `Local Data`에만 둔다. `Evaluation`은 dataset을 선택한 뒤 `Compare`, `Experiments`, `Examples` tab을 제공하며, experiment는 여전히 선택된 dataset 문맥 안에만 존재하고 별도 top-level 항목을 만들지 않는다. | trace 확인, 수동 평가, dataset 편집, experiment regression, local data 관리를 분리한다. |
+| UI navigation | top navigation은 `Overview`, `Traces`, `Annotation Queues`, `Scores`, `Evaluation`, `Local Data`로 나누고 첫 화면은 `Overview`로 한다. backup/reset은 `Local Data`에만 둔다. `Evaluation`은 dataset을 선택한 뒤 `Compare`, `Experiments`, `Examples` tab을 제공하며, experiment는 여전히 선택된 dataset 문맥 안에만 존재하고 별도 top-level 항목을 만들지 않는다. | 기간 추세 확인, trace 디버깅, 수동 평가, dataset 편집, experiment regression, local data 관리를 분리한다. |
+| Overview aggregation | Overview의 모든 지표는 기간과 공통 trace filter로 먼저 대상 trace 집합을 정한 뒤 같은 집합을 집계한다. status는 공통 filter에서 제외하고 request status series로 표시한다. | 서로 다른 chart가 다른 모집단을 집계하거나 status filter가 error rate를 0%/100%로 왜곡하지 않게 한다. |
+| Overview latency and errors | latency는 대상 trace의 duration p50/p95/p99이고 error rate는 `failed / (completed + failed + cancelled)`다. 빈 bucket의 latency와 error rate는 0이 아니라 값 없음이다. | 취소된 요청을 숨기지 않고 데이터 없음과 실제 0을 구분한다. |
+| Overview calls and feedback | LLM/tool call은 대상 trace가 소유한 `llm`/`tool` observation 수이며 tool은 observation name별로 나눈다. Feedback은 trace annotation만 사용하고 boolean true 비율, number 평균, categorical option 선택 비율로 집계한다. Experiment evaluator 결과는 Evaluation에 남긴다. | runtime 호출량과 manual trace feedback을 기존 evidence model에 맞춰 보여주고 experiment regression과 섞지 않는다. |
+| Overview interaction | chart는 tooltip과 series 표시 제어만 제공하고 다른 화면으로 이동시키지 않는다. 화면 전환은 top navigation을 사용한다. Overview filter는 URL에 보존하되 Trace List filter와 자동 동기화하지 않는다. | monitoring과 trace debugging의 상태를 암묵적으로 섞지 않고 navigation 동작을 단순하게 유지한다. |
 | Evaluation comparison | 같은 dataset revision의 experiment만 비교한다. experiment는 2~4개, 평가 지표는 최대 4개까지 사용자가 직접 선택하며 선택하지 않은 지표를 자동으로 그리지 않는다. boolean은 통과율, finite number는 평균으로 집계하고 median/percentile 같은 파생 통계는 추가하지 않는다. | 비교 기준을 사용자가 통제하게 하고 snapshot된 regression 근거를 훼손하지 않는다. |
 | Evaluation honesty | 전체 case 수, 정상 평가 결과 수, evaluator 오류 수, 평가값이 없는 case 수, target 실행이 실패한 case 수를 숨기지 않는다. 오류를 제외한 평균만 표시하지 않는다. | 낙관적 집계가 실패를 가리지 않게 한다. |
 | Score management UI | `Scores`는 검색 가능한 table을 기본 화면으로 두고 create form은 `New Score` 동작 뒤의 별도 집중 UI에 둔다. | 자주 하는 조회와 드문 schema 생성을 같은 시각적 우선순위로 두지 않는다. |
@@ -92,6 +96,21 @@
 | Completed case scores | completed case는 선언된 evaluator를 전부 보고해야 한다. | 완료 집계가 비어 있는 점수를 가리키지 않게 한다. |
 
 ## Decision Changes
+
+### 2026-07-30 local monitoring `Overview`를 기본 첫 화면으로 추가한다
+
+- 이유: 개별 trace를 열기 전에 선택 기간의 요청량, latency, 오류, LLM/tool
+  호출, feedback 변화를 한 화면에서 확인할 필요가 있다.
+- 영향: 첫 화면을 Trace List에서 `Overview`로 바꾸고 top navigation 맨 앞에
+  추가한다. `Traces`의 list/detail debugging flow와 독립 filter는 유지한다.
+  `GET /api/v1/dashboard` 읽기 endpoint를 추가하며 기존 trace, observation,
+  annotation table만 집계한다.
+- 집계: 공통 trace filter를 먼저 적용하고, latency p50/p95/p99, 전체 terminal
+  trace 대비 failed 비율, `llm`/`tool` observation count, trace annotation
+  추세를 반환한다. status는 공통 filter에 넣지 않는다.
+- UI: chart에서 다른 화면으로 이동하지 않고 top navigation으로 전환한다.
+  기본 기간은 최근 7일이며 기간 길이에 따라 bucket을 자동 선택한다.
+- migration: 없음. 기존 row를 읽는 aggregate query와 Web surface 추가다.
 
 ### 2026-07-29 `Datasets` top navigation을 `Evaluation`으로 바꾼다
 

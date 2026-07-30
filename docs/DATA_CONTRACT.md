@@ -383,6 +383,108 @@ observation input/output/error 전체는 포함하지 않는다. `session_id`가
 `previous_trace_id`, `next_trace_id`를 포함한다. 이 두 field가 `null`이면 더
 이동할 trace가 없다.
 
+### Monitoring Overview
+
+```text
+GET /dashboard
+```
+
+전체 HTTP path는 `GET /api/v1/dashboard`다. 이 endpoint는 기존 trace,
+observation, annotation을 읽어 line chart용 bucket을 반환하며 product row를
+새로 저장하지 않는다.
+
+Required query parameters:
+
+- `from`: inclusive UTC ISO 8601 timestamp
+- `to`: exclusive UTC ISO 8601 timestamp이며 `from`보다 뒤여야 함
+- `timezone`: bucket 경계에 사용할 IANA timezone
+
+Optional query parameters:
+
+- `bucket`: `auto`, `hour`, `day`, `week`, `month`; 기본값 `auto`
+- `query`: trace name과 저장된 root input/output JSON text 검색
+- `tag`
+- `session_id`
+- `release`
+- `environment`
+- `user_id`
+- repeated `score_id`: 최대 4개
+- repeated `tool_name`
+
+`status`는 dashboard 공통 filter가 아니다. Request status 자체를 series로
+반환하고 error rate의 모집단을 유지한다. `tag`, `session_id`, `release`,
+`environment`, `user_id`는 exact match이고 `query`만 단순 text 검색이다.
+모든 observation과 annotation metric은 이 filter를 통과한 owning trace에
+한정한다.
+
+`bucket=auto`는 기간이 48시간 이하면 hour, 90일 이하면 day, 2년 이하면 week,
+그보다 길면 month를 선택한다. Response의 `bucket`에는 실제 선택된 값을
+반환한다. 모든 metric은 owning trace의 `started_at` bucket에 귀속한다.
+
+```json
+{
+  "from": "2026-07-23T00:00:00Z",
+  "to": "2026-07-30T00:00:00Z",
+  "timezone": "Asia/Seoul",
+  "bucket": "day",
+  "totals": {
+    "trace_count": 42,
+    "latency_us": {"p50": 320000, "p95": 910000, "p99": 1200000},
+    "error": {"failed": 2, "total": 42, "rate": 0.047619},
+    "llm_calls": 84,
+    "tool_calls": 27
+  },
+  "available_tools": [
+    {"name": "search_policies", "count": 18}
+  ],
+  "buckets": [
+    {
+      "started_at": "2026-07-23T15:00:00Z",
+      "ended_at": "2026-07-24T15:00:00Z",
+      "requests": {"completed": 5, "failed": 1, "cancelled": 0},
+      "latency_us": {"p50": 300000, "p95": 800000, "p99": 800000},
+      "error": {"failed": 1, "total": 6, "rate": 0.166667},
+      "llm_calls": 12,
+      "tool_calls": {"search_policies": 4, "__others__": 2},
+      "feedback": [
+        {
+          "score_config_id": "score_helpful",
+          "name": "Helpful",
+          "data_type": "boolean",
+          "value": 0.75,
+          "annotation_count": 4,
+          "option_rates": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+집계 규칙:
+
+- request count는 `completed`, `failed`, `cancelled`를 각각 센다.
+- latency p50/p95/p99는 대상 trace의 `duration_us`를 nearest-rank 방식으로
+  계산한다.
+- error `total`은 세 terminal status 전체이고 `rate = failed / total`이다.
+- LLM call은 `kind="llm"`, tool call은 `kind="tool"` observation 수다.
+- tool series 이름은 tool observation의 `name`이다. `tool_name`을 지정하지
+  않으면 전체 기간 상위 5개와 나머지를 합한 `__others__`를 반환한다.
+- `tool_name`을 지정하면 요청한 tool series만 반환하고 `__others__`는 만들지
+  않는다. `available_tools`는 현재 trace filter 범위의 tool name과 전체
+  호출 수를 항상 반환한다.
+- boolean feedback `value`는 true annotation 비율이고 number는 평균이다.
+- categorical feedback은 `value=null`이고 `option_rates`에 option별 rate와
+  selection count를 반환한다. 각 entry는 `score_option_id`, 현재 `label`,
+  `rate`, `selection_count`를 가진다. Rate의 분모는 해당 bucket에서 이 score가
+  기록된 annotation 수이며 명시적인 multiple 빈 배열도 분모에 포함한다.
+  Multiple selection은 rate 합이 1을 넘을 수 있다.
+- feedback bucket은 annotation 작성 시각이 아니라 owning trace 시작 시각을
+  따른다. Experiment evaluator result는 이 endpoint에 포함하지 않는다.
+- count는 실제 0을 반환한다. 표본이 없는 latency, error rate, feedback value는
+  `null`을 반환하며 client는 빈 구간을 0으로 그리지 않는다.
+- response는 full trace/observation payload를 포함하지 않는다.
+
 ### Observation Payload
 
 ```text

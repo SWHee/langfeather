@@ -6,9 +6,10 @@ import math
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, cast
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from pydantic import JsonValue
 from sqlalchemy import and_, delete, func, or_, select
@@ -24,6 +25,15 @@ from langfeather_server.api_models import (
     AnnotationQueuePatchRequest,
     AnnotationQueueResponse,
     AnnotationResponse,
+    DashboardBucket,
+    DashboardError,
+    DashboardFeedback,
+    DashboardLatency,
+    DashboardOptionRate,
+    DashboardRequests,
+    DashboardResponse,
+    DashboardTool,
+    DashboardTotals,
     DatasetCreateRequest,
     DatasetExampleInput,
     DatasetExamplePatchRequest,
@@ -110,6 +120,20 @@ class TraceCursor:
     trace_id: str
 
 
+@dataclass(frozen=True)
+class DashboardBucketInterval:
+    started_at: datetime
+    ended_at: datetime
+
+
+@dataclass(frozen=True)
+class DashboardScore:
+    score_config_id: str
+    name: str
+    data_type: Literal["boolean", "number", "categorical"]
+    options: tuple[tuple[str, str], ...]
+
+
 def _timestamp(value: datetime) -> str:
     if value.tzinfo is None:
         raise ValueError("timestamp must include a timezone")
@@ -183,6 +207,141 @@ def _decode_cursor(value: str) -> TraceCursor:
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _dashboard_conditions(
+    *,
+    from_time: datetime,
+    to_time: datetime,
+    tag: str | None,
+    session_id: str | None,
+    release: str | None,
+    environment: str | None,
+    user_id: str | None,
+    query: str | None,
+) -> list[ColumnElement[bool]]:
+    conditions: list[ColumnElement[bool]] = [
+        TraceRow.started_at >= _timestamp(from_time),
+        TraceRow.started_at < _timestamp(to_time),
+    ]
+    if tag is not None:
+        tag_json = _escape_like(_dump_json(tag))
+        conditions.append(TraceRow.tags_json.like(f"%{tag_json}%", escape="\\"))
+    if session_id is not None:
+        conditions.append(TraceRow.session_id == session_id)
+    if release is not None:
+        conditions.append(TraceRow.release == release)
+    if environment is not None:
+        conditions.append(TraceRow.environment == environment)
+    if user_id is not None:
+        conditions.append(TraceRow.user_id == user_id)
+    if query is not None:
+        pattern = f"%{_escape_like(query)}%"
+        conditions.append(
+            or_(
+                TraceRow.name.like(pattern, escape="\\"),
+                TraceRow.input_json.like(pattern, escape="\\"),
+                TraceRow.output_json.like(pattern, escape="\\"),
+            )
+        )
+    return conditions
+
+
+def _dashboard_bucket_start(
+    timestamp: datetime,
+    *,
+    bucket: Literal["hour", "day", "week", "month"],
+    zone: ZoneInfo,
+) -> datetime:
+    local = timestamp.astimezone(zone)
+    if bucket == "hour":
+        return local.replace(minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+    if bucket == "day":
+        return local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(
+            timezone.utc
+        )
+    if bucket == "week":
+        week_start = local - timedelta(days=local.weekday())
+        return week_start.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(
+            timezone.utc
+        )
+    return local.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(
+        timezone.utc
+    )
+
+
+def _next_dashboard_bucket_start(
+    timestamp: datetime,
+    *,
+    bucket: Literal["hour", "day", "week", "month"],
+    zone: ZoneInfo,
+) -> datetime:
+    if bucket == "hour":
+        return timestamp + timedelta(hours=1)
+    local = timestamp.astimezone(zone)
+    if bucket == "day":
+        next_local = local + timedelta(days=1)
+        return datetime(
+            next_local.year,
+            next_local.month,
+            next_local.day,
+            tzinfo=zone,
+        ).astimezone(timezone.utc)
+    if bucket == "week":
+        next_local = local + timedelta(days=7)
+        return datetime(
+            next_local.year,
+            next_local.month,
+            next_local.day,
+            tzinfo=zone,
+        ).astimezone(timezone.utc)
+    year = local.year + (local.month == 12)
+    month = 1 if local.month == 12 else local.month + 1
+    return datetime(year, month, 1, tzinfo=zone).astimezone(timezone.utc)
+
+
+def _dashboard_buckets(
+    *,
+    from_time: datetime,
+    to_time: datetime,
+    bucket: Literal["hour", "day", "week", "month"],
+    zone: ZoneInfo,
+) -> list[DashboardBucketInterval]:
+    result: list[DashboardBucketInterval] = []
+    started_at = _dashboard_bucket_start(from_time, bucket=bucket, zone=zone)
+    while started_at < to_time:
+        ended_at = _next_dashboard_bucket_start(started_at, bucket=bucket, zone=zone)
+        result.append(DashboardBucketInterval(started_at, ended_at))
+        started_at = ended_at
+    return result
+
+
+def _nearest_rank(values: list[int], percentile: float) -> int | None:
+    if not values:
+        return None
+    rank = max(1, math.ceil(len(values) * percentile))
+    return sorted(values)[rank - 1]
+
+
+def _dashboard_latency(values: list[int]) -> DashboardLatency:
+    return DashboardLatency(
+        p50=_nearest_rank(values, 0.5),
+        p95=_nearest_rank(values, 0.95),
+        p99=_nearest_rank(values, 0.99),
+    )
+
+
+def _dashboard_error(statuses: Counter[str]) -> DashboardError:
+    total = sum(statuses[status] for status in ("completed", "failed", "cancelled"))
+    return DashboardError(
+        failed=statuses["failed"],
+        total=total,
+        rate=None if total == 0 else round(statuses["failed"] / total, 6),
+    )
+
+
+def _dashboard_timestamp(value: datetime) -> str:
+    return _timestamp(value)
 
 
 def _trace_row(
@@ -792,6 +951,325 @@ class TraceRepository:
                 items=[_trace_summary(row) for row in page_rows],
                 next_cursor=next_cursor,
             )
+
+    def dashboard(
+        self,
+        *,
+        from_time: datetime,
+        to_time: datetime,
+        timezone_name: str,
+        bucket: Literal["hour", "day", "week", "month"],
+        tag: str | None = None,
+        session_id: str | None = None,
+        release: str | None = None,
+        environment: str | None = None,
+        user_id: str | None = None,
+        query: str | None = None,
+        score_ids: Sequence[str] = (),
+        tool_names: Sequence[str] = (),
+    ) -> DashboardResponse:
+        zone = ZoneInfo(timezone_name)
+        intervals = _dashboard_buckets(
+            from_time=from_time,
+            to_time=to_time,
+            bucket=bucket,
+            zone=zone,
+        )
+        starts = [interval.started_at for interval in intervals]
+        bucket_index = {started_at: index for index, started_at in enumerate(starts)}
+        statuses = [Counter[str]() for _ in intervals]
+        durations: list[list[int]] = [[] for _ in intervals]
+        llm_counts = [0 for _ in intervals]
+        tool_counts = [Counter[str]() for _ in intervals]
+        selected_tools = list(dict.fromkeys(tool_names))
+
+        selected_scores: list[DashboardScore] = []
+        feedback_counts: dict[tuple[int, str], int] = Counter()
+        feedback_true_counts: dict[tuple[int, str], int] = Counter()
+        feedback_number_sums: dict[tuple[int, str], float] = defaultdict(float)
+        option_selection_counts: dict[tuple[int, str, str], int] = Counter()
+
+        with self._session_factory() as session:
+            trace_rows = session.execute(
+                select(
+                    TraceRow.trace_id,
+                    TraceRow.started_at,
+                    TraceRow.duration_us,
+                    TraceRow.status,
+                ).where(
+                    *_dashboard_conditions(
+                        from_time=from_time,
+                        to_time=to_time,
+                        tag=tag,
+                        session_id=session_id,
+                        release=release,
+                        environment=environment,
+                        user_id=user_id,
+                        query=query,
+                    )
+                )
+            ).all()
+            trace_ids = [trace_row.trace_id for trace_row in trace_rows]
+            trace_bucket_by_id: dict[str, int] = {}
+            for trace_row in trace_rows:
+                started_at = _parse_timestamp(trace_row.started_at)
+                index = bucket_index[
+                    _dashboard_bucket_start(started_at, bucket=bucket, zone=zone)
+                ]
+                trace_bucket_by_id[trace_row.trace_id] = index
+                statuses[index][trace_row.status] += 1
+                durations[index].append(trace_row.duration_us)
+
+            if trace_ids:
+                observation_rows = session.execute(
+                    select(
+                        ObservationRow.trace_id,
+                        ObservationRow.kind,
+                        ObservationRow.name,
+                        func.count(ObservationRow.observation_id),
+                    )
+                    .where(
+                        ObservationRow.trace_id.in_(trace_ids),
+                        ObservationRow.kind.in_(("llm", "tool")),
+                    )
+                    .group_by(
+                        ObservationRow.trace_id,
+                        ObservationRow.kind,
+                        ObservationRow.name,
+                    )
+                ).all()
+                for observation_row in observation_rows:
+                    index = trace_bucket_by_id[observation_row.trace_id]
+                    if observation_row.kind == "llm":
+                        llm_counts[index] += observation_row[3]
+                    else:
+                        tool_counts[index][observation_row.name] += observation_row[3]
+
+            unique_score_ids = list(dict.fromkeys(score_ids))
+            if unique_score_ids:
+                score_rows = session.scalars(
+                    select(ScoreConfigRow).where(
+                        ScoreConfigRow.score_config_id.in_(unique_score_ids)
+                    )
+                ).all()
+                options_by_score: dict[str, list[tuple[str, str]]] = defaultdict(list)
+                option_rows = session.execute(
+                    select(
+                        ScoreOptionRow.score_config_id,
+                        ScoreOptionRow.score_option_id,
+                        ScoreOptionRow.label,
+                    )
+                    .where(ScoreOptionRow.score_config_id.in_(unique_score_ids))
+                    .order_by(ScoreOptionRow.position, ScoreOptionRow.score_option_id)
+                ).all()
+                for option_row in option_rows:
+                    options_by_score[option_row.score_config_id].append(
+                        (option_row.score_option_id, option_row.label)
+                    )
+                score_by_id = {
+                    score_row.score_config_id: score_row for score_row in score_rows
+                }
+                for score_id in unique_score_ids:
+                    score_row = score_by_id.get(score_id)
+                    if score_row is not None:
+                        selected_scores.append(
+                            DashboardScore(
+                                score_config_id=score_row.score_config_id,
+                                name=score_row.name,
+                                data_type=cast(
+                                    Literal["boolean", "number", "categorical"],
+                                    score_row.data_type,
+                                ),
+                                options=tuple(
+                                    options_by_score[score_row.score_config_id]
+                                ),
+                            )
+                        )
+
+            selected_score_ids = [score.score_config_id for score in selected_scores]
+            if trace_ids and selected_score_ids:
+                annotation_rows = session.execute(
+                    select(
+                        AnnotationRow.annotation_id,
+                        AnnotationRow.trace_id,
+                        AnnotationRow.score_config_id,
+                        AnnotationRow.boolean_value,
+                        AnnotationRow.number_value,
+                    ).where(
+                        AnnotationRow.trace_id.in_(trace_ids),
+                        AnnotationRow.target_type == "trace",
+                        AnnotationRow.score_config_id.in_(selected_score_ids),
+                    )
+                ).all()
+                for annotation_row in annotation_rows:
+                    key = (
+                        trace_bucket_by_id[annotation_row.trace_id],
+                        annotation_row.score_config_id,
+                    )
+                    feedback_counts[key] += 1
+                    score = next(
+                        item
+                        for item in selected_scores
+                        if item.score_config_id == annotation_row.score_config_id
+                    )
+                    if score.data_type == "boolean" and annotation_row.boolean_value:
+                        feedback_true_counts[key] += 1
+                    if (
+                        score.data_type == "number"
+                        and annotation_row.number_value is not None
+                    ):
+                        feedback_number_sums[key] += annotation_row.number_value
+
+                selected_option_rows = session.execute(
+                    select(
+                        AnnotationRow.trace_id,
+                        AnnotationRow.score_config_id,
+                        AnnotationSelectedOptionRow.score_option_id,
+                        func.count(AnnotationSelectedOptionRow.score_option_id),
+                    )
+                    .join(
+                        AnnotationSelectedOptionRow,
+                        AnnotationSelectedOptionRow.annotation_id
+                        == AnnotationRow.annotation_id,
+                    )
+                    .where(
+                        AnnotationRow.trace_id.in_(trace_ids),
+                        AnnotationRow.target_type == "trace",
+                        AnnotationRow.score_config_id.in_(selected_score_ids),
+                    )
+                    .group_by(
+                        AnnotationRow.trace_id,
+                        AnnotationRow.score_config_id,
+                        AnnotationSelectedOptionRow.score_option_id,
+                    )
+                ).all()
+                for selected_option_row in selected_option_rows:
+                    option_selection_counts[
+                        (
+                            trace_bucket_by_id[selected_option_row.trace_id],
+                            selected_option_row.score_config_id,
+                            selected_option_row.score_option_id,
+                        )
+                    ] += selected_option_row[3]
+
+        all_tool_counts: Counter[str] = Counter()
+        for count in tool_counts:
+            all_tool_counts.update(count)
+        available_tools = [
+            DashboardTool(name=name, count=count)
+            for name, count in sorted(
+                all_tool_counts.items(), key=lambda item: (-item[1], item[0])
+            )
+        ]
+        tool_series = (
+            selected_tools
+            if selected_tools
+            else [
+                *[item.name for item in available_tools[:5]],
+                "__others__",
+            ]
+        )
+
+        bucket_responses: list[DashboardBucket] = []
+        for index, interval in enumerate(intervals):
+            if selected_tools:
+                bucket_tool_counts = {
+                    name: tool_counts[index][name] for name in tool_series
+                }
+            else:
+                top_names = set(tool_series[:-1])
+                bucket_tool_counts = {
+                    name: tool_counts[index][name] for name in tool_series[:-1]
+                }
+                bucket_tool_counts["__others__"] = sum(
+                    count
+                    for name, count in tool_counts[index].items()
+                    if name not in top_names
+                )
+            feedback: list[DashboardFeedback] = []
+            for score in selected_scores:
+                key = (index, score.score_config_id)
+                annotation_count = feedback_counts[key]
+                if score.data_type == "boolean":
+                    value = (
+                        None
+                        if annotation_count == 0
+                        else feedback_true_counts[key] / annotation_count
+                    )
+                    option_rates: list[DashboardOptionRate] = []
+                elif score.data_type == "number":
+                    value = (
+                        None
+                        if annotation_count == 0
+                        else feedback_number_sums[key] / annotation_count
+                    )
+                    option_rates = []
+                else:
+                    value = None
+                    option_rates = [
+                        DashboardOptionRate(
+                            score_option_id=option_id,
+                            label=label,
+                            rate=(
+                                None
+                                if annotation_count == 0
+                                else option_selection_counts[
+                                    (index, score.score_config_id, option_id)
+                                ]
+                                / annotation_count
+                            ),
+                            selection_count=option_selection_counts[
+                                (index, score.score_config_id, option_id)
+                            ],
+                        )
+                        for option_id, label in score.options
+                    ]
+                feedback.append(
+                    DashboardFeedback(
+                        score_config_id=score.score_config_id,
+                        name=score.name,
+                        data_type=score.data_type,
+                        value=value,
+                        annotation_count=annotation_count,
+                        option_rates=option_rates,
+                    )
+                )
+            bucket_responses.append(
+                DashboardBucket(
+                    started_at=_dashboard_timestamp(interval.started_at),
+                    ended_at=_dashboard_timestamp(interval.ended_at),
+                    requests=DashboardRequests(
+                        completed=statuses[index]["completed"],
+                        failed=statuses[index]["failed"],
+                        cancelled=statuses[index]["cancelled"],
+                    ),
+                    latency_us=_dashboard_latency(durations[index]),
+                    error=_dashboard_error(statuses[index]),
+                    llm_calls=llm_counts[index],
+                    tool_calls=bucket_tool_counts,
+                    feedback=feedback,
+                )
+            )
+
+        all_durations = [duration for values in durations for duration in values]
+        all_statuses: Counter[str] = Counter()
+        for counter in statuses:
+            all_statuses.update(counter)
+        return DashboardResponse(
+            from_=_dashboard_timestamp(from_time),
+            to=_dashboard_timestamp(to_time),
+            timezone=timezone_name,
+            bucket=bucket,
+            totals=DashboardTotals(
+                trace_count=len(trace_rows),
+                latency_us=_dashboard_latency(all_durations),
+                error=_dashboard_error(all_statuses),
+                llm_calls=sum(llm_counts),
+                tool_calls=sum(all_tool_counts.values()),
+            ),
+            available_tools=available_tools,
+            buckets=bucket_responses,
+        )
 
     def get_trace(self, trace_id: str) -> TraceDetail | None:
         with self._session_factory() as session:

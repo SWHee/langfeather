@@ -96,6 +96,7 @@ web/**
 책임:
 
 - trace list/detail
+- contract-defined local monitoring Overview
 - React Flow layout
 - inspector와 JSON viewer
 - score/annotation/queue/session/delete/settings UX
@@ -105,7 +106,7 @@ web/**
 금지:
 
 - mock contract를 실제 API와 다르게 독자 확장
-- 범용 BI dashboard와 data contract에 없는 지표 추가
+- 범용 BI dashboard 또는 `docs/DATA_CONTRACT.md`에 없는 지표 추가
 - inferred graph edge 표시
 
 ### QA and Release Specialist

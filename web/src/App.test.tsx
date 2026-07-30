@@ -2,7 +2,11 @@ import {fireEvent, render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {App} from "./App";
-import {readAppUrlState, replaceAppUrlState} from "./url";
+import {
+  defaultOverviewUrlState,
+  readAppUrlState,
+  replaceAppUrlState,
+} from "./url";
 
 const traceListItem = {
   trace_id: "tr_student_01",
@@ -217,19 +221,62 @@ describe("LangFeather trace explorer", () => {
   const fetchMock = vi.fn<typeof fetch>();
 
   beforeEach(() => {
-    window.history.replaceState(null, "", "/");
+    window.history.replaceState(null, "", "/?view=traces");
     vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    window.history.replaceState(null, "", "/?view=traces");
+  });
+
+  it("opens Overview as the default first navigation view", async () => {
     window.history.replaceState(null, "", "/");
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/scores")) {
+        return Promise.resolve(jsonResponse({items: []}));
+      }
+      if (url.startsWith("/api/v1/dashboard")) {
+        return Promise.resolve(
+          jsonResponse({
+            from: "2026-07-23T00:00:00.000Z",
+            to: "2026-07-30T00:00:00.000Z",
+            timezone: "UTC",
+            bucket: "day",
+            totals: {
+              trace_count: 0,
+              latency_us: {p50: null, p95: null, p99: null},
+              error: {failed: 0, total: 0, rate: null},
+              llm_calls: 0,
+              tool_calls: 0,
+            },
+            available_tools: [],
+            buckets: [],
+          }),
+        );
+      }
+      return Promise.reject(new Error(`unexpected request: ${url}`));
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {name: "Overview"}),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Overview"})).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("round-trips every supported URL state field", () => {
     replaceAppUrlState({
       view: "datasets",
+      overview: defaultOverviewUrlState(
+        new Date("2026-07-30T00:00:00.000Z"),
+      ),
       evaluation: {
         datasetId: "ds_url",
         tab: "examples",
@@ -242,6 +289,11 @@ describe("LangFeather trace explorer", () => {
 
     expect(readAppUrlState()).toEqual({
       view: "datasets",
+      overview: expect.objectContaining({
+        bucket: "auto",
+        scoreIds: [],
+        toolNames: [],
+      }),
       evaluation: {
         datasetId: "ds_url",
         tab: "examples",

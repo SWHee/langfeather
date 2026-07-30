@@ -70,6 +70,78 @@ export interface TraceListResponse {
   next_cursor: string | null;
 }
 
+export type DashboardBucket = "auto" | "hour" | "day" | "week" | "month";
+
+export interface DashboardQuery {
+  from: string;
+  to: string;
+  timezone: string;
+  bucket?: DashboardBucket;
+  query?: string;
+  tag?: string;
+  session_id?: string;
+  release?: string;
+  environment?: string;
+  user_id?: string;
+  score_id?: string[];
+  tool_name?: string[];
+}
+
+export interface DashboardPercentiles {
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+}
+
+export interface DashboardErrorRate {
+  failed: number;
+  total: number;
+  rate: number | null;
+}
+
+export interface DashboardFeedbackOptionRate {
+  score_option_id: string;
+  label: string;
+  rate: number | null;
+  selection_count: number;
+}
+
+export interface DashboardFeedback {
+  score_config_id: string;
+  name: string;
+  data_type: ScoreDataType;
+  value: number | null;
+  annotation_count: number;
+  option_rates: DashboardFeedbackOptionRate[];
+}
+
+export interface DashboardMetricBucket {
+  started_at: string;
+  ended_at: string;
+  requests: Record<TraceStatus, number>;
+  latency_us: DashboardPercentiles;
+  error: DashboardErrorRate;
+  llm_calls: number;
+  tool_calls: Record<string, number>;
+  feedback: DashboardFeedback[];
+}
+
+export interface DashboardResponse {
+  from: string;
+  to: string;
+  timezone: string;
+  bucket: Exclude<DashboardBucket, "auto">;
+  totals: {
+    trace_count: number;
+    latency_us: DashboardPercentiles;
+    error: DashboardErrorRate;
+    llm_calls: number;
+    tool_calls: number;
+  };
+  available_tools: Array<{ name: string; count: number }>;
+  buckets: DashboardMetricBucket[];
+}
+
 export interface TraceQuery {
   cursor?: string;
   limit?: number;

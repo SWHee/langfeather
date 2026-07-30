@@ -32,11 +32,13 @@ import {
 import { useDismissiblePopover } from "./components/useDismissiblePopover";
 import { RuntimeExecutionGraph } from "./graph/RuntimeExecutionGraph";
 import { DatasetsView } from "./evaluation/DatasetsView";
+import { OverviewView } from "./overview/OverviewView";
 import "./styles.css";
 import {
   readAppUrlState,
   replaceAppUrlState,
   type EvaluationUrlState,
+  type OverviewUrlState,
 } from "./url";
 
 const STATUS_LABEL: Record<TraceStatus, string> = {
@@ -100,9 +102,7 @@ function TraceActions({
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingQueueId, setPendingQueueId] = useState<string | null>(null);
-  const [pendingDatasetId, setPendingDatasetId] = useState<string | null>(
-    null,
-  );
+  const [pendingDatasetId, setPendingDatasetId] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
   const { rootRef, triggerRef } = useDismissiblePopover(open, () => {
@@ -338,7 +338,8 @@ function TraceActions({
                 <strong>Add to Dataset</strong>
               </div>
               <p className="trace-actions-note">
-                Trace input만 example으로 저장합니다. Expected output은 비워 둡니다.
+                Trace input만 example으로 저장합니다. Expected output은 비워
+                둡니다.
               </p>
               {loading ? (
                 <span className="queue-popover-state">불러오는 중…</span>
@@ -836,6 +837,9 @@ function TraceDetailPanel({
 export function App() {
   const [initialUrlState] = useState(readAppUrlState);
   const [activeView, setActiveView] = useState(initialUrlState.view);
+  const [overviewUrlState, setOverviewUrlState] = useState<OverviewUrlState>(
+    initialUrlState.overview,
+  );
   const [evaluationUrlState, setEvaluationUrlState] =
     useState<EvaluationUrlState>(initialUrlState.evaluation);
   const [evaluationMountRevision, setEvaluationMountRevision] = useState(0);
@@ -866,15 +870,17 @@ export function App() {
   useEffect(() => {
     replaceAppUrlState({
       view: activeView,
+      overview: overviewUrlState,
       evaluation: evaluationUrlState,
       traceId: selectedTraceId,
     });
-  }, [activeView, evaluationUrlState, selectedTraceId]);
+  }, [activeView, evaluationUrlState, overviewUrlState, selectedTraceId]);
 
   useEffect(() => {
     const restoreUrlState = () => {
       const restored = readAppUrlState();
       setActiveView(restored.view);
+      setOverviewUrlState(restored.overview);
       setEvaluationUrlState(restored.evaluation);
       setEvaluationMountRevision((revision) => revision + 1);
       setSelectedTraceId(restored.traceId);
@@ -1138,6 +1144,13 @@ export function App() {
         <nav className="primary-navigation" aria-label="주요 메뉴">
           <button
             type="button"
+            aria-pressed={activeView === "overview"}
+            onClick={() => setActiveView("overview")}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
             aria-pressed={activeView === "traces"}
             onClick={() => setActiveView("traces")}
           >
@@ -1196,6 +1209,13 @@ export function App() {
         </span>
       </header>
 
+      {activeView === "overview" && (
+        <OverviewView
+          key={JSON.stringify(overviewUrlState)}
+          value={overviewUrlState}
+          onUrlStateChange={setOverviewUrlState}
+        />
+      )}
       {activeView === "traces" && (
         <main className="workspace">
           <aside className="trace-sidebar" aria-labelledby="trace-list-title">
