@@ -1,0 +1,19 @@
+name: Feature request
+description: 실제 debugging 과정에서 필요했던 기능을 제안합니다.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: 해결하려는 debugging 질문
+      description: 어떤 상황에서 무엇을 확인하지 못했나요?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 현재의 우회 방법
+      description: 지금은 어떻게 확인하고 있나요?
+  - type: textarea
+    attributes:
+      label: 제안
+      description: 생각한 해결 방법이 있다면 적어주세요. 구현 세부 사항은 비워도 됩니다.

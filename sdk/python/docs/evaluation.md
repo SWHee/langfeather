@@ -1,4 +1,8 @@
-# Dataset, Experiment, Evaluator Guide
+# Dataset, Experiment, Evaluator 가이드
+
+이 문서는 Python SDK로 dataset과 experiment를 실행하는 방법을 설명합니다. UI에서
+monitoring과 annotation을 사용하는 방법은 repository의
+[Monitoring과 평가 가이드](https://github.com/SungjinWi99/langfeather/blob/main/docs/guides/monitoring-and-evaluation.md)를 참고하세요.
 
 LangFeather의 evaluation 기능은 debugging 중 확인한 사례를 regression dataset으로
 고정하고, 같은 사례에 대한 application 변경 전후 결과를 local에서 비교하기 위한
@@ -15,7 +19,8 @@ Server는 dataset, snapshot, result만 저장한다. target과 evaluator Python 
 
 1. LangFeather server/UI를 실행하고 trace를 확인한다.
 2. trace 상세의 `… → Add to Dataset`으로 root input을 dataset example에 추가한다.
-3. `Datasets`에서 dataset을 열어 expected output과 metadata를 검토한다.
+3. 상단 navigation의 `Evaluation`에서 dataset을 열어 expected output과 metadata를
+   검토한다.
 4. application code 또는 별도 regression script에서 `langfeather.evaluate()`를 실행한다.
 5. dataset 상세의 `Experiments` tab에서 case별 output, score, trace와 같은 revision의
    experiment를 나란히 비교한다.
@@ -26,7 +31,7 @@ example은 중복 생성하지 않는다.
 
 ## Dataset 만들기
 
-UI에서 **Datasets → New Dataset**을 선택해 빈 dataset을 만든 뒤 상세 화면의
+UI에서 **Evaluation → New Dataset**을 선택해 빈 dataset을 만든 뒤 상세 화면의
 **Add example**로 example을 추가할 수 있다. API를 직접 사용할 때는 다음과 같다.
 
 ```bash

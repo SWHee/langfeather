@@ -43,7 +43,7 @@ Detailed Korean-first guides:
 - [Instrumentation](docs/instrumentation.md)
 - [LangChain and LangGraph](docs/langchain-langgraph.md)
 - [Delivery and limits](docs/delivery-and-limits.md)
-- [Dataset, experiment, evaluator guide](../../docs/DATASET_EXPERIMENT_EVALUATION.md)
+- [Dataset, experiment, evaluator guide](docs/evaluation.md)
 
 `flush()` only waits for envelopes accepted by the SDK at the time it is called;
 it is not an end-to-end database durability guarantee. See

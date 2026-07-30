@@ -64,7 +64,7 @@ UI에서 새 trace를 열어 root graph와 내부 Runnable·LLM·retriever·tool
   session 연결, callback 관측 범위
 - [전송과 제약](docs/delivery-and-limits.md): queue, retry, `flush()`,
   shutdown, streaming의 제약
-- [Dataset, Experiment, Evaluator guide](../../docs/DATASET_EXPERIMENT_EVALUATION.md):
+- [Dataset, Experiment, Evaluator guide](docs/evaluation.md):
   local Python process에서 실행하는 평가 기능
 
 ## 최소 API

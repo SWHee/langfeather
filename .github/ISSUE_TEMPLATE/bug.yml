@@ -1,0 +1,23 @@
+name: Bug report
+description: LangFeather가 기대와 다르게 동작할 때 사용합니다.
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: 기대한 동작
+      description: 무엇을 하려 했고, 어떤 결과를 기대했나요?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 실제 동작과 재현 방법
+      description: 최소 code, 실행 명령, error log를 적어주세요. secret과 실제 trace payload는 제거하세요.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: 환경
+      description: OS, Python, LangFeather, LangChain/LangGraph version
+    validations:
+      required: true
