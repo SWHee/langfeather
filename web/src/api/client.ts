@@ -6,6 +6,8 @@ import type {
   AnnotationQueueListResponse,
   Dataset,
   DatasetListResponse,
+  DashboardQuery,
+  DashboardResponse,
   Experiment,
   ExperimentListResponse,
   JsonValue,
@@ -83,6 +85,21 @@ export function getTraces(
   signal?: AbortSignal,
 ): Promise<TraceListResponse> {
   return getJson<TraceListResponse>(traceQueryPath(query), signal);
+}
+
+export function getDashboard(
+  query: DashboardQuery,
+  signal?: AbortSignal,
+): Promise<DashboardResponse> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (Array.isArray(value)) {
+      value.forEach((item) => params.append(key, item));
+    } else if (value !== undefined && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+  return getJson<DashboardResponse>(`/dashboard?${params.toString()}`, signal);
 }
 
 export function getTrace(

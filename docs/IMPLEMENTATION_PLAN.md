@@ -12,6 +12,8 @@ acceptance gate를 가져야 한다.
 
 2026-07-28 기준으로 Phase 0부터 Phase 5까지의 local technical gate가
 완료됐고 Phase 7 custom score/annotation queue 구현이 진행 중이다.
+2026-07-30에는 Phase 9 local monitoring overview의 contract와 구현 순서를
+확정했으며 아직 구현하지 않았다.
 
 - Python `uv` workspace와 SDK/server package scaffold
 - Vite, React, TypeScript strict frontend scaffold
@@ -421,6 +423,77 @@ documented quickstart가 동작한다.
 - SDK -> API -> SQLite -> evaluation result 조회와 browser smoke가 동작
 - server는 evaluator callable을 실행하지 않음
 - managed LLM judge, categorical automatic evaluator, scheduler/worker를 추가하지 않음
+
+## Phase 9: Local Monitoring Overview
+
+### Goal
+
+사용자가 개별 trace를 열기 전에 선택 기간의 요청량, latency, 오류,
+LLM/tool 호출, trace feedback 변화를 같은 trace 모집단에서 확인한다.
+Overview는 executive analytics가 아니라 이상 징후를 발견하는 local debugging
+입구이며 각 작업 화면으로는 기존 top navigation을 사용한다.
+
+### Changed Contracts
+
+- 기본 Web view와 top navigation에 `Overview` 추가
+- read-only `GET /api/v1/dashboard`
+- 기간, timezone, name/input/output query, tag, session ID, release,
+  environment, user ID 공통 filter
+- hour/day/week/month bucket과 auto selection
+- request status, latency p50/p95/p99, error rate, LLM/tool observation count,
+  trace annotation aggregate
+- Overview URL state는 보존하되 Trace List filter와 자동 동기화하지 않음
+
+### Deliverables
+
+- 공통 filter로 대상 trace 집합을 정의하는 server repository query
+- 빈 bucket을 포함하는 timezone-aware bucket builder
+- nearest-rank latency percentile과 error numerator/denominator
+- `llm` observation count와 tool observation name별 series
+- 상위 5개 tool과 `Others`, 전체 tool 선택 목록
+- 최대 4개 feedback score의 boolean true rate, number mean, categorical
+  option rate와 annotation count
+- default 7-day Overview, 24-hour/7-day/30-day preset, custom range
+- request, latency, error, LLM, tool, feedback용 reusable SVG line chart
+- tooltip, legend visibility, loading, whole-page empty, per-metric empty,
+  API error, responsive single-column mobile state
+- Product Requirements, Decisions, Architecture, Data Contract 문서 정합성
+
+### Scope Boundary
+
+- chart click으로 Trace List나 다른 화면에 이동하지 않는다.
+- dashboard status 공통 filter를 추가하지 않는다.
+- dashboard filter를 Trace List filter와 자동 공유하지 않는다.
+- experiment evaluator result를 feedback chart에 섞지 않는다.
+- cost, token price, managed evaluator, background metrics worker,
+  materialized aggregate table을 추가하지 않는다.
+- 기존 row를 읽으므로 Alembic migration을 추가하지 않는다.
+
+### Required Tests
+
+- 같은 공통 filter가 모든 metric의 owning trace 집합에 적용됨
+- `[from, to)` 경계와 IANA timezone의 hour/day/week/month bucket
+- 빈 bucket의 count 0과 latency/error/feedback `null` 구분
+- p50/p95/p99 nearest-rank 결과와 작은 표본
+- cancelled를 포함한 error denominator와 failed numerator
+- `llm`/`tool` kind 분리, repeated tool name 합산, 상위 5개와 `Others`
+- boolean true rate, finite number mean, categorical single/multiple option rate,
+  annotation count와 owning trace 시간 귀속
+- 최대 4개 score, invalid range/timezone/bucket 거부
+- Overview 기본 route, URL filter round trip, apply/reset
+- loading, empty, partial empty, error, legend/tooltip, desktop/mobile render
+- SDK -> API -> SQLite -> Overview browser smoke에서 기존 tracing flow 회귀 없음
+
+### Gate
+
+- focused server repository/API tests
+- focused Web component/API/URL tests
+- `make lint`
+- `make typecheck`
+- `make test`
+- `make contract-check`
+- `make build`
+- Docker와 실제 browser에서 default Overview와 기간/filter 변경 smoke
 
 ## Sequencing Rules
 

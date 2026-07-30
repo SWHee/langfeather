@@ -3,10 +3,11 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import (
     Depends,
@@ -39,6 +40,7 @@ from langfeather_server.api_models import (
     BatchIngestResponse,
     BatchItemError,
     BatchItemResult,
+    DashboardResponse,
     DatasetCreateRequest,
     DatasetExampleInput,
     DatasetExamplePatchRequest,
@@ -115,6 +117,34 @@ TraceLimit = Annotated[int, Query(ge=1, le=200)]
 TraceStatusFilter = Annotated[TraceStatus | None, Query(alias="status")]
 TraceFrom = Annotated[datetime | None, Query(alias="from")]
 TraceTo = Annotated[datetime | None, Query(alias="to")]
+DashboardScoreIds = Query(default_factory=list, alias="score_id")
+DashboardToolNames = Query(default_factory=list, alias="tool_name")
+
+
+def _dashboard_timestamp(value: str, *, parameter: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{parameter} must be a UTC ISO 8601 timestamp",
+        ) from error
+    if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{parameter} must be a UTC ISO 8601 timestamp",
+        )
+    return parsed.astimezone(timezone.utc)
+
+
+def _dashboard_timezone(value: str) -> None:
+    try:
+        ZoneInfo(value)
+    except ZoneInfoNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="timezone must be an IANA timezone",
+        ) from error
 
 
 def _resolve_trusted_hosts(value: Sequence[str] | None) -> list[str]:
@@ -306,6 +336,66 @@ def create_app(
                 detail="cursor is invalid",
             ) from error
         return TraceListResponse(items=page.items, next_cursor=page.next_cursor)
+
+    @application.get(
+        "/api/v1/dashboard",
+        response_model=DashboardResponse,
+    )
+    def get_dashboard(
+        store: RepositoryDependency,
+        from_value: str = Query(alias="from"),
+        to_value: str = Query(alias="to"),
+        timezone_name: str = Query(alias="timezone", min_length=1),
+        bucket: Literal["auto", "hour", "day", "week", "month"] = "auto",
+        query: str | None = None,
+        tag: str | None = None,
+        session_id: str | None = None,
+        release: str | None = None,
+        environment: str | None = None,
+        user_id: str | None = None,
+        score_ids: list[str] = DashboardScoreIds,
+        tool_names: list[str] = DashboardToolNames,
+    ) -> DashboardResponse:
+        from_time = _dashboard_timestamp(from_value, parameter="from")
+        to_time = _dashboard_timestamp(to_value, parameter="to")
+        if from_time >= to_time:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="from must be before to",
+            )
+        _dashboard_timezone(timezone_name)
+        if len(score_ids) > 4:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="at most four score_id values are allowed",
+            )
+        duration = to_time - from_time
+        resolved_bucket: Literal["hour", "day", "week", "month"]
+        if bucket == "auto":
+            if duration <= timedelta(hours=48):
+                resolved_bucket = "hour"
+            elif duration <= timedelta(days=90):
+                resolved_bucket = "day"
+            elif duration <= timedelta(days=365 * 2):
+                resolved_bucket = "week"
+            else:
+                resolved_bucket = "month"
+        else:
+            resolved_bucket = bucket
+        return store.dashboard(
+            from_time=from_time,
+            to_time=to_time,
+            timezone_name=timezone_name,
+            bucket=resolved_bucket,
+            query=query,
+            tag=tag,
+            session_id=session_id,
+            release=release,
+            environment=environment,
+            user_id=user_id,
+            score_ids=score_ids,
+            tool_names=tool_names,
+        )
 
     @application.get(
         "/api/v1/traces/{trace_id}",

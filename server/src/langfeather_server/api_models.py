@@ -56,6 +56,74 @@ class TraceListResponse(ApiModel):
     next_cursor: str | None = None
 
 
+class DashboardLatency(ApiModel):
+    p50: int | None
+    p95: int | None
+    p99: int | None
+
+
+class DashboardError(ApiModel):
+    failed: int
+    total: int
+    rate: float | None
+
+
+class DashboardTotals(ApiModel):
+    trace_count: int
+    latency_us: DashboardLatency
+    error: DashboardError
+    llm_calls: int
+    tool_calls: int
+
+
+class DashboardTool(ApiModel):
+    name: str
+    count: int
+
+
+class DashboardOptionRate(ApiModel):
+    score_option_id: str
+    label: str
+    rate: float | None
+    selection_count: int
+
+
+class DashboardFeedback(ApiModel):
+    score_config_id: str
+    name: str
+    data_type: Literal["boolean", "number", "categorical"]
+    value: float | None
+    annotation_count: int
+    option_rates: list[DashboardOptionRate] = Field(default_factory=list)
+
+
+class DashboardRequests(ApiModel):
+    completed: int
+    failed: int
+    cancelled: int
+
+
+class DashboardBucket(ApiModel):
+    started_at: str
+    ended_at: str
+    requests: DashboardRequests
+    latency_us: DashboardLatency
+    error: DashboardError
+    llm_calls: int
+    tool_calls: dict[str, int]
+    feedback: list[DashboardFeedback] = Field(default_factory=list)
+
+
+class DashboardResponse(ApiModel):
+    from_: str = Field(serialization_alias="from")
+    to: str
+    timezone: str
+    bucket: Literal["hour", "day", "week", "month"]
+    totals: DashboardTotals
+    available_tools: list[DashboardTool]
+    buckets: list[DashboardBucket]
+
+
 class ObservationSummary(ApiModel):
     observation_id: str
     trace_id: str

@@ -38,6 +38,8 @@ LangFeather는 LangSmith 전체 제품군이나 Langfuse self-hosted stack을
 4. 어느 node에서 어떤 exception이 발생했는가?
 5. 같은 대화 session에서 이전과 다음 요청은 무엇이었는가?
 6. 정해진 score 기준으로 trace를 평가하고 반복 검토 작업을 어디까지 끝냈는가?
+7. 선택한 기간에 요청량, latency, 오류, LLM/tool 호출, feedback이 어떻게
+   변했는가?
 
 ## 4. V1 User Experience
 
@@ -66,12 +68,32 @@ event를 발생시키는 run은 자동 수집한다. 일반 Python 사용자는 
 또는 `span()`을 사용한다.
 ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
 
+### Overview
+
+첫 화면은 local monitoring overview다.
+
+- 상단 navigation은 `Overview`, `Traces`, `Annotation Queues`, `Scores`,
+  `Evaluation`, `Local Data` 순서로 제공
+- 기본 기간은 최근 7일이고 최근 24시간, 7일, 30일 preset과 직접 범위 선택 제공
+- 기간 길이에 따라 hour, day, week, month bucket을 자동 선택
+- 모든 chart는 먼저 공통 filter로 대상 trace 집합을 정한 뒤 같은 집합을 집계
+- 공통 filter는 name/input/output 검색, tag, session ID, release, environment,
+  user ID를 지원
+- status는 error rate의 의미를 훼손하므로 공통 filter로 제공하지 않고 request
+  chart에서 completed, failed, cancelled series로 구분
+- request count, trace latency p50/p95/p99, trace error rate, LLM call count,
+  tool name별 call count, 선택 feedback score를 line chart로 표시
+- tool chart는 전체 기간 호출량 상위 5개와 `Others`를 기본 표시하고 사용자가
+  다른 tool을 선택 가능
+- feedback score는 최대 4개를 선택하며 boolean은 true 비율, number는 평균,
+  categorical은 option별 선택 비율로 표시
+- chart는 다른 화면으로 이동시키지 않으며 화면 전환은 상단 navigation을 사용
+- overview filter는 URL에 보존하되 Trace List의 독립적인 filter 상태와
+  자동으로 동기화하지 않음
+
 ### Trace List
 
-첫 화면은 dashboard가 아니라 trace list다.
-
-- 상단 navigation에서 `Traces`, `Annotation Queues`, `Scores`, `Datasets`,
-  `Local Data`를 분리
+- `Traces` navigation에서 trace list와 detail debugging workspace를 연다.
 - status, name, duration, node count, input summary, timestamp 표시
 - 최신순 pagination
 - 한 요청당 기본 50개, 최대 200개를 반환하는 cursor pagination
@@ -268,24 +290,26 @@ ASGI 사용자는 선택적으로 `wrap_asgi(app)`를 적용한다.
 v1은 다음 demo가 재현될 때 완료다.
 
 1. 새 사용자가 compose로 server/UI를 실행한다.
-2. sample LangGraph를 `wrap_runnable()` 한 줄로 감싼다.
-3. sequential, parallel, loop, failed node를 포함한 trace가 저장된다.
-4. UI graph와 inspector에서 모든 runtime observation과 원본 payload를 본다.
-5. custom score와 trace 메모를 저장하고 categorical multiple의 빈 배열과
+2. 기본 Overview에서 최근 7일의 request, latency p50/p95/p99, error rate,
+   LLM/tool call 추세를 확인하고 기간과 공통 trace filter를 변경할 수 있다.
+3. sample LangGraph를 `wrap_runnable()` 한 줄로 감싼다.
+4. sequential, parallel, loop, failed node를 포함한 trace가 저장된다.
+5. UI graph와 inspector에서 모든 runtime observation과 원본 payload를 본다.
+6. custom score와 trace 메모를 저장하고 categorical multiple의 빈 배열과
    미기록을 구분할 수 있다.
-6. 고정 annotation queue를 만들고 각 trace를 명시적으로 완료·수정할 수 있다.
-7. 검토한 trace input을 dataset example로 고정하고 expected output을 직접
+7. 고정 annotation queue를 만들고 각 trace를 명시적으로 완료·수정할 수 있다.
+8. 검토한 trace input을 dataset example로 고정하고 expected output을 직접
    입력할 수 있다.
-8. SDK `evaluate()`로 experiment를 실행하면 case별 결과와 evaluator 값이
+9. SDK `evaluate()`로 experiment를 실행하면 case별 결과와 evaluator 값이
    저장되고 dataset revision과 함께 immutable history로 남는다.
-9. 같은 dataset revision의 experiment 2개 이상을 선택하고 원하는 평가 지표만
+10. 같은 dataset revision의 experiment 2개 이상을 선택하고 원하는 평가 지표만
    골라 통과율 또는 평균과 experiment 간 차이를 비교할 수 있다. 이때 evaluator
    오류 수와 평가값이 없는 case 수가 함께 표시된다.
-10. trace 하나를 삭제하고 전체 data를 reset할 수 있다.
-11. backup을 내려받고 server를 중지한 상태에서 CLI로 깨끗한 volume에
+11. trace 하나를 삭제하고 전체 data를 reset할 수 있다.
+12. backup을 내려받고 server를 중지한 상태에서 CLI로 깨끗한 volume에
     복원할 수 있다.
-12. collector를 중단해도 sample application 결과와 exception behavior가
+13. collector를 중단해도 sample application 결과와 exception behavior가
     달라지지 않는다.
-13. amd64와 arm64 image가 build된다.
-14. installation, instrumentation, limitations 문서가 신규 사용자 기준으로
+14. amd64와 arm64 image가 build된다.
+15. installation, instrumentation, limitations 문서가 신규 사용자 기준으로
     검증된다.

@@ -61,6 +61,7 @@ integration module이 dependency를 감지하고 명시적인 error message를
 FastAPI
 ├── ingest router
 ├── query router
+│   └── monitoring aggregate query
 ├── score/annotation router
 ├── annotation queue router
 ├── admin backup/reset router
@@ -78,6 +79,11 @@ commit한다.
 
 ```text
 React SPA
+├── monitoring overview
+│   ├── shared trace filters and time range
+│   ├── request, latency, error, and LLM call charts
+│   ├── tool-name series
+│   └── selected feedback score series
 ├── trace list
 ├── filters and pagination
 ├── trace detail
@@ -99,6 +105,20 @@ React SPA
 
 Production에서는 Vite build output을 FastAPI가 제공한다. Development에서는
 Vite dev server가 `/api`를 FastAPI로 proxy한다.
+
+### Monitoring Read Path
+
+Overview는 browser에서 trace page를 반복 조회해 집계하지 않는다.
+`GET /api/v1/dashboard`가 기간과 공통 filter로 대상 trace 집합을 한 번
+정의하고 trace, observation, annotation scalar만 읽어 bucket별 결과를 만든다.
+Full input/output payload는 반환하지 않는다.
+
+모든 metric은 owning trace의 `started_at` bucket에 귀속한다. 따라서 한 trace의
+LLM/tool observation과 feedback도 같은 request bucket에 놓인다. Bucket 경계는
+요청한 IANA timezone을 따르고 response timestamp는 UTC ISO 8601로 반환한다.
+Percentile 계산은 duration scalar만 사용하고, tool/feedback은 SQL aggregate로
+row 수를 줄인다. 이 read path는 write transaction, SDK sender, application
+실행과 분리하며 background worker나 materialized metric table을 추가하지 않는다.
 
 ## 3. Trace Lifecycle
 

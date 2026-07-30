@@ -6,6 +6,7 @@ import time
 import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -156,3 +157,19 @@ def test_generic_capture_sdk_api_sqlite_round_trip(live_server: str) -> None:
     assert cast(dict[str, object], root_output["fields"]) == {
         "answer": "답변: 왜 실패했지?"
     }
+
+    started_at = cast(str, items[0]["started_at"])
+    started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    dashboard = _get_json(
+        f"{live_server}/api/v1/dashboard?"
+        f"from={(started - timedelta(minutes=1)).isoformat().replace('+00:00', 'Z')}&"
+        f"to={(started + timedelta(minutes=1)).isoformat().replace('+00:00', 'Z')}&"
+        "timezone=UTC&query=student-generic&session_id=phase3-session"
+    )
+    totals = cast(dict[str, object], dashboard["totals"])
+    assert totals["trace_count"] == 1
+    assert totals["error"] == {"failed": 0, "total": 1, "rate": 0.0}
+    buckets = cast(list[dict[str, object]], dashboard["buckets"])
+    assert sum(
+        cast(dict[str, int], bucket["requests"])["completed"] for bucket in buckets
+    ) == 1
