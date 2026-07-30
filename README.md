@@ -163,7 +163,7 @@ LangFeather endpoint는 [http://127.0.0.1:4319 또는 Docker service 주소]다.
 변경 파일, 설치 명령, 실행 명령, 검증 결과, 남은 제약을 보고해라.
 ```
 
-SDK API 세부 사항은 [Python SDK reference](sdk/python/README.md)를 참고하세요.
+SDK API 세부 사항은 [Python SDK 문서](sdk/python/README.md)를 참고하세요.
 일반 Python 코드에는 `@langfeather.observe` 또는 `langfeather.span()`, ASGI
 application에는 `langfeather.wrap_asgi(app)`를 사용할 수 있습니다.
 
@@ -206,7 +206,7 @@ evaluator 결과, 연결 trace와 같은 dataset revision의 다른 experiment�
 | 첫 두 node LangGraph trace | [LangGraph quickstart](examples/langgraph_quickstart/README.md) |
 | 병렬 branch, loop, fallback, streaming, 실패, 취소 | [Runtime fidelity examples](examples/langgraph_runtime_fidelity/README.md) |
 | 일반 Python 함수, span, ASGI request | [Generic capture example](examples/generic_capture/README.md) |
-| SDK 설정, stream lifecycle, serializer 동작 | [Python SDK reference](sdk/python/README.md) |
+| SDK 설정, stream lifecycle, serializer 동작 | [Python SDK 문서](sdk/python/README.md) |
 | Dataset 작성, local experiment 실행, evaluator 작성 | [Dataset, Experiment, Evaluator guide](docs/DATASET_EXPERIMENT_EVALUATION.md) |
 | Local API/database 운영 | [Server reference](server/README.md) |
 
