@@ -15,6 +15,7 @@ import {
   type EvaluationUrlState,
   type OverviewUrlState,
 } from "./url";
+import logo from "./assets/logo.png";
 import "./styles.css";
 
 const NAVIGATION: ReadonlyArray<{ id: AppView; label: string }> = [
@@ -106,9 +107,7 @@ export function App() {
           onClick={() => selectView("overview")}
           aria-label={`${APP_TITLE} Overview 열기`}
         >
-          <svg className="lf-mark" viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M49.6 12.6c.5.2.8.6.9 1.1 1.4 8.5-.4 16.2-5.3 21.6-3.6 4-8.3 6.1-13.3 6.3 2.8 1.3 6.4 1.6 10.2.6-3 5.1-8.2 8.2-14.2 8.4-2.2.1-4.3-.2-6.2-.8l-4.6 6.9a1.6 1.6 0 1 1-2.7-1.8l4.6-6.9c-1.4-1.4-2.5-3.1-3.2-5.1-2-5.7-.7-11.6 2.9-15.8-.5 3.9.2 7.4 1.9 9.9-1.1-4.9-.3-10 2.4-14.4 3.6-6 9.8-9.9 18.1-11 .5-.1 1 .1 1.3.5.3.4.3 1 0 1.4l-9.7 15.3c-.2.4-.1.9.3 1.1.4.2.9.1 1.1-.3l14.2-16.4c.3-.4.8-.5 1.3-.4Z" />
-          </svg>
+          <img className="lf-mark" src={logo} alt="" aria-hidden="true" />
           <span className="lf-wordmark">{APP_TITLE}</span>
         </button>
         <nav className="lf-nav" aria-label="주요 영역">

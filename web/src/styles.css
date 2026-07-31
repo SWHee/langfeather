@@ -220,7 +220,7 @@ textarea:focus-visible,
   width: 26px;
   height: 26px;
   flex: none;
-  fill: var(--accent-mark);
+  object-fit: contain;
 }
 
 /* glyph를 대신하는 SVG icon. 부모의 font-size와 color를 그대로 따른다. */
