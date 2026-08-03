@@ -37,7 +37,6 @@ import type {
 } from "../api/types";
 import {
   ColumnHeaderCell,
-  copyText,
   deferState,
   EmptyBlock,
   ErrorBlock,
@@ -45,8 +44,6 @@ import {
   formatDateTime,
   formatDuration,
   fromLocalInput,
-  JsonCode,
-  jsonText,
   LoadingBlock,
   Modal,
   Pagination,
@@ -58,7 +55,11 @@ import {
   type ReorderableColumnDef,
 } from "../components";
 import { RuntimeGraphView } from "../graph/RuntimeGraphView";
-import { runtimeKindLabel } from "../graph/runtimeGraph";
+import {
+  observationKindBadges,
+  runtimeKindLabel,
+} from "../graph/runtimeGraph";
+import { ObservationPayloadPanel } from "./ObservationPayloadPanel";
 
 type TraceFilters = {
   query: string;
@@ -1506,8 +1507,20 @@ function DrawerContent({
                 <h3 className="io-card-head">
                   <span>{observation ? observation.name : "Trace"}</span>
                   {observation ? (
-                    <span className="tag">
-                      {runtimeKindLabel(observation.kind)}
+                    <span className="io-card-kinds">
+                      {observationKindBadges(
+                        detail.observations,
+                        observation.observation_id,
+                      ).map(({kind, count}) => (
+                        <span
+                          className="runtime-child-kind"
+                          data-kind={kind}
+                          key={kind}
+                        >
+                          {runtimeKindLabel(kind)}
+                          {count > 1 ? <em>{count}</em> : null}
+                        </span>
+                      ))}
                     </span>
                   ) : null}
                 </h3>
@@ -1517,13 +1530,7 @@ function DrawerContent({
                   ) : payloadState === "error" ? (
                     <ErrorBlock message={payloadError} onRetry={retryPayload} />
                   ) : payloadState === "success" && observation ? (
-                    <>
-                      <PayloadRow label="Input" value={observation.input} />
-                      <PayloadRow label="Output" value={observation.output} />
-                      {observation.error !== null ? (
-                        <PayloadRow label="Error" value={observation.error} />
-                      ) : null}
-                    </>
+                    <ObservationPayloadPanel observation={observation} />
                   ) : (
                     <EmptyBlock>그래프에서 관측값을 선택하세요.</EmptyBlock>
                   )}
@@ -1685,29 +1692,3 @@ function DrawerContent({
   );
 }
 
-function PayloadRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: Observation["input"];
-}) {
-  const [copied, setCopied] = useState(false);
-  const text = jsonText(value);
-  return (
-    <div className="payload-section">
-      <p className="io-label">
-        <span>{label}</span>
-        <button
-          type="button"
-          onClick={() => {
-            void copyText(text).then(() => setCopied(true));
-          }}
-        >
-          {copied ? "복사됨" : "복사"}
-        </button>
-      </p>
-      <JsonCode value={value} />
-    </div>
-  );
-}
