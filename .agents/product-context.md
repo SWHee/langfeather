@@ -9,7 +9,7 @@ Arize Phoenix 같은 self-hosted 대안은 학습용 project에 비해 운영·r
 디버깅에 필요한 실행 관계, input/output, 오류, latency, LLM/tool 호출을 작은
 local stack에서 확인하는 데 집중한다.
 
-## 현재 `0.3.0` 범위
+## 현재 `0.3.1` 범위
 
 - local-first, single-project, single-user prototype
 - Python SDK, 단일 FastAPI/SQLite collector, React UI

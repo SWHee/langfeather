@@ -4,4 +4,4 @@ import langfeather_server
 
 
 def test_server_package_imports() -> None:
-    assert langfeather_server.__version__ == "0.3.0"
+    assert langfeather_server.__version__ == "0.3.1"

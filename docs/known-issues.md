@@ -2,7 +2,7 @@
 
 현재 별도로 추적 중인 확인된 제품 결함은 없습니다.
 
-다음은 결함이 아니라 `0.3.0`의 의도된 범위 또는 제약입니다.
+다음은 결함이 아니라 `0.3.1`의 의도된 범위 또는 제약입니다.
 
 - local-first, single-project, single-user만 지원
 - public EC2 exposure, login, team sharing, ingest credential 미지원

@@ -4,7 +4,7 @@ import langfeather
 
 
 def test_sdk_imports_without_optional_dependencies() -> None:
-    assert langfeather.__version__ == "0.3.0"
+    assert langfeather.__version__ == "0.3.1"
     assert callable(langfeather.observe)
     assert callable(langfeather.span)
     assert callable(langfeather.current_context)

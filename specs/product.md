@@ -12,7 +12,7 @@ LangFeather는 제한된 개발 환경에서 LangGraph 챗봇을 만드는 사�
 있고, 무거운 self-hosted observability stack은 main application에 부담이 될 수 있다.
 
 LangFeather의 주 사용자는 LangGraph/LangChain 기반 챗봇을 개발하는 개인 또는 작은
-project 팀이다. `0.3.0`에서는 각 사용자가 자신의 PC에서 collector를 실행하는
+project 팀이다. `0.3.1`에서는 각 사용자가 자신의 PC에서 collector를 실행하는
 local-first prototype을 제공한다.
 
 ## 핵심 사용자 질문
@@ -33,7 +33,7 @@ local-first prototype을 제공한다.
 
 ## 현재 범위와 비범위
 
-`0.3.0`은 single-project, single-user, local-only이며 기본 bind는 `127.0.0.1`이다.
+`0.3.1`은 single-project, single-user, local-only이며 기본 bind는 `127.0.0.1`이다.
 login, team sharing, public EC2 exposure, RBAC, ingest credential은 지원하지 않는다.
 
 LangFeather는 LangSmith/Langfuse의 기능 전체를 복제하지 않는다. 비용 계산, prompt
