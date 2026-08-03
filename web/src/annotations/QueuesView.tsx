@@ -626,7 +626,6 @@ export function QueuesView() {
         onClose={() => {
           if (pending) return;
           setDeleteOpen(false);
-          setDeleteTargetId(null);
         }}
       >
         <div className="lf-modal-body">
@@ -638,10 +637,7 @@ export function QueuesView() {
               className="lf-btn"
               type="button"
               disabled={pending}
-              onClick={() => {
-                setDeleteOpen(false);
-                setDeleteTargetId(null);
-              }}
+              onClick={() => setDeleteOpen(false)}
             >
               취소
             </button>
