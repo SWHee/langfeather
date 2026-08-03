@@ -6,6 +6,52 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-03
+
+### 추가됨
+
+- 모든 주요 데이터 표(Traces, Annotation Queue trace 목록, Scores, Evaluation
+  Examples/Experiments)에 드래그로 컬럼 순서 변경, 컬럼 폭 조절, 컬럼별
+  정렬(오름차순/내림차순) 기능
+- Traces, Annotation Queue trace 목록, Dataset Examples 목록에 page당 20개
+  pagination
+- Traces 상세 popup에서 같은 session의 다른 trace로 이동할 때 `N / M` 형식의
+  위치 표시
+- Traces 수집 시각 컬럼을 상대 시간 대신 정확한 `MM/DD H:MM AM/PM` 시각으로 표시
+- Dataset 카드에 `⋯` 메뉴로 개별 dataset 삭제
+- Dataset Examples 목록에 검색창과 "+ Add Example", 행 클릭 시 열리는 편집 popup
+- Evaluation Experiments tab에 검색창과 checkbox 기반 experiment 삭제
+  (`DELETE /experiments/{id}`)
+- Metric 비교 카드에서 여러 metric을 동시에 그래프로 비교(metric별 그룹, 같은
+  experiment는 항상 같은 색), 그래프 hover 시 정확한 값을 보여주는 tooltip,
+  metric×experiment 값 행렬 표
+- Overview 시각화 그래프와 metric 비교 그래프에 y축 눈금 표시
+- Annotation Queue 목록에 Pending/Total 대신 진행률 bar와 "완료 / 전체 runs"
+  표시
+- 완료된 queue item을 다시 저장하면 "수정됨" 표시(`was_edited`)
+- 실행 흐름 그래프 node를 순서·kind(header) / 이름(본문) / 상태·latency(footer)
+  구조로 재구성
+- 전체 UI를 25% 확대해 기본 가독성 개선
+
+### 변경됨
+
+- Traces 목록을 opaque cursor 기반 무한 scroll에서 server가 계산한
+  `total_count`를 사용하는 번호 pagination으로 전환(`GET /traces`에 `page` 지원
+  추가)
+- Annotation Queue item을 다시 완료할 때 별도 "Review" 화면 대신 최초 완료와
+  동일한 popup·완료 버튼을 사용하도록 통일
+- Evaluation의 "Compare"를 별도 tab에서 Experiments tab 안의 카드로 통합
+- 표 기반 목록(Annotation Queues, Scores)의 개별 작업을 행마다 있던 `⋯` 메뉴에서
+  checkbox 선택 + toolbar action(Delete/Edit)으로 통일
+- Trace 상세의 Input/Output panel 제목에서 불필요한 "Input/Output" 문구를 지우고
+  대신 observation kind를 tag로 표시
+- 상세 popup(drawer)의 최대 폭을 960px에서 1300px로 확장
+
+### 수정됨
+
+- Annotation Queue 상세의 Trace ID 컬럼에 `overflow`/`ellipsis` 처리가 없어
+  컬럼을 넓혀도 옆 컬럼을 침범하던 문제
+
 ## [0.2.0] - 2026-07-30
 
 ### 추가됨
@@ -60,6 +106,7 @@ Phase 6 release-hardening 단계로 남아 있습니다.
 - trace delivery는 bounded in-memory best-effort 방식
 - 원본 diagnostic payload를 자동 redaction하지 않고 local에 보관
 
-[Unreleased]: https://github.com/SungjinWi99/LangFeather/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/SungjinWi99/LangFeather/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/SungjinWi99/LangFeather/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/SungjinWi99/LangFeather/releases/tag/v0.1.0

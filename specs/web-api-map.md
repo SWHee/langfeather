@@ -9,9 +9,9 @@ segment는 encode한다. GET은 `Accept: application/json`, mutation은 JSON bod
 
 | 사용자 동작 | method/path | request 또는 query | response |
 | --- | --- | --- | --- |
-| trace 목록 | `GET /traces` | `cursor`, `limit`, `status`, `from`, `to`, `tag`, `session_id`, `query` | `TraceListResponse` |
+| trace 목록 | `GET /traces` | `page`, `limit`, `status`, `from`, `to`, `tag`, `session_id`, `query`(과거 `cursor` 기반 무한 scroll도 여전히 지원되지만 web client는 `page`만 쓴다) | `TraceListResponse`(`items`, `next_cursor`, `total_count`) |
 | session trace 목록 | `GET /sessions/{session_id}/traces` | trace query에서 `session_id` 제외 | `TraceListResponse` |
-| trace detail | `GET /traces/{trace_id}` | 없음 | `TraceDetail` |
+| trace detail | `GET /traces/{trace_id}` | 없음 | `TraceDetail`(session이 있으면 `previous_trace_id`/`next_trace_id`와 `session_position`/`session_total` 포함) |
 | observation payload | `GET /observations/{observation_id}` | 없음 | `Observation` |
 | dashboard | `GET /dashboard` | `DashboardQuery`; `score_id`, `tool_name`은 repeated parameter | `DashboardResponse` |
 | trace 삭제 | `DELETE /traces/{trace_id}` | 없음 | `204` |
@@ -77,6 +77,7 @@ memo가 정의되지 않았으면 field 자체를 생략한다.
 | dataset 삭제 | `DELETE /datasets/{dataset_id}` | 없음 | `204`; history가 있으면 `409` |
 | experiment 목록 | `GET /experiments` | 없음 | `ExperimentListResponse` |
 | experiment detail | `GET /experiments/{experiment_id}` | 없음 | `Experiment` |
+| experiment 삭제 | `DELETE /experiments/{experiment_id}` | 없음 | `204` |
 
 example input은 모든 JSON value를 허용한다. metadata는 object여야 한다.
 `expected_output`은 null일 수 있다. dataset/example mutation의 `Dataset` response가

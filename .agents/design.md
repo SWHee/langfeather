@@ -1,15 +1,11 @@
 # UI 디자인 계약
 
-현재 기존 `web/` presentation은 전면 redesign을 위해 의도적으로 제거되었다.
-새 UI가 확정되기 전까지 기존 screenshot, 삭제된 JSX/CSS, git history를 시각적
-출발점으로 복원하지 않는다. 제품 기능과 상태는 `specs/web-functional.md`,
-`specs/web-interaction-contract.md`, `specs/web-api-map.md`를 유지하되 새 시각
-언어와 information architecture는 별도로 결정한다.
+UI 변경은 새 디자인을 만드는 일이 아니라 기존 `web/`의 시각 언어를 유지하는 일이다.
 
 ## 기본 원칙
 
-- 새 visual direction을 구현하기 전에 root `DESIGN.md`를 실제 결정으로 교체한다.
-- scaffold에는 재사용할 기존 token, 공용 component, page pattern이 없다고 가정한다.
+- 새 색, font, shadow, gradient, spacing scale을 임의로 추가하지 않는다.
+- 기존 token, 공용 component, page pattern을 먼저 찾고 재사용한다.
 - 정보 확인이 우선이다. 장식용 card, icon, animation을 기능 없이 추가하지 않는다.
 - 상태는 loading, empty, error, disabled를 함께 설계한다.
 - desktop과 mobile 모두에서 기본 조회와 주요 action이 가능해야 한다.
@@ -17,9 +13,9 @@
 
 ## 화면 작업 전 확인
 
-1. 관련 `specs/web-*.md`에서 기능, action, state, API 계약을 확인한다.
-2. 새 visual direction과 주요 정보 구조를 사용자와 확정한다.
-3. 공용 primitive가 두 곳 이상에서 같은 의미를 가질 때만 component로 추출한다.
+1. 비슷한 기존 화면과 component를 찾는다.
+2. 필요한 정보, action, empty/error 상태를 짧게 적는다.
+3. 새 component가 기존 것을 대체할 만큼 두 곳 이상 필요한지 확인한다.
 
 ## 완료 전 확인
 
@@ -30,6 +26,6 @@
 - visual layout을 바꿨다면 desktop/mobile screenshot으로 회귀를 확인했는가
 - browser console, keyboard focus, scroll 동작에 새 문제가 없는가
 
-별도 요청 없이 Figma를 도입하지 않는다. 새 UI가 완성되면 실제 구현과 root
-`DESIGN.md`가 함께 visual source of truth가 된다. 그 전까지 scaffold의 browser
-기본 style은 디자인 결정이 아니다.
+Figma나 별도 design system을 도입하지 않는다. `web/`의 token과 공용 component가
+구현 source of truth이고, root `DESIGN.md`는 색상·spacing·component visual token의
+참고 기준이다. 이 문서는 AI가 그 기준을 우회하지 않게 하는 작업 규칙이다.

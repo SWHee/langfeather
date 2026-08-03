@@ -1,6 +1,6 @@
 # 피드백 운영
 
-`0.2.0` prototype의 피드백은 GitHub Issues로 받습니다. feedback을 설문이나 chat에
+`0.3.0` prototype의 피드백은 GitHub Issues로 받습니다. feedback을 설문이나 chat에
 흩어두지 않습니다.
 
 ## Issue 종류

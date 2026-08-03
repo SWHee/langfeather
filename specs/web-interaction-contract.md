@@ -21,7 +21,7 @@
 | Overview | `overview_scores` | comma-separated ordered score IDs, 최대 4개 |
 | Overview | `overview_tools` | comma-separated ordered tool names |
 | Evaluation | `dataset` | dataset ID |
-| Evaluation | `tab` | `compare`, `experiments`, `examples` |
+| Evaluation | `tab` | `experiments`, `examples`(`compare`도 값으로 허용되지만 UI는 `examples`가 아니면 항상 `experiments`로 취급한다) |
 | Evaluation | `experiments` | comma-separated ordered experiment IDs |
 | Evaluation | `metrics` | comma-separated evaluator keys |
 | Evaluation | `case` | dataset example ID |
@@ -64,8 +64,8 @@ trace select
 
 filter apply/reset
   -> trace/observation selection clear
-  -> cursor clear
-  -> list loading from first page
+  -> page reset to 1
+  -> list loading
 
 trace delete success
   -> trace/observation selection clear
@@ -89,12 +89,13 @@ trace delete success
 
 ## Evaluation tab 규칙
 
-- tab은 Compare, Experiments, Examples 순서다.
+- tab은 Examples, Experiments 순서다("Compare"는 별도 tab이 아니라 Experiments
+  tab 안의 metric 비교 카드다).
 - ArrowRight/ArrowLeft는 순환 이동한다.
 - Home은 첫 tab, End는 마지막 tab으로 이동한다.
 - keyboard로 이동한 tab에 focus를 옮긴다.
 - tab을 바꿔도 selected dataset context는 유지한다.
-- dataset 변경 시 compare-specific selection은 초기화한다.
+- dataset 변경 시 experiment/metric selection은 초기화한다.
 
 ## 비교 계산 규칙
 
@@ -107,8 +108,10 @@ trace delete success
 - `targetFailedCount`: target execution 자체가 failed인 case
 
 boolean value는 `true` 개수 / `scoredCount`, number value는 유효 값의 arithmetic mean을
-사용한다. baseline delta는 candidate value - baseline value다. 어느 한쪽 value가
-null이면 delta도 null이다.
+사용한다. 내부적으로는 첫 번째 선택된 experiment를 baseline으로 두고
+candidate - baseline delta를 계산하지만(어느 한쪽이 null이면 delta도 null),
+현재 UI는 이 delta를 표시하지 않고 metric×experiment 행렬 표와 그래프로 절대
+값만 보여준다.
 
 ## runtime graph 규칙
 

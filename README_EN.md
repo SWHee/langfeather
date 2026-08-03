@@ -11,7 +11,7 @@ reproduce a full hosted observability platform.
 
 ## Current scope
 
-`0.2.0` is a local-first, single-project, single-user prototype. The collector
+`0.3.0` is a local-first, single-project, single-user prototype. The collector
 runs on your own machine and binds to `127.0.0.1:4319` by default. Login, cloud
 collection, team sharing, and public EC2 deployment are not supported yet.
 
@@ -26,7 +26,7 @@ Run the collector:
 docker run -d --name langfeather \
   -p 127.0.0.1:4319:4319 \
   -v langfeather-data:/data \
-  ghcr.io/sungjinwi99/langfeather:0.2.0
+  ghcr.io/sungjinwi99/langfeather:0.3.0
 ```
 
 Open <http://127.0.0.1:4319>, install the SDK, then wrap the compiled graph you

@@ -19,16 +19,16 @@
 
 | 기능 | 필수 정상 흐름 | 필수 edge/error |
 | --- | --- | --- |
-| Overview | 기본 7일 조회, filter apply/reset, score/tool 선택, 시계열 확인 | score 최대 4개, no trace/tool/feedback, retry, number 평균과 rate 분리 |
-| Traces | 목록, filter, opaque pagination, trace/detail, graph, lazy payload | deep link, list/detail/payload별 error, failed-node 우선, 삭제 후 회복 |
+| Overview | 기본 7일 조회, filter apply/reset, score/tool 선택, 시계열과 y축 눈금 확인 | score 최대 4개, no trace/tool/feedback, retry, number 평균과 rate 분리 |
+| Traces | 목록, filter, 20개 page 단위 이동, trace/detail, graph, lazy payload, 컬럼 순서/폭/정렬 | deep link, list/detail/payload별 error, failed-node 우선, 삭제 후 회복, filter 변경 시 1page 복귀 |
 | Trace actions | queue/dataset 추가, trace 삭제 | 목록 실패, duplicate pending 방지, Escape/외부 클릭/focus 복귀 |
 | Scores | 세 type 생성, 수정, 검색, archive/delete | used score 제한, API 실패, destructive confirm |
 | Annotation | score 추가, 값/memo 저장, annotation 삭제 | type별 value, 일부 요청 실패, detail refresh |
-| Queues | 빈 queue 생성, 설정 수정, item 추가/제거, review 완료 | trace/payload 실패, completed item 재편집, 다음 pending 이동 |
-| Datasets | 선택/검색/생성/삭제, example CRUD | 404 회복, history 409, JSON field 오류, 빈 input 확인, stale refetch |
+| Queues | 빈 queue 생성, 설정 수정, item 추가/제거, 완료(신규/재편집 공통 흐름), Progress 시각화 | trace/payload 실패, 재편집 후 "수정됨" 표시, 다음 pending 이동, item 목록 pagination |
+| Datasets | 선택/검색/생성/삭제(카드 `⋯` 메뉴), example CRUD(검색/추가/행 클릭 편집/checkbox 삭제) | 404 회복, history 409, JSON field 오류, stale refetch, example pagination |
 | JSONL | round-trip export/import | blank line, partial failure, 실패 line number, 내부 field 제외 |
-| Experiments | summary, lazy detail, case evidence, evaluate quickstart | no experiment, running/cancelled/failed, detail load failure |
-| Compare | 같은 revision 2~4개, baseline, metric, case filter/detail | revision/type conflict, missing/error/target failure, null delta, retry |
+| Experiments | summary, lazy detail popup(case 표에 metadata 포함), evaluate quickstart, 검색/checkbox 삭제 | no experiment, running/cancelled/failed, detail load failure |
+| Metric 비교 | 같은 revision 2~4개, 0~N개 metric 다중 선택, metric별 그룹 bar chart, 커서 근접 tooltip, metric×experiment 표 | revision/type conflict, missing/error/target failure, metric 0개 선택, retry |
 | Local Data | `RESET` 입력과 확인 후 초기화 | 잘못된 confirmation, API 실패 |
 
 ## 자동 검증
@@ -64,7 +64,7 @@ layout, navigation, dialog 또는 주요 action을 구현한 변경은 build만�
 - trace 선택 → graph node 선택 → payload 확인
 - queue 또는 dataset에 trace 추가
 - score/queue/dataset dialog keyboard 사용
-- Evaluation tab과 Compare case 이동
+- Evaluation Examples/Experiments tab 이동과 Metric 비교 선택
 - destructive confirmation
 - focus-visible, Escape, scroll, console 확인
 

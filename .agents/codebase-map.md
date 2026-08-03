@@ -11,7 +11,3 @@
 공유 JSON contract, migration, shared frontend type는 한 작업에서 한 명만 수정합니다.
 새 기능이 SDK/API/UI를 모두 바꾸면 lead가 contract를 먼저 정하고 integration test를
 함께 추가합니다.
-
-현재 `web/`의 기존 presentation layer는 전면 redesign을 위해 제거된 상태입니다.
-`web/src/App.tsx`의 scaffold와 root `DESIGN.md`를 완성된 UI 또는 시각 기준으로
-사용하지 마세요. 보존할 기능과 상태 전이는 `specs/web-*.md`가 소유합니다.
