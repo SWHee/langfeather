@@ -36,11 +36,11 @@ import {
 type LoadState = "loading" | "success" | "error";
 
 const SCORE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "name", label: "Score", width: 220 },
-  { id: "type", label: "Type", width: 150 },
-  { id: "value", label: "Value", width: 280 },
-  { id: "state", label: "Status", width: 110 },
-  { id: "description", label: "Description", width: 260 },
+  { id: "name", label: "Score", width: 275 },
+  { id: "type", label: "Type", width: 187.5 },
+  { id: "value", label: "Value", width: 350 },
+  { id: "state", label: "Status", width: 137.5 },
+  { id: "description", label: "Description", width: 325 },
 ];
 
 function scoreValueText(score: ScoreConfig): string {

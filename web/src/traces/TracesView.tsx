@@ -84,13 +84,13 @@ const EMPTY_FILTERS: TraceFilters = {
 };
 
 const TRACE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "Status", width: 70 },
-  { id: "started", label: "Started", width: 140 },
-  { id: "trace_id", label: "Trace ID", width: 170 },
-  { id: "input", label: "Input", width: 220 },
-  { id: "output", label: "Output", width: 220 },
-  { id: "latency", label: "Latency", width: 90 },
-  { id: "count", label: "# Observations", width: 130 },
+  { id: "status", label: "Status", width: 87.5 },
+  { id: "started", label: "Started", width: 175 },
+  { id: "trace_id", label: "Trace ID", width: 212.5 },
+  { id: "input", label: "Input", width: 275 },
+  { id: "output", label: "Output", width: 275 },
+  { id: "latency", label: "Latency", width: 112.5 },
+  { id: "count", label: "# Observations", width: 162.5 },
 ];
 
 const TRACE_SORT_VALUES: Record<
@@ -275,7 +275,7 @@ export function TracesView({
   const [savingAnnotations, setSavingAnnotations] = useState(false);
   const [bulkDelete, setBulkDelete] = useState(false);
   const [bulkPending, setBulkPending] = useState(false);
-  const [drawerWidth, setDrawerWidth] = useState(760);
+  const [drawerWidth, setDrawerWidth] = useState(950);
   const [scorePickerOpen, setScorePickerOpen] = useState(false);
   const [pickerScoreIds, setPickerScoreIds] = useState<string[]>([]);
   const [activeScoreIds, setActiveScoreIds] = useState<string[]>([]);
@@ -479,8 +479,8 @@ export function TracesView({
       if (!current) return;
       setDrawerWidth(
         Math.max(
-          420,
-          Math.min(1300, current.startWidth + current.startX - event.clientX),
+          525,
+          Math.min(1625, current.startWidth + current.startX - event.clientX),
         ),
       );
     };
@@ -1076,7 +1076,7 @@ export function OverviewTraceDrawer({
   >("idle");
   const [payloadError, setPayloadError] = useState("");
   const [payloadRetry, setPayloadRetry] = useState(0);
-  const [drawerWidth, setDrawerWidth] = useState(760);
+  const [drawerWidth, setDrawerWidth] = useState(950);
   const [annotationValues, setAnnotationValues] = useState<
     Record<string, AnnotationValue | null>
   >({});
@@ -1214,8 +1214,8 @@ export function OverviewTraceDrawer({
       if (!current) return;
       setDrawerWidth(
         Math.max(
-          420,
-          Math.min(1300, current.startWidth + current.startX - event.clientX),
+          525,
+          Math.min(1625, current.startWidth + current.startX - event.clientX),
         ),
       );
     };

@@ -65,13 +65,13 @@ const ALLOWED_SPANS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const OTHERS_TOOL_KEY = "__others__";
 
 const RECENT_TRACE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "상태", width: 70 },
-  { id: "started", label: "수집", width: 92 },
-  { id: "trace_id", label: "Trace ID", width: 170 },
-  { id: "input", label: "Input", width: 220 },
-  { id: "output", label: "Output", width: 220 },
-  { id: "latency", label: "Latency", width: 90 },
-  { id: "count", label: "# Observations", width: 130 },
+  { id: "status", label: "상태", width: 87.5 },
+  { id: "started", label: "수집", width: 115 },
+  { id: "trace_id", label: "Trace ID", width: 212.5 },
+  { id: "input", label: "Input", width: 275 },
+  { id: "output", label: "Output", width: 275 },
+  { id: "latency", label: "Latency", width: 112.5 },
+  { id: "count", label: "# Observations", width: 162.5 },
 ];
 
 const RECENT_TRACE_SORT_VALUES: Record<
@@ -452,8 +452,8 @@ function ChartCard({
                     left: `${focusX}%`,
                     top: `${tooltipTop}%`,
                     transform: tooltipFlipped
-                      ? "translate(calc(-100% - 12px), -50%)"
-                      : "translate(12px, -50%)",
+                      ? "translate(calc(-100% - 15px), -50%)"
+                      : "translate(15px, -50%)",
                   }}
                 >
                   <span className="tooltip-time">

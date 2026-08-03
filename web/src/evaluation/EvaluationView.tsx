@@ -57,9 +57,9 @@ import type { EvaluationUrlState } from "../url";
 type LoadState = "loading" | "success" | "error";
 
 const EXAMPLE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "input", label: "Input", width: 300 },
-  { id: "expected_output", label: "Reference output", width: 300 },
-  { id: "metadata", label: "Metadata", width: 260 },
+  { id: "input", label: "Input", width: 375 },
+  { id: "expected_output", label: "Reference output", width: 375 },
+  { id: "metadata", label: "Metadata", width: 325 },
 ];
 
 const EXAMPLE_SORT_VALUES: Record<
@@ -72,11 +72,11 @@ const EXAMPLE_SORT_VALUES: Record<
 };
 
 const EXPERIMENT_COLUMNS: ReorderableColumnDef[] = [
-  { id: "name", label: "Experiment", width: 260 },
-  { id: "status", label: "Status", width: 110 },
-  { id: "revision", label: "Revision", width: 90 },
-  { id: "cases", label: "Cases", width: 110 },
-  { id: "duration", label: "Duration", width: 110 },
+  { id: "name", label: "Experiment", width: 325 },
+  { id: "status", label: "Status", width: 137.5 },
+  { id: "revision", label: "Revision", width: 112.5 },
+  { id: "cases", label: "Cases", width: 137.5 },
+  { id: "duration", label: "Duration", width: 137.5 },
 ];
 
 const EXPERIMENT_SORT_VALUES: Record<
@@ -149,7 +149,7 @@ export function EvaluationView({
   );
   const [drawerState, setDrawerState] = useState<LoadState>("success");
   const [drawerError, setDrawerError] = useState("");
-  const [drawerWidth, setDrawerWidth] = useState(760);
+  const [drawerWidth, setDrawerWidth] = useState(950);
   const drawerResize = useRef<{ startX: number; startWidth: number } | null>(
     null,
   );
@@ -244,8 +244,8 @@ export function EvaluationView({
       if (!current) return;
       setDrawerWidth(
         Math.max(
-          420,
-          Math.min(1300, current.startWidth + current.startX - event.clientX),
+          525,
+          Math.min(1625, current.startWidth + current.startX - event.clientX),
         ),
       );
     };
@@ -896,7 +896,7 @@ function ExamplesTable({
   const [editMetadata, setEditMetadata] = useState("");
   const [editPending, setEditPending] = useState(false);
   const [editError, setEditError] = useState("");
-  const [drawerWidth, setDrawerWidth] = useState(560);
+  const [drawerWidth, setDrawerWidth] = useState(700);
   const drawerResize = useRef<{ startX: number; startWidth: number } | null>(
     null,
   );
@@ -908,8 +908,8 @@ function ExamplesTable({
       if (!current) return;
       setDrawerWidth(
         Math.max(
-          420,
-          Math.min(1300, current.startWidth + current.startX - event.clientX),
+          525,
+          Math.min(1625, current.startWidth + current.startX - event.clientX),
         ),
       );
     };
@@ -1841,8 +1841,8 @@ function MetricBars({
                   style={{
                     left: `${hover.x}%`,
                     top: `${hover.y}%`,
-                    marginLeft: 12,
-                    marginTop: -8,
+                    marginLeft: 15,
+                    marginTop: -10,
                   }}
                 >
                   <span className="tooltip-time">{key}</span>
@@ -2000,16 +2000,16 @@ function ExperimentDrawer({
 function ExperimentCaseTable({ experiment }: { experiment: Experiment }) {
   const caseColumns = useMemo<ReorderableColumnDef[]>(
     () => [
-      { id: "input", label: "Input", width: 220 },
-      { id: "expected_output", label: "Expected Output", width: 220 },
-      { id: "output", label: "Output", width: 220 },
-      { id: "metadata", label: "Metadata", width: 200 },
+      { id: "input", label: "Input", width: 275 },
+      { id: "expected_output", label: "Expected Output", width: 275 },
+      { id: "output", label: "Output", width: 275 },
+      { id: "metadata", label: "Metadata", width: 250 },
       ...experiment.evaluators.map((evaluator) => ({
         id: `evaluator:${evaluator.experiment_evaluator_id}`,
         label: evaluator.name,
         width: 130,
       })),
-      { id: "duration", label: "Duration", width: 100 },
+      { id: "duration", label: "Duration", width: 125 },
     ],
     [experiment.evaluators],
   );
