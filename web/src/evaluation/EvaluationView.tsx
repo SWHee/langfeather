@@ -48,10 +48,19 @@ import {
   Pagination,
   SelectColGroup,
   sortRows,
+  useEscape,
   useReorderableColumns,
   type ReorderableColumnDef,
 } from "../components";
 import { compareExperiments, hasDatasetRevisionMismatch } from "./comparison";
+import {
+  downloadJsonl,
+  examplesToJsonl,
+  jsonlFileName,
+  parseJsonl,
+  readTextFile,
+  type JsonlEntry,
+} from "./jsonl";
 import type { EvaluationUrlState } from "../url";
 
 type LoadState = "loading" | "success" | "error";
@@ -389,6 +398,29 @@ export function EvaluationView({
       ),
     );
   };
+  /* Import saves line by line: one rejected line must not drop the rest. */
+  const importExamples = async (entries: JsonlEntry[]): Promise<number[]> => {
+    if (!dataset) return entries.map((entry) => entry.lineNumber);
+    const failedLines: number[] = [];
+    let latest: Dataset | null = null;
+    for (const entry of entries) {
+      try {
+        latest = await addDatasetExample(dataset.dataset_id, entry.example);
+      } catch {
+        failedLines.push(entry.lineNumber);
+      }
+    }
+    if (latest) {
+      const refreshed = latest;
+      setDataset(refreshed);
+      setDatasets((items) =>
+        items.map((entry) =>
+          entry.dataset_id === refreshed.dataset_id ? refreshed : entry,
+        ),
+      );
+    }
+    return failedLines;
+  };
   const updateExample = async (
     exampleId: string,
     patch: {
@@ -599,6 +631,7 @@ export function EvaluationView({
               onDelete={deleteExamples}
               onAdd={addExample}
               onUpdate={updateExample}
+              onImport={importExamples}
             />
           ) : (
             <ExperimentsPanel
@@ -857,11 +890,28 @@ function DatasetList({
   );
 }
 
+function ImportIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="menu-icon">
+      <path d="M8 2v8m0 0 3-3m-3 3-3-3M3 14h10" />
+    </svg>
+  );
+}
+
+function ExportIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="menu-icon">
+      <path d="M8 14V6m0 0 3 3M8 6 5 9M3 2h10" />
+    </svg>
+  );
+}
+
 function ExamplesTable({
   dataset,
   onDelete,
   onAdd,
   onUpdate,
+  onImport,
 }: {
   dataset: Dataset;
   onDelete: (exampleIds: string[]) => Promise<void>;
@@ -878,6 +928,7 @@ function ExamplesTable({
       metadata?: { [key: string]: JsonValue };
     },
   ) => Promise<void>;
+  onImport: (entries: JsonlEntry[]) => Promise<number[]>;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -896,6 +947,13 @@ function ExamplesTable({
   const [editMetadata, setEditMetadata] = useState("");
   const [editPending, setEditPending] = useState(false);
   const [editError, setEditError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [jsonlMenuOpen, setJsonlMenuOpen] = useState(false);
+  const [jsonlStatus, setJsonlStatus] = useState<{
+    text: string;
+    tone: "info" | "error";
+  } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [drawerWidth, setDrawerWidth] = useState(700);
   const drawerResize = useRef<{ startX: number; startWidth: number } | null>(
     null,
@@ -923,6 +981,19 @@ function ExamplesTable({
       window.removeEventListener("pointerup", end);
     };
   }, []);
+
+  useEscape(jsonlMenuOpen, () => setJsonlMenuOpen(false));
+  useEffect(() => {
+    if (!jsonlMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".jsonl-menu-anchor"))
+        return;
+      setJsonlMenuOpen(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [jsonlMenuOpen]);
 
   const editingExample = dataset.examples.find(
     (example) => example.dataset_example_id === editingId,
@@ -1061,6 +1132,48 @@ function ExamplesTable({
     }
   };
 
+  const exportJsonl = () => {
+    downloadJsonl(jsonlFileName(dataset), examplesToJsonl(dataset.examples));
+    setJsonlStatus({
+      text: `Example ${dataset.examples.length}개를 JSONL로 내보냈습니다.`,
+      tone: "info",
+    });
+  };
+
+  const importJsonl = async (file: File) => {
+    setImporting(true);
+    setJsonlStatus(null);
+    try {
+      let contents: string;
+      try {
+        contents = await readTextFile(file);
+      } catch {
+        setJsonlStatus({
+          text: "JSONL 파일을 읽지 못했습니다.",
+          tone: "error",
+        });
+        return;
+      }
+      const { entries, failedLines } = parseJsonl(contents);
+      const writeFailures = await onImport(entries);
+      const failed = [...failedLines, ...writeFailures].sort((a, b) => a - b);
+      const imported = entries.length - writeFailures.length;
+      setJsonlStatus(
+        failed.length === 0
+          ? {
+              text: `JSONL import: ${imported}개를 추가했습니다.`,
+              tone: "info",
+            }
+          : {
+              text: `JSONL import: ${imported}개 추가, 실패한 줄 ${failed.join(", ")}.`,
+              tone: "error",
+            },
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const visible = dataset.examples.filter((example) =>
     `${jsonPreview(example.input)} ${jsonPreview(example.expected_output)} ${jsonPreview(example.metadata)}`
       .toLowerCase()
@@ -1080,6 +1193,60 @@ function ExamplesTable({
         <button className="lf-btn is-primary" type="button" onClick={openAdd}>
           + Add Example
         </button>
+        <div className="jsonl-menu-anchor">
+          <button
+            className="more"
+            type="button"
+            aria-label="JSONL 작업 메뉴"
+            aria-haspopup="menu"
+            aria-expanded={jsonlMenuOpen}
+            onClick={() => setJsonlMenuOpen((open) => !open)}
+          >
+            ⋯
+          </button>
+          {jsonlMenuOpen ? (
+            <div className="row-menu jsonl-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                disabled={importing}
+                onClick={() => {
+                  setJsonlMenuOpen(false);
+                  fileInput.current?.click();
+                }}
+              >
+                <ImportIcon />
+                Import
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={importing || dataset.examples.length === 0}
+                onClick={() => {
+                  setJsonlMenuOpen(false);
+                  exportJsonl();
+                }}
+              >
+                <ExportIcon />
+                Export
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {/* The picker stays outside the menu so choosing Import can open it. */}
+        <input
+          ref={fileInput}
+          className="sr-only"
+          type="file"
+          tabIndex={-1}
+          accept=".jsonl,application/x-ndjson,application/json"
+          aria-label="JSONL 가져오기"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (file) void importJsonl(file);
+          }}
+        />
         <input
           className="search"
           type="search"
@@ -1105,6 +1272,15 @@ function ExamplesTable({
         <span className="count">{visible.length}개</span>
       </div>
       {error ? <p className="mutation-status is-error">{error}</p> : null}
+      {/* The live region stays mounted so a later message is announced. */}
+      <p
+        className={`mutation-status${jsonlStatus?.tone === "error" ? " is-error" : ""}`}
+        data-tone={jsonlStatus?.tone}
+        role="status"
+        aria-live={jsonlStatus?.tone === "error" ? "assertive" : "polite"}
+      >
+        {jsonlStatus?.text ?? ""}
+      </p>
       <section className="table-shell">
         <table>
           <SelectColGroup columns={columns} />

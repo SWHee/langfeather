@@ -335,6 +335,10 @@ p {
 .mutation-status.is-error {
   color: var(--red);
 }
+/* An always-mounted live region must not reserve space while it is silent. */
+.mutation-status:empty {
+  margin: 0;
+}
 
 .lf-dialog {
   position: fixed;
@@ -2146,6 +2150,36 @@ p {
 }
 .dataset-toolbar .search {
   width: min(525px, 48vw);
+}
+.jsonl-menu-anchor {
+  position: relative;
+}
+.row-menu.jsonl-menu {
+  right: auto;
+  left: 0;
+  width: 165px;
+}
+.row-menu.jsonl-menu button {
+  display: flex;
+  align-items: center;
+  gap: 11.25px;
+  color: var(--ink);
+}
+.row-menu.jsonl-menu button:hover:not(:disabled) {
+  background: #eef3f8;
+}
+.row-menu.jsonl-menu button:disabled {
+  color: var(--muted);
+}
+.menu-icon {
+  width: 18.75px;
+  height: 18.75px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .dataset-list {
   display: grid;

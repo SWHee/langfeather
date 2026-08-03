@@ -28,8 +28,8 @@ trace의 원본 payload와 실제 실행 관계를 local SQLite에 보존하면�
 ## Operating Context
 
 사용자는 `127.0.0.1:4319`의 browser UI에서 trace와 annotation queue를 검토한다.
-평가 dataset은 trace에서 snapshot을 만들고, experiment는 SDK가 사용자 process에서
-실행하며 결과만 local server에 기록한다.
+평가 dataset은 trace에서 snapshot을 만들거나 JSONL로 다루며, experiment는 SDK가
+사용자 process에서 실행하고 결과만 local server에 기록한다.
 
 ## Capabilities and Constraints
 
