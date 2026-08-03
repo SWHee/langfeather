@@ -266,7 +266,9 @@ describe("V2 presentation", () => {
     ).toBeVisible();
     await screen.findByText("answer", { selector: ".io-card-head span" });
     expect(
-      screen.getByText("LLM", { selector: ".io-card-head .tag" }),
+      screen.getByText("LLM", {
+        selector: ".io-card-head .runtime-child-kind",
+      }),
     ).toBeInTheDocument();
 
     expect(

@@ -143,11 +143,23 @@ def _llm_result_details(
         return None, None
 
 
+_INTERNAL_RUN_TYPES = frozenset({"prompt", "parser"})
+"""LangChain's own ``run_type`` for prompt formatting and output parsing steps.
+
+Both ``BasePromptTemplate.invoke`` and ``BaseOutputParser.invoke`` pass these
+literally regardless of subclass, so they're a stable signal (unlike matching
+on a class name) that a step is LCEL plumbing rather than a node the caller
+defined.
+"""
+
+
 def _chain_kind(
     serialized: object,
     explicit_name: object,
     run_type: object,
 ) -> str:
+    if isinstance(run_type, str) and run_type in _INTERNAL_RUN_TYPES:
+        return "runnable"
     evidence: list[str] = []
     if isinstance(explicit_name, str):
         evidence.append(explicit_name)

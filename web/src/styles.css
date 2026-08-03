@@ -1195,106 +1195,147 @@ p {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.runtime-graph {
-  padding: 10px 12px 8px;
-}
-.graph-canvas {
-  position: relative;
-}
-.graph-toolbar {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
+.io-card-kinds {
   display: flex;
-  flex-direction: column;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 4px;
 }
-.graph-toolbar button {
+.runtime-graph {
+  position: relative;
+  /* Cancels the app-wide `body { zoom: 1.25 }` inside the canvas. React Flow
+     measures nodes with getBoundingClientRect (which includes CSS zoom) but
+     draws edges through its own transform (which does not), so any inherited
+     zoom shifts every edge off its handle. Sizes here are 1.25x the intended
+     on-screen values to compensate. */
+  zoom: 0.8;
+  height: 700px;
+  min-height: 525px;
+  background: var(--surface-alt);
+}
+.runtime-graph .react-flow__background {
+  opacity: 0.6;
+}
+.runtime-graph .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--strong);
+  border-radius: 7px;
+  box-shadow: none;
+}
+.runtime-graph .react-flow__controls-button {
   width: 27px;
   height: 27px;
-  border: 1px solid var(--strong);
-  border-radius: 4px;
+  border-bottom-color: var(--line);
   background: #fff;
+}
+.runtime-node {
+  display: grid;
+  width: 184px;
+  min-height: 92px;
+  padding: 10px;
+  border: 1px solid var(--strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(20, 35, 55, 0.07);
+  gap: 6px;
+}
+.runtime-node[data-selected="true"] {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 2px var(--navy-soft);
+}
+.runtime-node[data-status="failed"] {
+  border-color: var(--red);
+}
+.runtime-node-heading,
+.runtime-node-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.runtime-node-heading {
+  flex-wrap: wrap;
+  gap: 4px;
   color: var(--muted);
-  font-size: 15px;
-  box-shadow: 0 1px 4px rgba(20, 35, 55, 0.12);
+  font-size: 0.72rem;
 }
-.graph-toolbar button:hover {
+.runtime-sequence {
+  font-family: var(--mono);
+}
+.runtime-kind,
+.runtime-child-kind {
+  padding: 2px 5px;
+  border-radius: 5px;
   color: var(--navy);
-  border-color: #9cb6d9;
+  background: var(--navy-soft);
+  font-size: 0.7rem;
+  font-weight: 750;
 }
-.execution-graph {
-  display: block;
-  width: 100%;
-  height: 290px;
+.runtime-child-kind {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--muted);
+  background: var(--surface-alt);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.runtime-child-kind > em {
+  color: var(--quiet);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-style: normal;
+}
+.runtime-child-kind[data-kind="llm"] {
+  color: var(--violet);
+  background: #f4efff;
+  box-shadow: inset 0 0 0 1px #e3daf9;
+}
+.runtime-child-kind[data-kind="retriever"] {
+  color: var(--navy);
+  background: var(--navy-soft);
+  box-shadow: inset 0 0 0 1px #d3e2f6;
+}
+.runtime-child-kind[data-kind="tool"] {
+  color: var(--orange);
+  background: #fdf3e4;
+  box-shadow: inset 0 0 0 1px #f4e0c2;
+}
+.runtime-node > strong {
   overflow: hidden;
-  cursor: grab;
-  touch-action: none;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.execution-graph.is-panning {
-  cursor: grabbing;
-}
-.runtime-edge {
-  stroke: #aebdce;
-  stroke-width: 1.5;
-}
-.runtime-edge.is-dispatch {
-  stroke-dasharray: 4 3;
-}
-.runtime-node-body {
-  fill: #fff;
-  stroke: #cfd8e5;
-  stroke-width: 1.2;
-}
-.runtime-node-body.is-failed {
-  fill: #fffbfb;
-}
-.runtime-node-header {
-  fill: #eef1f5;
-}
-.runtime-node-header.is-root {
-  fill: #e2ecfa;
-}
-.runtime-node-header.is-failed {
-  fill: #fbe4e2;
-}
-.graph-node {
-  cursor: pointer;
-}
-.graph-node:hover .runtime-node-body,
-.graph-node.is-active .runtime-node-body {
-  stroke: #5b83bd;
-  stroke-width: 1.8;
-}
-.runtime-node-order {
-  fill: #7e8ba0;
-  font: 700 10px var(--mono);
-}
-.runtime-node-kind {
-  fill: #56657a;
-  font: 700 10px var(--mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-.runtime-node-name {
-  fill: #1c2836;
-  font: 700 13px var(--sans);
+.runtime-node-meta {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 .runtime-node-status {
-  fill: var(--green);
-  font: 700 10px var(--mono);
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
-.runtime-node-status.is-failed {
-  fill: var(--red);
+.runtime-node-status > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
 }
-.runtime-node-status.is-cancelled {
-  fill: #8a97a8;
+.runtime-node[data-status="failed"] .runtime-node-status > span {
+  background: var(--red);
 }
-.runtime-node-latency {
-  fill: #56657a;
-  font: 10px var(--mono);
+.raw-kind {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.runtime-handle {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #fff;
+  background: var(--quiet);
 }
 .graph-empty {
   padding: 24px 12px;
@@ -1334,6 +1375,132 @@ p {
   font: 11px/1.6 var(--mono);
   white-space: pre-wrap;
   word-break: break-word;
+}
+.json-inspector {
+  min-width: 0;
+}
+.inspector-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.inspector-mode-toggle button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.inspector-mode-toggle button:hover {
+  background: var(--surface-alt);
+}
+.inspector-mode-toggle button.selected {
+  color: var(--navy);
+  background: var(--navy-soft);
+}
+.json-section {
+  position: relative;
+  margin: 0 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.json-section > summary {
+  padding: 8px 60px 8px 10px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  list-style: none;
+}
+.json-section > summary::marker,
+.json-section > summary::-webkit-details-marker,
+.json-tree-branch > summary::marker,
+.json-tree-branch > summary::-webkit-details-marker {
+  content: "";
+  display: none;
+}
+.json-section > summary::before,
+.json-tree-branch > summary::before {
+  display: inline-block;
+  width: 11px;
+  content: "▶";
+  color: var(--quiet);
+  font-size: 9px;
+  transition: transform 0.12s ease;
+}
+.json-section[open] > summary::before,
+.json-tree-branch[open] > summary::before {
+  transform: rotate(90deg);
+}
+.json-section > summary:hover::before,
+.json-tree-branch > summary:hover::before {
+  color: var(--navy);
+}
+.json-copy-button {
+  position: absolute;
+  z-index: 2;
+  top: 5px;
+  right: 8px;
+  border: 1px solid var(--strong);
+  border-radius: 5px;
+  padding: 2px 8px;
+  color: var(--muted);
+  background: #fff;
+  cursor: pointer;
+  font-size: 11px;
+}
+.json-tree {
+  padding: 8px 10px 10px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  background: var(--surface-alt);
+  font: 11px/1.6 var(--mono);
+}
+.json-tree-branch {
+  display: inline;
+}
+.json-tree-branch > summary {
+  display: inline;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+.json-tree-list {
+  margin: 4px 0;
+  padding-left: 16px;
+}
+.json-tree-key {
+  color: var(--navy);
+}
+.json-tree-value {
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.failure-summary {
+  display: grid;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid #f3c6c6;
+  border-radius: 6px;
+  color: #7f1d1d;
+  background: #fff6f5;
+  gap: 3px;
+}
+.failure-summary p,
+.failure-summary span,
+.failure-summary small {
+  margin: 0;
+  font-size: 11px;
+}
+.failure-summary code {
+  font-size: 10px;
 }
 .trace-meta {
   display: grid;
@@ -1775,8 +1942,10 @@ p {
   grid-template-columns: minmax(250px, 0.95fr) minmax(250px, 1.05fr);
   gap: 16px;
 }
-.review-drawer .execution-graph {
-  height: 245px;
+.review-grid .runtime-graph {
+  /* 1.25x, like .runtime-graph above, to offset its zoom: 0.8 */
+  height: 400px;
+  min-height: 0;
 }
 
 /* Scores */
@@ -2633,8 +2802,10 @@ p {
   .drawer-body {
     padding: 12px;
   }
-  .execution-graph {
-    height: 240px;
+  .runtime-graph {
+    /* 1.25x, like .runtime-graph above, to offset its zoom: 0.8 */
+    height: 400px;
+    min-height: 0;
   }
   .lf-dialog {
     padding: 0;

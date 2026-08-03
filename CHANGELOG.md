@@ -6,6 +6,29 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-03
+
+### 변경됨
+
+- Trace 상세 실행 흐름 그래프를 node 단위 view 하나로 정리하고(Runnable View
+  toggle 제거) 그 공간만큼 canvas 높이를 확대
+- 그래프 node의 kind 태그를 node 자신의 kind 대신, 접혀 있는 하위 실행 중
+  주목할 만한 kind(LLM, Retriever, Tool 등)와 개수로 표시. 우측 입출력 panel
+  header도 같은 규칙을 따름
+- 같은 부모 아래 형제 실행을 흐름 형태로 연결. 순차 실행은 이어서, 병렬 분기는
+  직전 실행에서 갈라져 나오고, 분기가 모두 끝난 뒤 실행된 node로 합류하도록 표시
+- 입출력 JSON을 접기/펼치기 가능한 tree로 표시하고, 토글 가능한 필드에 삼각형
+  표시와 section별 복사 버튼을 제공. 긴 문자열을 자르지 않고 전부 표시
+- LangChain prompt와 output parser 단계를 `runnable` kind로 분류해 workflow
+  node와 구분 (SDK)
+
+### 수정됨
+
+- 그래프 edge가 node handle에서 어긋나 그려지던 문제. 전역 `body { zoom: 1.25 }`가
+  React Flow의 node 측정에는 반영되고 edge 계산에는 반영되지 않아 생긴 어긋남
+- LangGraph가 dispatch된 분기의 모든 하위 관측값에 dispatch 출처를 상속시켜,
+  분기 내부 실행까지 dispatch node에서 부챗살처럼 연결되던 문제
+
 ## [0.3.0] - 2026-08-03
 
 ### 추가됨
@@ -106,7 +129,8 @@ Phase 6 release-hardening 단계로 남아 있습니다.
 - trace delivery는 bounded in-memory best-effort 방식
 - 원본 diagnostic payload를 자동 redaction하지 않고 local에 보관
 
-[Unreleased]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/SungjinWi99/LangFeather/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/SungjinWi99/LangFeather/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/SungjinWi99/LangFeather/releases/tag/v0.1.0

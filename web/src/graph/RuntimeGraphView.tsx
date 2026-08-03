@@ -1,20 +1,112 @@
-import { useMemo, useState } from "react";
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  Handle,
+  MarkerType,
+  Position,
+  ReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import {useMemo} from "react";
 
-import type { ObservationSummary } from "../api/types";
-import { formatDuration } from "../components";
-import { buildRuntimeGraph, runtimeKindLabel } from "./runtimeGraph";
+import type {ObservationSummary, TraceStatus} from "../api/types";
+import {formatDuration} from "../components";
+import {
+  buildRuntimeGraph,
+  isNotableRuntimeKind,
+  runtimeKindLabel,
+  type RuntimeGraphEdge,
+  type RuntimeGraphNode,
+} from "./runtimeGraph";
 
-const NODE_WIDTH = 172;
-const NODE_HEIGHT = 108;
-const NODE_HEADER_HEIGHT = 32;
-const NODE_RADIUS = 10;
+const STATUS_LABEL: Record<TraceStatus, string> = {
+  completed: "완료",
+  failed: "실패",
+  cancelled: "취소",
+};
 
-function statusLabel(status: ObservationSummary["status"]): string {
-  return status === "completed"
-    ? "완료"
-    : status === "failed"
-      ? "실패"
-      : "취소";
+const EDGE_STYLE: Record<
+  RuntimeGraphEdge["relation"],
+  {stroke: string; dash?: string}
+> = {
+  callback: {stroke: "#94a3b8"},
+  dispatch: {stroke: "#7c3aed", dash: "5 4"},
+  join: {stroke: "#94a3b8"},
+};
+
+interface RuntimeNodeData extends Record<string, unknown> {
+  graphNode: RuntimeGraphNode;
+}
+
+type RuntimeFlowNode = Node<RuntimeNodeData, "runtimeObservation">;
+
+function RuntimeObservationNode({data, selected}: NodeProps<RuntimeFlowNode>) {
+  const {graphNode} = data;
+  const {observation} = graphNode;
+
+  return (
+    <div
+      className="runtime-node"
+      data-kind={graphNode.displayKind}
+      data-status={observation.status}
+      data-selected={selected}
+    >
+      <Handle className="runtime-handle" type="target" position={Position.Top} />
+      <div className="runtime-node-heading">
+        <span className="runtime-sequence">
+          {String(observation.sequence + 1).padStart(2, "0")}
+        </span>
+        {isNotableRuntimeKind(observation.kind) && (
+          <span className="runtime-kind">
+            {runtimeKindLabel(observation.kind)}
+          </span>
+        )}
+        {graphNode.childKinds.map(({kind, count}) => (
+          <span className="runtime-child-kind" data-kind={kind} key={kind}>
+            {runtimeKindLabel(kind)}
+            {count > 1 && <em>{count}</em>}
+          </span>
+        ))}
+      </div>
+      <strong>{observation.name}</strong>
+      <div className="runtime-node-meta">
+        <span className="runtime-node-status">
+          <span aria-hidden="true" />
+          {STATUS_LABEL[observation.status]}
+        </span>
+        <span>{formatDuration(observation.duration_us)}</span>
+      </div>
+      {graphNode.displayKind === "generic" && (
+        <span className="raw-kind">kind: {observation.kind}</span>
+      )}
+      <Handle
+        className="runtime-handle"
+        type="source"
+        position={Position.Bottom}
+      />
+    </div>
+  );
+}
+
+const NODE_TYPES = {
+  runtimeObservation: RuntimeObservationNode,
+};
+
+function nodeAriaLabel(graphNode: RuntimeGraphNode): string {
+  const {observation} = graphNode;
+  return [
+    `실행 노드 ${observation.name}`,
+    `순서 ${observation.sequence + 1}`,
+    STATUS_LABEL[observation.status],
+    ...graphNode.childKinds.map(
+      ({kind, count}) => `하위 ${runtimeKindLabel(kind)} ${count}개`,
+    ),
+    `ID ${observation.observation_id}`,
+  ].join(", ");
 }
 
 export function RuntimeGraphView({
@@ -26,196 +118,98 @@ export function RuntimeGraphView({
   selectedObservationId: string | null;
   onSelect: (observationId: string | null) => void;
 }) {
-  const graph = useMemo(() => buildRuntimeGraph(observations), [observations]);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [panning, setPanning] = useState<{
-    x: number;
-    y: number;
-    panX: number;
-    panY: number;
-  } | null>(null);
-  const maxX = Math.max(
-    420,
-    ...graph.nodes.map((node) => node.position.x + NODE_WIDTH + 12),
+  // Only the collapsed "node" level is exposed for now; buildRuntimeGraph still
+  // supports "all" (every runnable) if the toggle comes back.
+  const model = useMemo(
+    () => buildRuntimeGraph(observations, "summary"),
+    [observations],
   );
-  const maxY = Math.max(
-    300,
-    ...graph.nodes.map((node) => node.position.y + NODE_HEIGHT + 12),
+  const nodes = useMemo<RuntimeFlowNode[]>(
+    () =>
+      model.nodes.map((graphNode) => ({
+        id: graphNode.id,
+        type: "runtimeObservation",
+        position: graphNode.position,
+        data: {graphNode},
+        // No width/height: React Flow measures the rendered card instead, so the
+        // handles (and the edges that end on them) sit on its real edges even
+        // when the kind badges wrap to a second line.
+        selected: graphNode.id === selectedObservationId,
+        draggable: false,
+        connectable: false,
+        selectable: true,
+        focusable: true,
+        ariaRole: "button",
+        ariaLabel: nodeAriaLabel(graphNode),
+        domAttributes: {
+          "aria-pressed": graphNode.id === selectedObservationId,
+        },
+      })),
+    [model.nodes, selectedObservationId],
   );
-  const width = maxX / zoom;
-  const height = maxY / zoom;
-  const viewX = (maxX - width) / 2 + pan.x;
-  const viewY = (maxY - height) / 2 + pan.y;
-  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  const edges = useMemo<Edge[]>(
+    () =>
+      model.edges.map((edge) => {
+        const {stroke, dash} = EDGE_STYLE[edge.relation];
+        return {
+          ...edge,
+          type: "smoothstep",
+          focusable: false,
+          selectable: false,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: stroke,
+            width: 16,
+            height: 16,
+          },
+          style: {stroke, strokeDasharray: dash, strokeWidth: 1.6},
+        };
+      }),
+    [model.edges],
+  );
 
-  if (graph.nodes.length === 0)
+  if (observations.length === 0) {
     return <p className="graph-empty">실행 관측값이 없습니다.</p>;
+  }
 
   return (
-    <div className="runtime-graph">
-      <div className="graph-canvas">
-        <div className="graph-toolbar" aria-label="그래프 확대 축소">
-          <button
-            type="button"
-            aria-label="확대"
-            onClick={() => setZoom((value) => Math.min(3, value * 1.25))}
-          >
-            +
-          </button>
-          <button
-            type="button"
-            aria-label="축소"
-            onClick={() => setZoom((value) => Math.max(0.65, value / 1.25))}
-          >
-            −
-          </button>
-          <button
-            type="button"
-            aria-label="초기화"
-            onClick={() => {
-              setZoom(1);
-              setPan({ x: 0, y: 0 });
-            }}
-          >
-            ⟳
-          </button>
-        </div>
-        <svg
-          className={`execution-graph${panning ? " is-panning" : ""}`}
-          viewBox={`${viewX} ${viewY} ${width} ${height}`}
-          role="img"
-          aria-label="trace 실행 흐름 그래프"
-          onPointerDown={(event) => {
-            if ((event.target as Element).closest("[data-observation]")) return;
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setPanning({
-              x: event.clientX,
-              y: event.clientY,
-              panX: pan.x,
-              panY: pan.y,
-            });
-          }}
-          onPointerMove={(event) => {
-            if (!panning) return;
-            setPan({
-              x:
-                panning.panX -
-                ((event.clientX - panning.x) * maxX) /
-                  (event.currentTarget.clientWidth * zoom),
-              y:
-                panning.panY -
-                ((event.clientY - panning.y) * maxY) /
-                  (event.currentTarget.clientHeight * zoom),
-            });
-          }}
-          onPointerUp={() => setPanning(null)}
-        >
-          {graph.edges.map((edge) => {
-            const source = byId.get(edge.source);
-            const target = byId.get(edge.target);
-            if (!source || !target) return null;
-            const fromX = source.position.x + NODE_WIDTH / 2;
-            const fromY = source.position.y + NODE_HEIGHT;
-            const toX = target.position.x + NODE_WIDTH / 2;
-            const toY = target.position.y;
-            return (
-              <line
-                className={`runtime-edge ${edge.relation === "dispatch" ? "is-dispatch" : ""}`}
-                key={edge.id}
-                x1={fromX}
-                x2={toX}
-                y1={fromY}
-                y2={toY}
-              />
-            );
-          })}
-          {graph.nodes.map((node, index) => {
-            const active = selectedObservationId === node.id;
-            const root = node.observation.parent_observation_id === null;
-            const failed = node.observation.status === "failed";
-            const clipId = `node-clip-${node.id}`;
-            const order = String(index + 1).padStart(2, "0");
-            return (
-              <g
-                className={`graph-node${active ? " is-active" : ""}`}
-                data-observation={node.id}
-                key={node.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`${order}. ${node.observation.name} ${node.displayKind} 상세 보기`}
-                onClick={() => onSelect(active ? null : node.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelect(active ? null : node.id);
-                  }
-                }}
-              >
-                <defs>
-                  <clipPath id={clipId}>
-                    <rect
-                      x={node.position.x}
-                      y={node.position.y}
-                      width={NODE_WIDTH}
-                      height={NODE_HEIGHT}
-                      rx={NODE_RADIUS}
-                    />
-                  </clipPath>
-                </defs>
-                <rect
-                  className={`runtime-node-body${failed ? " is-failed" : ""}`}
-                  x={node.position.x}
-                  y={node.position.y}
-                  width={NODE_WIDTH}
-                  height={NODE_HEIGHT}
-                  rx={NODE_RADIUS}
-                />
-                <rect
-                  className={`runtime-node-header${root ? " is-root" : ""}${failed ? " is-failed" : ""}`}
-                  x={node.position.x}
-                  y={node.position.y}
-                  width={NODE_WIDTH}
-                  height={NODE_HEADER_HEIGHT}
-                  clipPath={`url(#${clipId})`}
-                />
-                <text
-                  className="runtime-node-header-label"
-                  x={node.position.x + 12}
-                  y={node.position.y + NODE_HEADER_HEIGHT / 2 + 4}
-                >
-                  <tspan className="runtime-node-order">{order}</tspan>
-                  <tspan className="runtime-node-kind" dx="6">
-                    {runtimeKindLabel(node.observation.kind)}
-                  </tspan>
-                </text>
-                <text
-                  className="runtime-node-name"
-                  x={node.position.x + 12}
-                  y={node.position.y + NODE_HEADER_HEIGHT + 30}
-                >
-                  {node.observation.name}
-                </text>
-                <text
-                  className={`runtime-node-status is-${node.observation.status}`}
-                  x={node.position.x + 12}
-                  y={node.position.y + NODE_HEIGHT - 12}
-                >
-                  {statusLabel(node.observation.status)}
-                </text>
-                <text
-                  className="runtime-node-latency"
-                  x={node.position.x + NODE_WIDTH - 12}
-                  y={node.position.y + NODE_HEIGHT - 12}
-                  textAnchor="end"
-                >
-                  {formatDuration(node.observation.duration_us)}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+    <div
+      className="runtime-graph"
+      role="group"
+      aria-label="실제 실행 경로 그래프"
+      data-testid="runtime-graph"
+    >
+      <ReactFlow<RuntimeFlowNode, Edge>
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={NODE_TYPES}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable
+        edgesFocusable={false}
+        fitView
+        fitViewOptions={{padding: 0.16, maxZoom: 0.92}}
+        minZoom={0.3}
+        maxZoom={1.5}
+        panOnScroll
+        zoomOnDoubleClick={false}
+        onNodeClick={(_event, node) => {
+          onSelect(node.id === selectedObservationId ? null : node.id);
+        }}
+        proOptions={{hideAttribution: true}}
+      >
+        <Background
+          color="#d9e4dc"
+          gap={22}
+          size={1}
+          variant={BackgroundVariant.Dots}
+        />
+        <Controls
+          position="bottom-right"
+          showInteractive={false}
+          aria-label="그래프 확대와 축소"
+        />
+      </ReactFlow>
     </div>
   );
 }

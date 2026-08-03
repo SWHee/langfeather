@@ -69,6 +69,28 @@ def test_real_runnable_lambda_is_mapped_to_runnable_kind(
     assert envelope.observations[0].kind == "runnable"
 
 
+def test_real_prompt_and_parser_steps_are_mapped_to_runnable_kind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+
+    from langfeather import _runnable
+
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(_runnable, "enqueue_envelope", captured.append)
+
+    prompt = ChatPromptTemplate.from_template("say {word}")
+    chain = prompt | (lambda value: value.to_string()) | StrOutputParser()
+
+    assert wrap_runnable(chain).invoke({"word": "hi"}) == "Human: say hi"
+
+    envelope = CompletedEnvelope.from_mapping(captured[0])
+    kind_by_name = {item.name: item.kind for item in envelope.observations}
+    assert kind_by_name["ChatPromptTemplate"] == "runnable"
+    assert kind_by_name["StrOutputParser"] == "runnable"
+
+
 def test_real_langchain_llm_result_metadata_is_copied_without_estimation() -> None:
     from langchain_core.messages import AIMessage
     from langchain_core.outputs import ChatGeneration, LLMResult

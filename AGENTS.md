@@ -6,7 +6,7 @@ local-first observability 도구다. 현재 지원 범위와 비범위는 `specs
 
 ## 반드시 지킬 경계
 
-- 현재 `0.3.0`은 single-project, single-user, local-only다.
+- 현재 `0.3.1`은 single-project, single-user, local-only다.
 - Python SDK만 제공하며 core SDK는 FastAPI/LangChain/LangGraph에 직접 의존하지 않는다.
 - tracing 실패는 관측 대상 application의 반환값, stream, 원래 예외를 바꾸면 안 된다.
 - raw payload를 자동 redact, truncate, summarize, sample하지 않는다.
