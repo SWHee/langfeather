@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>LangFeather · Scores</title>
+    <style>
+      :root {
+        --page: #f7f8fa;
+        --surface: #fff;
+        --line: #e3e8ee;
+        --strong: #cfd7e1;
+        --ink: #1e2938;
+        --muted: #6d7b8d;
+        --quiet: #98a4b3;
+        --navy: #264a7d;
+        --blue: #e8f0fb;
+        --green: #197861;
+        --red: #bd4038;
+        --sans:
+          Inter, Pretendard, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        --mono: "SFMono-Regular", Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--page);
+        color: var(--ink);
+        font: 14px/1.45 var(--sans);
+      }
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--navy);
+        outline-offset: 2px;
+      }
+      .topbar {
+        height: 58px;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.94);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--ink);
+        font-weight: 760;
+        text-decoration: none;
+      }
+      .mark {
+        width: 19px;
+        height: 19px;
+        border-radius: 5px;
+        background: var(--navy);
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .nav::-webkit-scrollbar {
+        display: none;
+      }
+      .nav a {
+        flex: 0 0 auto;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 13px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .nav a.active {
+        background: var(--blue);
+        color: var(--navy);
+        font-weight: 700;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .local {
+        padding: 4px 8px;
+        border: 1px solid var(--strong);
+        border-radius: 5px;
+        color: var(--muted);
+        font: 11px var(--mono);
+      }
+      .page {
+        max-width: 1560px;
+        margin: auto;
+        padding: 32px 28px 48px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: -0.035em;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 22px 0 18px;
+      }
+      .btn {
+        min-height: 34px;
+        padding: 0 11px;
+        border: 1px solid var(--strong);
+        border-radius: 6px;
+        background: #fff;
+        color: #3c4b5e;
+        font-size: 12px;
+      }
+      .btn.primary {
+        border-color: var(--navy);
+        background: var(--navy);
+        color: #fff;
+        font-weight: 700;
+      }
+      .btn.danger {
+        border-color: #dba4a0;
+        background: #fff;
+        color: var(--red);
+      }
+      .search {
+        width: min(420px, 48vw);
+        height: 36px;
+        padding: 0 11px 0 32px;
+        border: 1px solid var(--strong);
+        border-radius: 6px;
+        background: #fff
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236d7b8d' stroke-width='1.7'%3E%3Ccircle cx='7' cy='7' r='4.2'/%3E%3Cpath d='m10.3 10.3 3.2 3.2'/%3E%3C/svg%3E")
+          10px center no-repeat;
+        color: var(--ink);
+      }
+      .count {
+        margin-left: auto;
+        color: var(--quiet);
+        font: 11px var(--mono);
+      }
+      .table-wrap {
+        overflow: auto;
+        border-top: 1px solid var(--line);
+      }
+      table {
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      th {
+        color: var(--quiet);
+        font: 10px var(--mono);
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      td {
+        font-size: 13px;
+      }
+      .score-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 9px;
+        border: 1px solid #d8e1ec;
+        border-radius: 6px;
+        font-weight: 700;
+      }
+      .score-name:before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #1a94bf;
+      }
+      .type {
+        color: #4e5d70;
+      }
+      .value {
+        max-width: 420px;
+        overflow: hidden;
+        color: var(--muted);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .state {
+        display: inline-flex;
+        padding: 5px 8px;
+        border-radius: 999px;
+        background: #e8f8ed;
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .more {
+        position: relative;
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 5px;
+        background: none;
+        color: var(--muted);
+        font-size: 18px;
+      }
+      .more:hover {
+        background: #eef3f8;
+      }
+      .row-menu {
+        position: absolute;
+        z-index: 4;
+        right: 24px;
+        width: 116px;
+        padding: 5px;
+        border: 1px solid var(--strong);
+        border-radius: 6px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(20, 35, 55, 0.14);
+      }
+      .row-menu[hidden] {
+        display: none;
+      }
+      .row-menu button {
+        display: block;
+        width: 100%;
+        padding: 7px;
+        border: 0;
+        border-radius: 4px;
+        background: #fff;
+        color: var(--red);
+        text-align: left;
+        font-size: 12px;
+      }
+      .empty {
+        padding: 36px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .empty[hidden],
+      .dialog[hidden] {
+        display: none;
+      }
+      .dialog {
+        position: fixed;
+        z-index: 20;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgba(22, 35, 52, 0.28);
+      }
+      .modal {
+        width: min(760px, 100%);
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 22px 55px rgba(20, 35, 55, 0.2);
+      }
+      .modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .modal-head h2 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: -0.035em;
+      }
+      .close {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--strong);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--ink);
+        font-size: 21px;
+      }
+      .modal-body {
+        padding: 22px 24px;
+      }
+      .field {
+        display: block;
+        margin-bottom: 16px;
+      }
+      .field label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .field input,
+      .field textarea,
+      .field select {
+        width: 100%;
+        min-height: 37px;
+        padding: 8px 10px;
+        border: 1px solid var(--strong);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--ink);
+      }
+      .field textarea {
+        min-height: 64px;
+        resize: vertical;
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .type-options {
+        padding-top: 2px;
+      }
+      .config {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+      }
+      .option-list {
+        display: grid;
+        gap: 7px;
+      }
+      .option-row {
+        display: grid;
+        grid-template-columns: 1fr 32px;
+        gap: 7px;
+      }
+      .remove-option {
+        border: 1px solid var(--strong);
+        border-radius: 5px;
+        background: #fff;
+        color: var(--muted);
+      }
+      .add-option {
+        margin-top: 8px;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 22px;
+      }
+      .status {
+        margin: 0 24px 18px;
+        color: var(--green);
+        font-size: 11px;
+      }
+      @media (max-width: 700px) {
+        .topbar {
+          padding: 0 16px;
+          gap: 14px;
+        }
+        .local {
+          display: none;
+        }
+        .page {
+          padding: 25px 16px;
+        }
+        .toolbar {
+          align-items: stretch;
+          flex-wrap: wrap;
+        }
+        .search {
+          order: 2;
+          width: 100%;
+          max-width: none;
+        }
+        .count {
+          margin-left: auto;
+        }
+        .modal {
+          max-height: 100vh;
+          border-radius: 0;
+        }
+        .two {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *:before,
+        *:after {
+          transition-duration: 1ms !important;
+          animation-duration: 1ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="claude-modular-observatory-light.html"
+        ><span class="mark"></span>LangFeather</a
+      >
+      <nav class="nav" aria-label="주요 영역">
+        <a href="claude-modular-observatory-light.html">Overview</a
+        ><a href="claude-traces-workspace-light.html">Traces</a
+        ><a href="claude-annotation-queues-light.html">Annotation Queues</a
+        ><a class="active" href="claude-scores-light.html">Scores</a
+        ><a href="claude-evaluation-light.html">Evaluation</a
+        ><a href="claude-settings-light.html">Setting</a>
+      </nav>
+      <span class="spacer"></span><span class="local">local</span>
+    </header>
+    <main class="page">
+      <h1>Scores</h1>
+      <div class="toolbar">
+        <button class="btn primary" id="newScore" type="button">
+          + New Score</button
+        ><input
+          class="search"
+          id="scoreSearch"
+          type="search"
+          placeholder="Search by name…"
+          aria-label="Score 검색"
+        /><span class="count" id="scoreCount">예시 2개</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Score</th>
+              <th>타입</th>
+              <th>값</th>
+              <th>상태</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody id="scoreRows"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="scoreEmpty" hidden>검색 결과가 없습니다.</p>
+    </main>
+    <div
+      class="dialog"
+      id="scoreDialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dialogTitle"
+      hidden
+    >
+      <form class="modal" id="scoreForm">
+        <header class="modal-head">
+          <h2 id="dialogTitle">New Score</h2>
+          <button
+            class="close"
+            id="closeDialog"
+            type="button"
+            aria-label="닫기"
+          >
+            ×
+          </button>
+        </header>
+        <div class="modal-body">
+          <label class="field"
+            ><span>Score 이름</span
+            ><input
+              id="scoreName"
+              required
+              placeholder="예: Success"
+              autofocus /></label
+          ><label class="field"
+            ><span>설명</span><textarea id="scoreDescription"></textarea></label
+          ><label class="field"
+            ><span>타입</span
+            ><select id="scoreType">
+              <option value="boolean">Boolean</option>
+              <option value="number">Number</option>
+              <option value="categorical">Categorical</option>
+            </select></label
+          >
+          <div class="config" id="typeConfig"></div>
+          <div class="modal-actions">
+            <button class="btn" id="cancelDialog" type="button">취소</button
+            ><button class="btn primary" type="submit">Score 생성</button>
+          </div>
+        </div>
+        <p class="status" id="formStatus" role="status"></p>
+      </form>
+    </div>
+    <script>
+      (function () {
+        "use strict";
+        var scores = [
+            { id: "user_helpful", type: "boolean", value: "True / False" },
+            {
+              id: "user_feedback_reason",
+              type: "categorical · single",
+              value: "policy-mismatch, outdated-information, missing-details…",
+            },
+          ],
+          rows = document.getElementById("scoreRows"),
+          search = document.getElementById("scoreSearch"),
+          dialog = document.getElementById("scoreDialog"),
+          form = document.getElementById("scoreForm"),
+          type = document.getElementById("scoreType"),
+          config = document.getElementById("typeConfig");
+        function render() {
+          var q = search.value.toLowerCase(),
+            visible = scores.filter(function (s) {
+              return (s.id + s.type + s.value).toLowerCase().includes(q);
+            });
+          rows.innerHTML = visible
+            .map(function (s) {
+              return (
+                '<tr><td><span class="score-name">' +
+                s.id +
+                '</span></td><td class="type">' +
+                s.type +
+                '</td><td class="value">' +
+                s.value +
+                '</td><td><span class="state">사용 중</span></td><td><button class="more" type="button" aria-label="' +
+                s.id +
+                ' 작업" data-menu="' +
+                s.id +
+                '">⋯</button><div class="row-menu" id="menu-' +
+                s.id +
+                '" hidden><button type="button" data-delete="' +
+                s.id +
+                '">Delete</button></div></td></tr>'
+              );
+            })
+            .join("");
+          document.getElementById("scoreCount").textContent =
+            "예시 " + visible.length + "개";
+          document.getElementById("scoreEmpty").hidden = !!visible.length;
+        }
+        function renderConfig() {
+          if (type.value === "boolean") {
+            config.innerHTML =
+              '<div class="two"><label class="field"><span>True label</span><input id="trueLabel" value="Success" /></label><label class="field"><span>False label</span><input id="falseLabel" value="Failure" /></label></div>';
+            return;
+          }
+          if (type.value === "number") {
+            config.innerHTML =
+              '<div class="two"><label class="field"><span>Minimum</span><input id="minValue" type="number" placeholder="선택 사항" /></label><label class="field"><span>Maximum</span><input id="maxValue" type="number" placeholder="선택 사항" /></label></div>';
+            return;
+          }
+          config.innerHTML =
+            '<label class="field"><span>선택 방식</span><select id="selectionMode"><option>single</option><option>multiple</option></select></label><div class="option-list" id="optionList"><div class="option-row"><input value="좋음" aria-label="옵션"/><button class="remove-option" type="button">×</button></div><div class="option-row"><input value="보통" aria-label="옵션"/><button class="remove-option" type="button">×</button></div></div><button class="btn add-option" id="addOption" type="button">+ 옵션 추가</button>';
+        }
+        function close() {
+          dialog.hidden = true;
+          form.reset();
+          type.value = "boolean";
+          renderConfig();
+          document.getElementById("formStatus").textContent = "";
+        }
+        document
+          .getElementById("newScore")
+          .addEventListener("click", function () {
+            dialog.hidden = false;
+            document.getElementById("scoreName").focus();
+          });
+        document.getElementById("closeDialog").addEventListener("click", close);
+        document
+          .getElementById("cancelDialog")
+          .addEventListener("click", close);
+        type.addEventListener("change", renderConfig);
+        config.addEventListener("click", function (e) {
+          if (e.target.id === "addOption") {
+            var row = document.createElement("div");
+            row.className = "option-row";
+            row.innerHTML =
+              '<input placeholder="옵션" aria-label="옵션"/><button class="remove-option" type="button">×</button>';
+            document.getElementById("optionList").appendChild(row);
+          }
+          if (e.target.classList.contains("remove-option"))
+            e.target.parentNode.remove();
+        });
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var id = document.getElementById("scoreName").value.trim();
+          var value, typeLabel;
+          if (type.value === "boolean") {
+            typeLabel = "boolean";
+            value =
+              document.getElementById("trueLabel").value +
+              " / " +
+              document.getElementById("falseLabel").value;
+          } else if (type.value === "number") {
+            typeLabel = "number";
+            value =
+              [
+                document.getElementById("minValue").value,
+                document.getElementById("maxValue").value,
+              ]
+                .filter(Boolean)
+                .join(" – ") || "unbounded";
+          } else {
+            typeLabel =
+              "categorical · " + document.getElementById("selectionMode").value;
+            value = [].slice
+              .call(document.querySelectorAll("#optionList input"))
+              .map(function (i) {
+                return i.value;
+              })
+              .filter(Boolean)
+              .join(", ");
+          }
+          scores.unshift({ id: id, type: typeLabel, value: value });
+          close();
+          render();
+        });
+        search.addEventListener("input", render);
+        rows.addEventListener("click", function (e) {
+          var button = e.target.closest("[data-menu]");
+          if (button) {
+            var menu = document.getElementById("menu-" + button.dataset.menu);
+            menu.hidden = !menu.hidden;
+            return;
+          }
+          var del = e.target.closest("[data-delete]");
+          if (del) {
+            scores = scores.filter(function (s) {
+              return s.id !== del.dataset.delete;
+            });
+            render();
+          }
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && !dialog.hidden) close();
+        });
+        renderConfig();
+        render();
+      })();
+    </script>
+  </body>
+</html>

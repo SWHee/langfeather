@@ -43,15 +43,16 @@ const APP_VIEWS: readonly AppView[] = [
 ];
 const DASHBOARD_BUCKETS: readonly DashboardBucket[] = [
   "auto",
+  "minute",
   "hour",
   "day",
   "week",
   "month",
 ];
 const EVALUATION_TABS: readonly EvaluationUrlState["tab"][] = [
-  "compare",
-  "experiments",
   "examples",
+  "experiments",
+  "compare",
 ];
 
 function oneOf<T extends string>(
@@ -123,7 +124,7 @@ export function readAppUrlState(search = window.location.search): AppUrlState {
     overview: readOverviewUrlState(params),
     evaluation: {
       datasetId: params.get("dataset"),
-      tab: oneOf(params.get("tab"), EVALUATION_TABS, "compare"),
+      tab: oneOf(params.get("tab"), EVALUATION_TABS, "examples"),
       experimentIds: list(params.get("experiments")),
       metricKeys: list(params.get("metrics")),
       caseId: params.get("case"),

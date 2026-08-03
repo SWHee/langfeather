@@ -47,3 +47,12 @@ management, billing, multi-project, OTel, PostgreSQL, live trace, JavaScript SDK
 3. 디버깅에 필요한 원본 정보와 실제 runtime 관계를 보존한다.
 4. 작은 stack과 낮은 idle resource 사용을 우선한다.
 5. 수강생이 AI와 함께 작은 변경을 안전하게 기여할 수 있게 한다.
+
+## Web 기능 계약
+
+Web presentation을 구현하거나 교체할 때 다음 문서를 함께 따른다.
+
+- `specs/web-functional.md`: 화면별 사용자 기능과 edge state
+- `specs/web-interaction-contract.md`: URL, async state, focus와 계산 의미
+- `specs/web-api-map.md`: 사용자 행동과 HTTP contract 연결
+- `specs/web-acceptance.md`: 자동 검증과 browser smoke 완료 조건

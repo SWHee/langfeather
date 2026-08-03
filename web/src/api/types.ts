@@ -63,14 +63,17 @@ export interface TraceListItem {
   tags: string[];
   observation_count: number;
   input_preview: string;
+  output_preview: string;
 }
 
 export interface TraceListResponse {
   items: TraceListItem[];
   next_cursor: string | null;
+  total_count: number;
 }
 
-export type DashboardBucket = "auto" | "hour" | "day" | "week" | "month";
+export type DashboardBucket =
+  "auto" | "minute" | "hour" | "day" | "week" | "month";
 
 export interface DashboardQuery {
   from: string;
@@ -144,6 +147,7 @@ export interface DashboardResponse {
 
 export interface TraceQuery {
   cursor?: string;
+  page?: number;
   limit?: number;
   status?: TraceStatus;
   from?: string;
@@ -189,6 +193,8 @@ export interface TraceDetail {
   memo: TraceMemo | null;
   previous_trace_id?: string | null;
   next_trace_id?: string | null;
+  session_position?: number | null;
+  session_total?: number | null;
 }
 
 export interface CompletedEnvelope {
@@ -265,10 +271,14 @@ export interface AnnotationQueueItem {
   annotation_queue_id: string;
   trace_id: string;
   trace_name: string;
+  input_preview: string;
+  output_preview: string;
+  duration_us: number;
   status: "pending" | "completed";
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  was_edited: boolean;
 }
 
 export interface AnnotationQueue {

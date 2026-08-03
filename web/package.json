@@ -12,7 +12,6 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@xyflow/react": "^12.11.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

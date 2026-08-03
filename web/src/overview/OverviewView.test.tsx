@@ -1,227 +1,294 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultOverviewUrlState } from "../url";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { OverviewView } from "./OverviewView";
 
-const dashboard = {
-  from: "2026-07-23T00:00:00.000Z",
-  to: "2026-07-30T00:00:00.000Z",
-  timezone: "UTC",
-  bucket: "day",
-  totals: {
-    trace_count: 2,
-    latency_us: { p50: 1000, p95: 2000, p99: 2000 },
-    error: { failed: 0, total: 2, rate: 0 },
-    llm_calls: 2,
-    tool_calls: 1,
-  },
-  available_tools: [{ name: "search", count: 1 }],
-  buckets: [
-    {
-      started_at: "2026-07-23T00:00:00.000Z",
-      ended_at: "2026-07-24T00:00:00.000Z",
-      requests: { completed: 1, failed: 0, cancelled: 0 },
-      latency_us: { p50: 1000, p95: null, p99: null },
-      error: { failed: 0, total: 1, rate: 0 },
-      llm_calls: 1,
-      tool_calls: { search: 1 },
-      feedback: [],
-    },
-    {
-      started_at: "2026-07-24T00:00:00.000Z",
-      ended_at: "2026-07-25T00:00:00.000Z",
-      requests: { completed: 1, failed: 0, cancelled: 0 },
-      latency_us: { p50: null, p95: null, p99: null },
-      error: { failed: 0, total: 0, rate: null },
-      llm_calls: 1,
-      tool_calls: {},
-      feedback: [],
-    },
-  ],
-} as const;
+const api = vi.hoisted(() => ({
+  getDashboard: vi.fn(),
+  getTraces: vi.fn(),
+}));
 
-describe("OverviewView", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+vi.mock("../api/client", () => api);
+
+const scrollIntoView = vi.fn();
+
+function renderOverview() {
+  return render(
+    <OverviewView
+      state={{
+        from: "2026-08-01T00:00:00.000Z",
+        to: "2026-08-02T00:00:00.000Z",
+        timezone: "UTC",
+        bucket: "day",
+        query: "",
+        tag: "",
+        sessionId: "",
+        release: "",
+        environment: "",
+        userId: "",
+        scoreIds: [],
+        toolNames: [],
+      }}
+      onChange={() => undefined}
+      selectedTraceId={null}
+      onOpenTrace={() => undefined}
+    />,
+  );
+}
+
+function dashboardWithTools(toolCalls: Array<Record<string, number>>) {
+  return {
+    from: "2026-08-01T00:00:00.000Z",
+    to: "2026-08-03T00:00:00.000Z",
+    timezone: "UTC",
+    bucket: "day",
+    totals: {
+      trace_count: 2,
+      latency_us: { p50: 1_000, p95: 2_000, p99: 3_000 },
+      error: { failed: 0, total: 2, rate: 0 },
+      llm_calls: 2,
+      tool_calls: toolCalls
+        .flatMap((bucket) => Object.entries(bucket))
+        .reduce(
+          (sum, [name, count]) => (name === "__others__" ? sum : sum + count),
+          0,
+        ),
+    },
+    available_tools: [],
+    buckets: toolCalls.map((tool_calls, index) => ({
+      started_at: `2026-08-0${index + 1}T00:00:00.000Z`,
+      ended_at: `2026-08-0${index + 2}T00:00:00.000Z`,
+      requests: { completed: 2, failed: 0, cancelled: 0 },
+      latency_us: { p50: 1_000, p95: 2_000, p99: 3_000 },
+      error: { failed: 0, total: 2, rate: 0 },
+      llm_calls: 2,
+      tool_calls,
+      feedback: [],
+    })),
+  };
+}
+
+async function toolCallsCard(): Promise<HTMLElement> {
+  await screen.findByRole("heading", { name: "Tool Calls" });
+  const card = document.querySelector<HTMLElement>('[data-chart="toolCalls"]');
+  if (!card) throw new Error("Tool Calls card was not rendered");
+  return card;
+}
+
+function legendLabels(card: HTMLElement): string[] {
+  return [...card.querySelectorAll(".legend-item:not([aria-hidden])")].map(
+    (item) => (item.textContent ?? "").trim(),
+  );
+}
+
+beforeEach(() => {
+  scrollIntoView.mockReset();
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
   });
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({ matches: false }),
+  });
+  api.getDashboard.mockResolvedValue({
+    from: "2026-08-01T00:00:00.000Z",
+    to: "2026-08-02T00:00:00.000Z",
+    timezone: "UTC",
+    bucket: "day",
+    totals: {
+      trace_count: 2,
+      latency_us: { p50: 1_000, p95: 2_000, p99: 3_000 },
+      error: { failed: 0, total: 2, rate: 0 },
+      llm_calls: 2,
+      tool_calls: 1,
+    },
+    available_tools: [],
+    buckets: [
+      {
+        ended_at: "2026-08-02T00:00:00.000Z",
+        started_at: "2026-08-01T00:00:00.000Z",
+        requests: { completed: 2, failed: 0, cancelled: 0 },
+        latency_us: { p50: 1_000, p95: 2_000, p99: 3_000 },
+        error: { failed: 0, total: 2, rate: 0 },
+        llm_calls: 2,
+        tool_calls: { retriever: 1 },
+        feedback: [],
+      },
+    ],
+  });
+  api.getTraces.mockResolvedValue({ items: [], next_cursor: null });
+});
 
-  it("renders metric panels, keeps chart interaction local, and applies its filters", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input);
-      const body = url.startsWith("/api/v1/scores") ? { items: [] } : dashboard;
-      return Promise.resolve(
-        new Response(JSON.stringify(body), { status: 200 }),
+describe("Overview chart navigator", () => {
+  it("selects, scrolls, highlights, and announces the chart destination", async () => {
+    const user = userEvent.setup();
+    renderOverview();
+
+    const traceCount = await screen.findByRole("button", {
+      name: "Trace Count",
+    });
+    const latency = screen.getByRole("button", { name: "Latency" });
+    expect(traceCount).toHaveAttribute("aria-current", "true");
+    expect(latency).toHaveAttribute("aria-current", "false");
+
+    await user.click(latency);
+
+    expect(latency).toHaveAttribute("aria-current", "true");
+    expect(traceCount).toHaveAttribute("aria-current", "false");
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Latency 차트로 이동",
+      );
+      expect(document.querySelector('[data-chart="latency"]')).toHaveClass(
+        "chart-highlight",
       );
     });
-    vi.stubGlobal("fetch", fetchMock);
-    const changed = vi.fn();
-    render(
-      <OverviewView
-        value={defaultOverviewUrlState(new Date("2026-07-30T00:00:00.000Z"))}
-        onUrlStateChange={changed}
-      />,
-    );
-
-    expect(
-      await screen.findByRole("heading", { name: "Requests" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Latency" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("선택한 feedback score의 기록이 없습니다."),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "완료" }));
-    expect(screen.getByRole("button", { name: "완료" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-    fireEvent.change(screen.getByLabelText("Overview 검색"), {
-      target: { value: "payment" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "적용" }));
-    expect(changed).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: "payment" }),
-    );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
   });
 
-  it("separates native number averages from feedback rates and treats zero tools as empty", async () => {
-    const response = {
-      ...dashboard,
-      totals: { ...dashboard.totals, tool_calls: 0 },
-      buckets: dashboard.buckets.map((bucket, index) => ({
-        ...bucket,
-        tool_calls: { __others__: 0 },
-        feedback: [
-          {
-            score_config_id: "score-number",
-            name: "Quality",
-            data_type: "number",
-            value: index === 0 ? 2.5 : 4,
-            annotation_count: 1,
-            option_rates: [],
-          },
-          {
-            score_config_id: "score-boolean",
-            name: "Helpful",
-            data_type: "boolean",
-            value: index === 0 ? 0.5 : 1,
-            annotation_count: 1,
-            option_rates: [],
-          },
-        ],
-      })),
-    };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL) =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify(
-              String(input).startsWith("/api/v1/scores")
-                ? { items: [] }
-                : response,
-            ),
-            { status: 200 },
-          ),
-        ),
+  it("uses instant movement when reduced motion is preferred", async () => {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn().mockReturnValue({ matches: true }),
+    });
+    const user = userEvent.setup();
+    renderOverview();
+
+    await user.click(await screen.findByRole("button", { name: "Error Rate" }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "auto",
+      block: "center",
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Error Rate 차트로 이동",
       ),
     );
+  });
+});
 
-    render(
-      <OverviewView
-        value={defaultOverviewUrlState(new Date("2026-07-30T00:00:00.000Z"))}
-        onUrlStateChange={vi.fn()}
-      />,
+describe("Overview chart crosshair", () => {
+  it("syncs the hovered point across every chart without drawing a highlight circle", async () => {
+    api.getDashboard.mockResolvedValue(
+      dashboardWithTools([{ __others__: 0 }, { __others__: 0 }]),
     );
+    renderOverview();
+    await screen.findByRole("heading", { name: "Trace Count" });
+
+    const traceCountCard = document.querySelector<HTMLElement>(
+      '[data-chart="traceCount"]',
+    );
+    const latencyCard = document.querySelector<HTMLElement>(
+      '[data-chart="latency"]',
+    );
+    if (!traceCountCard || !latencyCard) {
+      throw new Error("charts were not rendered");
+    }
+    const traceCountArea =
+      traceCountCard.querySelector<HTMLElement>(".chart-area");
+    if (!traceCountArea) throw new Error("chart-area missing");
+
+    fireEvent.focus(traceCountArea);
+
+    await waitFor(() => {
+      expect(document.querySelectorAll(".chart-tooltip").length).toBe(4);
+    });
+    expect(latencyCard.querySelector(".chart-crosshair")).not.toBeNull();
+    expect(document.querySelectorAll("circle").length).toBe(0);
+  });
+});
+
+describe("Overview Tool Calls chart", () => {
+  it("explains the empty period instead of drawing the __others__ sentinel", async () => {
+    api.getDashboard.mockResolvedValue(
+      dashboardWithTools([{ __others__: 0 }, { __others__: 0 }]),
+    );
+    renderOverview();
+
+    const card = await toolCallsCard();
+    expect(
+      within(card).getByText("해당 기간에 tool 호출이 없습니다."),
+    ).toBeInTheDocument();
+    expect(legendLabels(card)).toEqual([]);
+    expect(card.querySelector(".chart-legend")).not.toBeNull();
+    expect(card.querySelector("svg")).toBeNull();
+    expect(document.body.textContent).not.toContain("__others__");
 
     expect(
-      await screen.findByRole("img", { name: "Feedback averages line chart" }),
-    ).toBeInTheDocument();
+      document.querySelectorAll('[data-chart="traceCount"] .legend-item'),
+    ).toHaveLength(2);
     expect(
-      screen.getByRole("img", { name: "Feedback rates line chart" }),
-    ).toBeInTheDocument();
+      document.querySelectorAll('[data-chart="latency"] .legend-item'),
+    ).toHaveLength(3);
     expect(
-      screen.getByText("이 기간에는 tool 호출이 없습니다."),
-    ).toBeInTheDocument();
+      document.querySelectorAll('[data-chart="errorRate"] .legend-item'),
+    ).toHaveLength(1);
     expect(
-      screen.queryByRole("img", { name: "Tool calls line chart" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("list", { name: "Feedback 표본 수" }),
-    ).toHaveTextContent("Quality2개 기록");
-    expect(
-      screen.getByRole("list", { name: "Feedback 표본 수" }),
-    ).toHaveTextContent("Helpful2개 기록");
-    const numberPoint = screen.getByRole("img", {
-      name: /Quality.*2\.5/,
-    });
-    fireEvent.focus(numberPoint);
-    expect(screen.getByRole("status")).toHaveTextContent("Quality: 2.5");
-    expect(screen.getByRole("status")).not.toHaveTextContent("250.0%");
+      document.querySelectorAll('[data-chart="llmCalls"] .legend-item'),
+    ).toHaveLength(1);
   });
 
-  it("supports score and tool selection, apply/reset, loading, and retry", async () => {
-    let dashboardRequests = 0;
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.startsWith("/api/v1/scores")) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              items: Array.from({ length: 5 }, (_, index) => ({
-                score_config_id: `score-${index + 1}`,
-                name: `Score ${index + 1}`,
-              })),
-            }),
-            { status: 200 },
-          ),
-        );
-      }
-      dashboardRequests += 1;
-      if (dashboardRequests === 1) return Promise.reject(new Error("offline"));
-      return Promise.resolve(
-        new Response(JSON.stringify(dashboard), { status: 200 }),
-      );
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const changed = vi.fn();
-
-    render(
-      <OverviewView
-        value={defaultOverviewUrlState(new Date("2026-07-30T00:00:00.000Z"))}
-        onUrlStateChange={changed}
-      />,
+  it("renders only the real tool name when one name accompanies the sentinel", async () => {
+    api.getDashboard.mockResolvedValue(
+      dashboardWithTools([
+        { retriever: 3, __others__: 0 },
+        { retriever: 1, __others__: 0 },
+      ]),
     );
+    renderOverview();
 
+    const card = await toolCallsCard();
+    expect(legendLabels(card)).toEqual(["retriever"]);
+    expect(card.querySelector("svg")).not.toBeNull();
     expect(
-      screen.getByText("Overview를 불러오는 중입니다…"),
-    ).toBeInTheDocument();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Overview를 불러오지 못했습니다",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
-    expect(
-      await screen.findByRole("heading", { name: "Requests" }),
-    ).toBeInTheDocument();
+      within(card).queryByText("해당 기간에 tool 호출이 없습니다."),
+    ).toBeNull();
+    expect(document.body.textContent).not.toContain("__others__");
+  });
 
-    await screen.findByRole("checkbox", { name: "Score 5" });
-    for (const index of [1, 2, 3, 4]) {
-      fireEvent.click(screen.getByRole("checkbox", { name: `Score ${index}` }));
-    }
-    expect(screen.getByRole("checkbox", { name: "Score 5" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "search (1)" }));
-    fireEvent.click(screen.getByRole("button", { name: "적용" }));
-    expect(changed).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        scoreIds: ["score-1", "score-2", "score-3", "score-4"],
-        toolNames: ["search"],
-      }),
+  it("renders only the real tool names when two names accompany the sentinel", async () => {
+    api.getDashboard.mockResolvedValue(
+      dashboardWithTools([
+        { retriever: 3, search: 2, __others__: 0 },
+        { retriever: 1, search: 4, __others__: 0 },
+      ]),
     );
-    fireEvent.click(screen.getByRole("button", { name: "초기화" }));
-    expect(changed).toHaveBeenLastCalledWith(
-      expect.objectContaining({ scoreIds: [], toolNames: [], query: "" }),
+    renderOverview();
+
+    const card = await toolCallsCard();
+    expect(legendLabels(card)).toEqual(["retriever", "search"]);
+    expect(card.querySelector("svg")).not.toBeNull();
+    expect(
+      within(card).queryByText("해당 기간에 tool 호출이 없습니다."),
+    ).toBeNull();
+    expect(document.body.textContent).not.toContain("__others__");
+  });
+
+  it("keeps the first three real tool names when more names are reported", async () => {
+    api.getDashboard.mockResolvedValue(
+      dashboardWithTools([
+        { retriever: 5, search: 4, http: 3, grep: 2, __others__: 0 },
+        { retriever: 2, search: 2, http: 2, grep: 1, __others__: 0 },
+      ]),
     );
+    renderOverview();
+
+    const card = await toolCallsCard();
+    expect(legendLabels(card)).toEqual(["retriever", "search", "http"]);
+    expect(card.querySelector("svg")).not.toBeNull();
+    expect(document.body.textContent).not.toContain("grep");
+    expect(document.body.textContent).not.toContain("__others__");
   });
 });

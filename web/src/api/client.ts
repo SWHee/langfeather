@@ -315,6 +315,35 @@ export function resetAllData(): Promise<void> {
   return mutateJson<void>("/admin/reset", "POST", { confirmation: "RESET" });
 }
 
+function backupFilename(response: Response): string {
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = /filename="?([^";]+)"?/.exec(disposition);
+  return match?.[1] ?? "langfeather-backup.db";
+}
+
+export async function downloadBackup(signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE_PATH}/admin/backup`, {
+    headers: { Accept: "application/x-sqlite3, application/octet-stream" },
+    signal,
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status);
+  }
+  const filename = backupFilename(response);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function getDatasets(
   signal?: AbortSignal,
 ): Promise<DatasetListResponse> {
@@ -408,5 +437,12 @@ export function getExperiment(
   return getJson<Experiment>(
     `/experiments/${encodeURIComponent(experimentId)}`,
     signal,
+  );
+}
+
+export function deleteExperiment(experimentId: string): Promise<void> {
+  return mutateJson<void>(
+    `/experiments/${encodeURIComponent(experimentId)}`,
+    "DELETE",
   );
 }

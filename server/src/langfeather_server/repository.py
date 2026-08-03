@@ -112,6 +112,7 @@ class InvalidAnnotationError(ValueError):
 class TraceListPage:
     items: list[TraceSummary]
     next_cursor: str | None
+    total_count: int
 
 
 @dataclass(frozen=True)
@@ -250,10 +251,12 @@ def _dashboard_conditions(
 def _dashboard_bucket_start(
     timestamp: datetime,
     *,
-    bucket: Literal["hour", "day", "week", "month"],
+    bucket: Literal["minute", "hour", "day", "week", "month"],
     zone: ZoneInfo,
 ) -> datetime:
     local = timestamp.astimezone(zone)
+    if bucket == "minute":
+        return local.replace(second=0, microsecond=0).astimezone(timezone.utc)
     if bucket == "hour":
         return local.replace(minute=0, second=0, microsecond=0).astimezone(timezone.utc)
     if bucket == "day":
@@ -273,9 +276,11 @@ def _dashboard_bucket_start(
 def _next_dashboard_bucket_start(
     timestamp: datetime,
     *,
-    bucket: Literal["hour", "day", "week", "month"],
+    bucket: Literal["minute", "hour", "day", "week", "month"],
     zone: ZoneInfo,
 ) -> datetime:
+    if bucket == "minute":
+        return timestamp + timedelta(minutes=1)
     if bucket == "hour":
         return timestamp + timedelta(hours=1)
     local = timestamp.astimezone(zone)
@@ -304,7 +309,7 @@ def _dashboard_buckets(
     *,
     from_time: datetime,
     to_time: datetime,
-    bucket: Literal["hour", "day", "week", "month"],
+    bucket: Literal["minute", "hour", "day", "week", "month"],
     zone: ZoneInfo,
 ) -> list[DashboardBucketInterval]:
     result: list[DashboardBucketInterval] = []
@@ -409,6 +414,7 @@ def _trace_summary(row: TraceRow) -> TraceSummary:
         tags=cast(list[str], _load_json(row.tags_json)),
         observation_count=row.observation_count,
         input_preview=row.input_preview,
+        output_preview=_input_preview(_load_json(row.output_json)),
     )
 
 
@@ -558,12 +564,16 @@ def _queue_item_response(
         annotation_queue_id=row.annotation_queue_id,
         trace_id=row.trace_id,
         trace_name=trace.name,
+        input_preview=trace.input_preview,
+        output_preview=_input_preview(_load_json(trace.output_json)),
+        duration_us=trace.duration_us,
         status=cast(Literal["pending", "completed"], row.status),
         created_at=_parse_timestamp(row.created_at),
         updated_at=_parse_timestamp(row.updated_at),
         completed_at=(
             None if row.completed_at is None else _parse_timestamp(row.completed_at)
         ),
+        was_edited=row.was_edited,
     )
 
 
@@ -889,6 +899,7 @@ class TraceRepository:
         *,
         limit: int,
         cursor: str | None = None,
+        page: int | None = None,
         status: TraceStatus | None = None,
         from_time: datetime | None = None,
         to_time: datetime | None = None,
@@ -897,40 +908,65 @@ class TraceRepository:
         query: str | None = None,
     ) -> TraceListPage:
         decoded_cursor = None if cursor is None else _decode_cursor(cursor)
-        conditions: list[ColumnElement[bool]] = []
+        base_conditions: list[ColumnElement[bool]] = []
         if status is not None:
-            conditions.append(TraceRow.status == status.value)
+            base_conditions.append(TraceRow.status == status.value)
         if from_time is not None:
-            conditions.append(TraceRow.started_at >= _timestamp(from_time))
+            base_conditions.append(TraceRow.started_at >= _timestamp(from_time))
         if to_time is not None:
-            conditions.append(TraceRow.started_at <= _timestamp(to_time))
+            base_conditions.append(TraceRow.started_at <= _timestamp(to_time))
         if tag is not None:
             tag_json = _escape_like(_dump_json(tag))
-            conditions.append(TraceRow.tags_json.like(f"%{tag_json}%", escape="\\"))
+            base_conditions.append(
+                TraceRow.tags_json.like(f"%{tag_json}%", escape="\\")
+            )
         if session_id is not None:
-            conditions.append(TraceRow.session_id == session_id)
+            base_conditions.append(TraceRow.session_id == session_id)
         if query is not None:
             escaped_query = _escape_like(query)
             pattern = f"%{escaped_query}%"
-            conditions.append(
+            base_conditions.append(
                 or_(
                     TraceRow.name.like(pattern, escape="\\"),
                     TraceRow.input_json.like(pattern, escape="\\"),
                     TraceRow.output_json.like(pattern, escape="\\"),
                 )
             )
-        if decoded_cursor is not None:
-            conditions.append(
-                or_(
-                    TraceRow.started_at < decoded_cursor.started_at,
-                    and_(
-                        TraceRow.started_at == decoded_cursor.started_at,
-                        TraceRow.trace_id < decoded_cursor.trace_id,
-                    ),
-                )
-            )
 
         with self._session_factory() as session:
+            total_count = (
+                session.scalar(
+                    select(func.count(TraceRow.trace_id)).where(*base_conditions)
+                )
+                or 0
+            )
+
+            if page is not None:
+                offset = (page - 1) * limit
+                page_rows = session.scalars(
+                    select(TraceRow)
+                    .where(*base_conditions)
+                    .order_by(TraceRow.started_at.desc(), TraceRow.trace_id.desc())
+                    .offset(offset)
+                    .limit(limit)
+                ).all()
+                return TraceListPage(
+                    items=[_trace_summary(row) for row in page_rows],
+                    next_cursor=None,
+                    total_count=total_count,
+                )
+
+            conditions = list(base_conditions)
+            if decoded_cursor is not None:
+                conditions.append(
+                    or_(
+                        TraceRow.started_at < decoded_cursor.started_at,
+                        and_(
+                            TraceRow.started_at == decoded_cursor.started_at,
+                            TraceRow.trace_id < decoded_cursor.trace_id,
+                        ),
+                    )
+                )
             rows = session.scalars(
                 select(TraceRow)
                 .where(*conditions)
@@ -950,6 +986,7 @@ class TraceRepository:
             return TraceListPage(
                 items=[_trace_summary(row) for row in page_rows],
                 next_cursor=next_cursor,
+                total_count=total_count,
             )
 
     def dashboard(
@@ -958,7 +995,7 @@ class TraceRepository:
         from_time: datetime,
         to_time: datetime,
         timezone_name: str,
-        bucket: Literal["hour", "day", "week", "month"],
+        bucket: Literal["minute", "hour", "day", "week", "month"],
         tag: str | None = None,
         session_id: str | None = None,
         release: str | None = None,
@@ -1303,7 +1340,26 @@ class TraceRepository:
             memo = session.get(TraceMemoRow, trace_id)
             previous_trace_id: str | None = None
             next_trace_id: str | None = None
+            session_position: int | None = None
+            session_total: int | None = None
             if trace.session_id is not None:
+                session_total = session.scalar(
+                    select(func.count(TraceRow.trace_id)).where(
+                        TraceRow.session_id == trace.session_id
+                    )
+                )
+                session_position = session.scalar(
+                    select(func.count(TraceRow.trace_id)).where(
+                        TraceRow.session_id == trace.session_id,
+                        or_(
+                            TraceRow.started_at < trace.started_at,
+                            and_(
+                                TraceRow.started_at == trace.started_at,
+                                TraceRow.trace_id <= trace.trace_id,
+                            ),
+                        ),
+                    )
+                )
                 previous_trace_id = session.scalars(
                     select(TraceRow.trace_id)
                     .where(
@@ -1336,7 +1392,7 @@ class TraceRepository:
                 ).first()
             summary = _trace_summary(trace)
             return TraceDetail(
-                **summary.model_dump(exclude={"input_preview"}),
+                **summary.model_dump(exclude={"input_preview", "output_preview"}),
                 observations=[
                     _observation_summary(observation) for observation in observations
                 ],
@@ -1349,6 +1405,8 @@ class TraceRepository:
                 memo=None if memo is None else _memo_response(memo),
                 previous_trace_id=previous_trace_id,
                 next_trace_id=next_trace_id,
+                session_position=session_position,
+                session_total=session_total,
             )
 
     def list_scores(
@@ -1982,6 +2040,7 @@ class TraceRepository:
                 )
             row.status = "pending"
             row.completed_at = None
+            row.was_edited = True
             row.updated_at = _now_timestamp()
             session.flush()
             return _queue_item_response(session, row)
@@ -2255,6 +2314,14 @@ class TraceRepository:
                 raise ResourceConflictError(
                     "dataset with experiment history cannot be deleted"
                 )
+            session.delete(row)
+        return True
+
+    def delete_experiment(self, experiment_id: str) -> bool:
+        with self._session_factory.begin() as session:
+            row = session.get(ExperimentRow, experiment_id)
+            if row is None:
+                return False
             session.delete(row)
         return True
 

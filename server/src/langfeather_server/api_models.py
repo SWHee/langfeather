@@ -49,11 +49,13 @@ class TraceSummary(ApiModel):
     tags: list[str]
     observation_count: int
     input_preview: str
+    output_preview: str
 
 
 class TraceListResponse(ApiModel):
     items: list[TraceSummary]
     next_cursor: str | None = None
+    total_count: int = 0
 
 
 class DashboardLatency(ApiModel):
@@ -118,7 +120,7 @@ class DashboardResponse(ApiModel):
     from_: str = Field(serialization_alias="from")
     to: str
     timezone: str
-    bucket: Literal["hour", "day", "week", "month"]
+    bucket: Literal["minute", "hour", "day", "week", "month"]
     totals: DashboardTotals
     available_tools: list[DashboardTool]
     buckets: list[DashboardBucket]
@@ -312,6 +314,8 @@ class TraceDetail(ApiModel):
     memo: TraceMemoResponse | None = None
     previous_trace_id: str | None = None
     next_trace_id: str | None = None
+    session_position: int | None = None
+    session_total: int | None = None
 
 
 class AnnotationQueueCreateRequest(ApiModel):
@@ -362,10 +366,14 @@ class AnnotationQueueItemResponse(ApiModel):
     annotation_queue_id: str
     trace_id: str
     trace_name: str
+    input_preview: str
+    output_preview: str
+    duration_us: int
     status: QueueItemStatus
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None = None
+    was_edited: bool = False
 
 
 class AnnotationQueueResponse(ApiModel):

@@ -1,0 +1,132 @@
+# Web interaction 계약
+
+이 문서는 새 UI의 형태가 아니라 상태 소유권과 전이를 고정한다.
+
+## application URL state
+
+| 소유 기능 | URL key | 값 |
+| --- | --- | --- |
+| shell | `view` | `overview`, `traces`, `queues`, `scores`, `datasets`, `data` |
+| Traces | `trace` | selected trace ID 또는 없음 |
+| Overview | `overview_from` | ISO timestamp |
+| Overview | `overview_to` | ISO timestamp |
+| Overview | `overview_timezone` | IANA timezone |
+| Overview | `overview_bucket` | `hour`, `day`, `week`, `month`; `auto`는 생략 가능 |
+| Overview | `overview_query` | text query |
+| Overview | `overview_tag` | tag |
+| Overview | `overview_session` | session ID |
+| Overview | `overview_release` | release |
+| Overview | `overview_environment` | environment |
+| Overview | `overview_user` | user ID |
+| Overview | `overview_scores` | comma-separated ordered score IDs, 최대 4개 |
+| Overview | `overview_tools` | comma-separated ordered tool names |
+| Evaluation | `dataset` | dataset ID |
+| Evaluation | `tab` | `compare`, `experiments`, `examples` |
+| Evaluation | `experiments` | comma-separated ordered experiment IDs |
+| Evaluation | `metrics` | comma-separated evaluator keys |
+| Evaluation | `case` | dataset example ID |
+
+- URL에 `view`가 없거나 허용되지 않은 값이면 Overview를 연다.
+- Overview filter, Traces filter, Evaluation state는 서로 빌리거나 동기화하지 않는다.
+- URL write는 LangFeather가 소유한 key만 교체하고 다른 query parameter는 보존한다.
+- state 변화는 history를 무한히 쌓지 않도록 replace semantics를 사용할 수 있다.
+- `popstate`에서는 모든 URL-owned state를 다시 읽고 stale detail/payload selection을
+  정리한다.
+- trace를 Evaluation에서 열었다가 돌아와도 dataset/experiment/metric/case state가
+  유지되어야 한다.
+
+## async read 규칙
+
+- component unmount 또는 selection/query 변경 시 이전 GET을 AbortController로
+  취소한다.
+- AbortError는 사용자 오류 상태로 표시하지 않는다.
+- list와 detail, detail과 payload는 독립적인 load state를 가진다.
+- load state의 최소 집합은 `idle`, `loading`, `error`, `success`다.
+- 같은 URL/query의 retry는 revision 또는 동등한 mechanism으로 실제 요청을 다시
+  실행한다.
+- 늦게 끝난 응답은 요청을 시작할 때의 ID/cursor와 현재 state가 일치할 때만
+  적용한다.
+
+## Traces 상태 전이
+
+```text
+app start
+  -> list loading
+  -> list success | list error
+
+trace select
+  -> detail loading
+  -> detail success
+     -> failed observation 또는 root 선택
+     -> payload loading
+     -> payload success | payload error
+  -> detail error
+
+filter apply/reset
+  -> trace/observation selection clear
+  -> cursor clear
+  -> list loading from first page
+
+trace delete success
+  -> trace/observation selection clear
+  -> list reload
+```
+
+- 같은 trace를 다시 선택했고 detail이 error가 아니면 중복 요청하지 않아도 된다.
+- 같은 observation을 다시 선택했고 payload가 error가 아니면 중복 요청하지 않아도
+  된다.
+- detail 또는 payload error의 retry는 현재 selection을 유지한다.
+
+## overlay와 focus
+
+- menu/popover/dialog trigger는 accessible name을 가진다.
+- Escape는 열린 overlay를 닫는다.
+- overlay 밖 pointer interaction도 닫을 수 있다.
+- 닫은 뒤 trigger가 존재하면 focus를 돌려준다.
+- pending destructive mutation 중에는 dialog를 닫거나 같은 action을 중복 실행하지
+  않는다.
+- destructive action은 대상과 영향 범위를 포함한 별도 confirmation을 거친다.
+
+## Evaluation tab 규칙
+
+- tab은 Compare, Experiments, Examples 순서다.
+- ArrowRight/ArrowLeft는 순환 이동한다.
+- Home은 첫 tab, End는 마지막 tab으로 이동한다.
+- keyboard로 이동한 tab에 focus를 옮긴다.
+- tab을 바꿔도 selected dataset context는 유지한다.
+- dataset 변경 시 compare-specific selection은 초기화한다.
+
+## 비교 계산 규칙
+
+각 experiment와 evaluator key에 대해 다음 count를 별도로 유지한다.
+
+- `caseCount`: 전체 case
+- `scoredCount`: 유효 boolean 또는 finite number value가 있는 case
+- `errorCount`: evaluator error가 있는 case
+- `missingCount`: evaluator result가 없거나 value가 null/invalid인 case
+- `targetFailedCount`: target execution 자체가 failed인 case
+
+boolean value는 `true` 개수 / `scoredCount`, number value는 유효 값의 arithmetic mean을
+사용한다. baseline delta는 candidate value - baseline value다. 어느 한쪽 value가
+null이면 delta도 null이다.
+
+## runtime graph 규칙
+
+graph layout은 presentation 구현이 바뀌어도 다음 의미를 유지한다.
+
+- observation ID가 node identity다.
+- sequence와 microsecond timestamp가 stable ordering의 근거다.
+- 같은 parent의 sibling 중 interval이 모두 실제로 겹치는 집합만 한 parallel row다.
+- 단순한 transitive overlap만으로 한 row에 합치지 않는다.
+- dispatch evidence가 callback parent보다 우선한다.
+- 누락된 target/source를 보완하는 추론 edge를 만들지 않는다.
+
+## 접근성 상태
+
+- loading은 `aria-live` 또는 동등한 status semantics로 알린다.
+- error는 alert semantics와 retry action을 가진다.
+- chart는 시각적 line만 제공하지 않고 time label과 focus 가능한 point의 값 설명을
+  제공한다.
+- graph node는 이름, kind, status, duration, parallel 여부를 keyboard 사용자가
+  확인할 수 있어야 한다.
+- JSON section과 truncated evidence는 keyboard로 펼칠 수 있다.
