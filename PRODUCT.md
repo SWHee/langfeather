@@ -29,7 +29,8 @@ trace의 원본 payload와 실제 실행 관계를 local SQLite에 보존하면�
 
 사용자는 `127.0.0.1:4319`의 browser UI에서 trace와 annotation queue를 검토한다.
 평가 dataset은 trace에서 snapshot을 만들거나 JSONL로 다루며, experiment는 SDK가
-사용자 process에서 실행하고 결과만 local server에 기록한다.
+사용자 process에서 실행하고 결과만 local server에 기록한다. Feedback score는 UI 검토와
+SDK 호출 어느 쪽에서도 같은 annotation으로 쌓인다.
 
 ## Capabilities and Constraints
 

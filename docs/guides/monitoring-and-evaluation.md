@@ -20,6 +20,10 @@ trace를 검토하면서 boolean, finite number, categorical score와 공유 mem
 있습니다. annotation queue는 자동으로 trace를 모으지 않습니다. 사용자가 trace를
 명시적으로 queue에 넣고 완료를 표시합니다.
 
+application에서 받은 사용자 반응처럼 UI 밖에서 생긴 값은 Python SDK의
+`log_feedback()`으로 같은 score에 기록합니다. 자세한 내용은
+[Trace feedback 기록](../../sdk/python/docs/feedback.md)을 참고하세요.
+
 ## Dataset과 experiment
 
 검토한 trace의 input을 dataset example으로 추가한 뒤 expected output을 직접 확인합니다.
