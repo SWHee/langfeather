@@ -1777,14 +1777,17 @@ function MetricBars({
     x: number;
     y: number;
   } | null>(null);
-  const trackHover = (key: string) => (event: ReactMouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    setHover({
-      key,
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    });
-  };
+  const trackHover =
+    (key: string) => (event: ReactMouseEvent<HTMLDivElement>) => {
+      // Percentages of the hovered group: a pointer offset measured in
+      // viewport pixels is not the same unit as the CSS left it would feed.
+      const rect = event.currentTarget.getBoundingClientRect();
+      setHover({
+        key,
+        x: ((event.clientX - rect.left) / rect.width) * 100,
+        y: ((event.clientY - rect.top) / rect.height) * 100,
+      });
+    };
   return (
     <>
       <div className="bar-chart">
@@ -1835,7 +1838,12 @@ function MetricBars({
                 <div
                   className="chart-tooltip"
                   role="status"
-                  style={{ left: hover.x + 14, top: hover.y - 10 }}
+                  style={{
+                    left: `${hover.x}%`,
+                    top: `${hover.y}%`,
+                    marginLeft: 12,
+                    marginTop: -8,
+                  }}
                 >
                   <span className="tooltip-time">{key}</span>
                   {comparisons.map((comparison, index) => {
