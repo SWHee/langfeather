@@ -63,11 +63,11 @@ function completedCount(queue: AnnotationQueue): number {
 }
 
 const QUEUE_LIST_COLUMNS: ReorderableColumnDef[] = [
-  { id: "name", label: "Name", width: 220 },
-  { id: "progress", label: "Progress", width: 150 },
-  { id: "scores", label: "Scores", width: 220 },
-  { id: "updated", label: "Updated At", width: 130 },
-  { id: "description", label: "Description", width: 260 },
+  { id: "name", label: "Name", width: 275 },
+  { id: "progress", label: "Progress", width: 187.5 },
+  { id: "scores", label: "Scores", width: 275 },
+  { id: "updated", label: "Updated At", width: 162.5 },
+  { id: "description", label: "Description", width: 325 },
 ];
 
 const QUEUE_LIST_SORT_VALUES: Record<
@@ -83,12 +83,12 @@ const QUEUE_LIST_SORT_VALUES: Record<
 };
 
 const QUEUE_ITEM_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "상태", width: 90 },
-  { id: "started", label: "수집", width: 92 },
-  { id: "trace_id", label: "Trace ID", width: 170 },
-  { id: "input", label: "Input", width: 220 },
-  { id: "output", label: "Output", width: 220 },
-  { id: "latency", label: "Latency", width: 90 },
+  { id: "status", label: "상태", width: 112.5 },
+  { id: "started", label: "수집", width: 115 },
+  { id: "trace_id", label: "Trace ID", width: 212.5 },
+  { id: "input", label: "Input", width: 275 },
+  { id: "output", label: "Output", width: 275 },
+  { id: "latency", label: "Latency", width: 112.5 },
 ];
 
 const QUEUE_ITEM_SORT_VALUES: Record<
@@ -893,7 +893,7 @@ function QueueReview({
   const [state, setState] = useState<QueueLoad>("loading");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [drawerWidth, setDrawerWidth] = useState(760);
+  const [drawerWidth, setDrawerWidth] = useState(950);
   const [resizing, setResizing] = useState<{
     startX: number;
     startWidth: number;
@@ -958,8 +958,8 @@ function QueueReview({
     const move = (event: PointerEvent) => {
       setDrawerWidth(
         Math.max(
-          420,
-          Math.min(1300, resizing.startWidth + resizing.startX - event.clientX),
+          525,
+          Math.min(1625, resizing.startWidth + resizing.startX - event.clientX),
         ),
       );
     };

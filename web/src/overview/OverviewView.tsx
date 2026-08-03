@@ -65,13 +65,13 @@ const ALLOWED_SPANS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const OTHERS_TOOL_KEY = "__others__";
 
 const RECENT_TRACE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "상태", width: 70 },
-  { id: "started", label: "수집", width: 92 },
-  { id: "trace_id", label: "Trace ID", width: 170 },
-  { id: "input", label: "Input", width: 220 },
-  { id: "output", label: "Output", width: 220 },
-  { id: "latency", label: "Latency", width: 90 },
-  { id: "count", label: "# Observations", width: 130 },
+  { id: "status", label: "상태", width: 87.5 },
+  { id: "started", label: "수집", width: 115 },
+  { id: "trace_id", label: "Trace ID", width: 212.5 },
+  { id: "input", label: "Input", width: 275 },
+  { id: "output", label: "Output", width: 275 },
+  { id: "latency", label: "Latency", width: 112.5 },
+  { id: "count", label: "# Observations", width: 162.5 },
 ];
 
 const RECENT_TRACE_SORT_VALUES: Record<
@@ -297,6 +297,7 @@ function ChartCard({
   onDragStart: () => void;
   onDrop: () => void;
 }) {
+  const [pointerY, setPointerY] = useState<number | null>(null);
   const all = spec.series
     .flatMap((series) => series.values)
     .filter((value): value is number => value !== null);
@@ -306,6 +307,12 @@ function ChartCard({
   const focusedBucket = focus === null ? null : buckets[focus];
   const focusX =
     focus === null || pointCount < 2 ? 50 : (focus / (pointCount - 1)) * 100;
+
+  // The tooltip rides the crosshair, so it is placed in percentages of the
+  // chart box: a fraction needs no conversion out of viewport pixels.
+  const tooltipFlipped = focusX > 62;
+  const tooltipTop =
+    pointerY === null ? 18 : Math.min(80, Math.max(20, pointerY));
 
   const setPointFromOffset = (offsetX: number, width: number) => {
     if (pointCount === 0) return;
@@ -371,15 +378,23 @@ function ChartCard({
               tabIndex={0}
               role="img"
               aria-label={`${spec.title} 시계열. 화살표 키로 시점 이동`}
-              onMouseMove={(event) =>
-                setPointFromOffset(
-                  event.nativeEvent.offsetX,
-                  event.currentTarget.clientWidth,
-                )
-              }
-              onMouseLeave={() => onFocusChange(null)}
+              onMouseMove={(event) => {
+                // clientX and getBoundingClientRect share one coordinate
+                // space; clientWidth does not follow any scaling applied to
+                // the page, so measuring against it skews the ratio.
+                const rect = event.currentTarget.getBoundingClientRect();
+                setPointFromOffset(event.clientX - rect.left, rect.width);
+                setPointerY(((event.clientY - rect.top) / rect.height) * 100);
+              }}
+              onMouseLeave={() => {
+                setPointerY(null);
+                onFocusChange(null);
+              }}
               onFocus={() => onFocusChange(Math.floor(pointCount / 2))}
-              onBlur={() => onFocusChange(null)}
+              onBlur={() => {
+                setPointerY(null);
+                onFocusChange(null);
+              }}
               onKeyDown={(event) => {
                 if (pointCount === 0) return;
                 const current = focus ?? Math.floor(pointCount / 2);
@@ -430,7 +445,17 @@ function ChartCard({
                 ) : null}
               </svg>
               {focusedBucket ? (
-                <div className="chart-tooltip" role="status">
+                <div
+                  className="chart-tooltip"
+                  role="status"
+                  style={{
+                    left: `${focusX}%`,
+                    top: `${tooltipTop}%`,
+                    transform: tooltipFlipped
+                      ? "translate(calc(-100% - 15px), -50%)"
+                      : "translate(15px, -50%)",
+                  }}
+                >
                   <span className="tooltip-time">
                     {timelineLabel(focusedBucket.started_at, true)}
                   </span>

@@ -208,6 +208,40 @@ describe("Overview chart crosshair", () => {
     expect(latencyCard.querySelector(".chart-crosshair")).not.toBeNull();
     expect(document.querySelectorAll("circle").length).toBe(0);
   });
+
+  it("places the crosshair and tooltip from the zoomed box the cursor lives in", async () => {
+    api.getDashboard.mockResolvedValue(
+      dashboardWithTools([{}, {}, {}, {}, {}]),
+    );
+    renderOverview();
+    await screen.findByRole("heading", { name: "Trace Count" });
+
+    const area = document
+      .querySelector('[data-chart="traceCount"]')
+      ?.querySelector<HTMLElement>(".chart-area");
+    if (!area) throw new Error("chart-area missing");
+    // Page scaling (zoom, transforms) makes the painted box the pointer moves
+    // in wider than the element's own clientWidth.
+    Object.defineProperty(area, "clientWidth", {
+      configurable: true,
+      value: 400,
+    });
+    area.getBoundingClientRect = () =>
+      ({ left: 100, top: 50, width: 500, height: 250 }) as DOMRect;
+
+    fireEvent.mouseMove(area, { clientX: 350, clientY: 175 });
+
+    // Half way across the 500px box is bucket 2 of 0…4, not the 62.5% bucket
+    // that dividing by clientWidth would have selected.
+    await waitFor(() => {
+      expect(area.querySelector(".chart-crosshair")?.getAttribute("x1")).toBe(
+        "50",
+      );
+    });
+    const tooltip = area.querySelector<HTMLElement>(".chart-tooltip");
+    expect(tooltip?.style.left).toBe("50%");
+    expect(tooltip?.style.top).toBe("50%");
+  });
 });
 
 describe("Overview Tool Calls chart", () => {

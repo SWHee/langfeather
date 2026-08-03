@@ -254,7 +254,7 @@ export function copyText(value: string): Promise<void> {
   return Promise.resolve();
 }
 
-const MIN_COLUMN_WIDTH = 64;
+const MIN_COLUMN_WIDTH = 80;
 
 export interface ReorderableColumnDef {
   id: string;
