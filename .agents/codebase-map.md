@@ -4,7 +4,7 @@
 | --- | --- | --- | --- |
 | Python SDK | `sdk/python/` | `specs/data-contract.md`, `sdk/python/docs/` | `make test-sdk` |
 | HTTP API와 SQLite | `server/` | `specs/data-contract.md`, `specs/architecture.md` | `make test-server` |
-| React UI | `web/` | `specs/product.md`, `.agents/design.md` | `npm test --prefix web` |
+| React UI | `web/` | `specs/web-functional.md`, `specs/web-interaction-contract.md`, `specs/web-api-map.md`, `.agents/design.md` | `npm test --prefix web` |
 | SDK→API→DB 경로 | `tests/integration/` | `specs/data-contract.md` | `make test-integration` |
 | 사용자 문서 | `README.md`, `docs/`, `sdk/python/docs/` | `specs/product.md` | link와 명령 재확인 |
 

@@ -299,6 +299,7 @@ class AnnotationQueueItemRow(Base):
     created_at: Mapped[str] = mapped_column(String(27), nullable=False)
     updated_at: Mapped[str] = mapped_column(String(27), nullable=False)
     completed_at: Mapped[str | None] = mapped_column(String(27), nullable=True)
+    was_edited: Mapped[bool] = mapped_column(nullable=False, default=False)
 
     __table_args__ = (
         UniqueConstraint(

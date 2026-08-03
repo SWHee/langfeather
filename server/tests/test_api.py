@@ -106,9 +106,9 @@ def test_health_reports_applied_migration(
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "server_version": "0.2.0",
+        "server_version": "0.3.0",
         "supported_schema_versions": [1],
-        "database_migration_version": "0004_datasets_experiments",
+        "database_migration_version": "0005_queue_item_was_edited",
     }
 
 
@@ -259,6 +259,7 @@ def test_list_is_latest_first_and_excludes_full_payload(
     ]
     assert body["next_cursor"] is None
     assert "input_preview" in body["items"][0]
+    assert "조건부 edge가 loop를 만들었습니다." in body["items"][0]["output_preview"]
     assert {"input", "output", "error", "metadata"}.isdisjoint(body["items"][0])
 
 

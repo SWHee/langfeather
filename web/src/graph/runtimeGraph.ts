@@ -1,7 +1,7 @@
 import type {ObservationSummary} from "../api/types";
 
 const HORIZONTAL_GAP = 280;
-const VERTICAL_GAP = 164;
+const VERTICAL_GAP = 196;
 const CANVAS_PADDING = 32;
 
 const KNOWN_KINDS = new Set([
@@ -144,6 +144,22 @@ function groupRuntimeRows(
 
 function runtimeKind(kind: string): RuntimeNodeKind {
   return KNOWN_KINDS.has(kind) ? (kind as RuntimeNodeKind) : "generic";
+}
+
+const RUNTIME_KIND_LABELS: Record<RuntimeNodeKind, string> = {
+  chain: "Chain",
+  llm: "LLM",
+  retriever: "Retriever",
+  tool: "Tool",
+  function: "Function",
+  http: "Http",
+  runnable: "Runnable",
+  custom: "Custom",
+  generic: "Generic",
+};
+
+export function runtimeKindLabel(kind: string): string {
+  return RUNTIME_KIND_LABELS[runtimeKind(kind)];
 }
 
 export function buildRuntimeGraph(

@@ -114,6 +114,7 @@ def _database(request: Request) -> Database:
 RepositoryDependency = Annotated[TraceRepository, Depends(_repository)]
 DatabaseDependency = Annotated[Database, Depends(_database)]
 TraceLimit = Annotated[int, Query(ge=1, le=200)]
+TracePage = Annotated[int | None, Query(ge=1)]
 TraceStatusFilter = Annotated[TraceStatus | None, Query(alias="status")]
 TraceFrom = Annotated[datetime | None, Query(alias="from")]
 TraceTo = Annotated[datetime | None, Query(alias="to")]
@@ -289,6 +290,7 @@ def create_app(
         store: RepositoryDependency,
         limit: TraceLimit = 50,
         cursor: str | None = None,
+        page: TracePage = None,
         status_filter: TraceStatusFilter = None,
         from_time: TraceFrom = None,
         to_time: TraceTo = None,
@@ -297,9 +299,10 @@ def create_app(
         query: str | None = None,
     ) -> TraceListResponse:
         try:
-            page = store.list_traces(
+            result = store.list_traces(
                 limit=limit,
                 cursor=cursor,
+                page=page,
                 status=status_filter,
                 from_time=from_time,
                 to_time=to_time,
@@ -312,7 +315,11 @@ def create_app(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="cursor is invalid",
             ) from error
-        return TraceListResponse(items=page.items, next_cursor=page.next_cursor)
+        return TraceListResponse(
+            items=result.items,
+            next_cursor=result.next_cursor,
+            total_count=result.total_count,
+        )
 
     @application.get(
         "/api/v1/sessions/{session_id}/traces",
@@ -325,7 +332,7 @@ def create_app(
         cursor: str | None = None,
     ) -> TraceListResponse:
         try:
-            page = store.list_traces(
+            result = store.list_traces(
                 limit=limit,
                 cursor=cursor,
                 session_id=session_id,
@@ -335,7 +342,11 @@ def create_app(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="cursor is invalid",
             ) from error
-        return TraceListResponse(items=page.items, next_cursor=page.next_cursor)
+        return TraceListResponse(
+            items=result.items,
+            next_cursor=result.next_cursor,
+            total_count=result.total_count,
+        )
 
     @application.get(
         "/api/v1/dashboard",
@@ -346,7 +357,7 @@ def create_app(
         from_value: str = Query(alias="from"),
         to_value: str = Query(alias="to"),
         timezone_name: str = Query(alias="timezone", min_length=1),
-        bucket: Literal["auto", "hour", "day", "week", "month"] = "auto",
+        bucket: Literal["auto", "minute", "hour", "day", "week", "month"] = "auto",
         query: str | None = None,
         tag: str | None = None,
         session_id: str | None = None,
@@ -370,9 +381,11 @@ def create_app(
                 detail="at most four score_id values are allowed",
             )
         duration = to_time - from_time
-        resolved_bucket: Literal["hour", "day", "week", "month"]
+        resolved_bucket: Literal["minute", "hour", "day", "week", "month"]
         if bucket == "auto":
-            if duration <= timedelta(hours=48):
+            if duration <= timedelta(hours=2):
+                resolved_bucket = "minute"
+            elif duration <= timedelta(hours=48):
                 resolved_bucket = "hour"
             elif duration <= timedelta(days=90):
                 resolved_bucket = "day"
@@ -829,6 +842,18 @@ def create_app(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
             )
         return experiment
+
+    @application.delete(
+        "/api/v1/experiments/{experiment_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def delete_experiment(experiment_id: str, store: RepositoryDependency) -> Response:
+        if not store.delete_experiment(experiment_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found"
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @application.put(
         "/api/v1/experiments/{experiment_id}/cases/{case_id}",
