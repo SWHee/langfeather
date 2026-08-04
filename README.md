@@ -44,7 +44,6 @@ result = graph.invoke(
     {"question": "검색 결과를 요약해줘"},
     {"configurable": {"thread_id": "example-session"}},
 )
-langfeather.flush(timeout=2)
 ```
 
 `compiled_graph`는 기존 `StateGraph.compile()` 결과입니다. 자세한 설치와 적용 방법은

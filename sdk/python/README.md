@@ -47,9 +47,6 @@ result = graph.invoke(
     {"question": "검색 결과를 요약해줘"},
     {"configurable": {"thread_id": "example-session"}},
 )
-
-# 짧게 끝나는 CLI/script에서는 종료 전에 호출합니다.
-langfeather.flush(timeout=2)
 ```
 
 UI에서 새 trace를 열어 root graph와 내부 Runnable·LLM·retriever·tool 실행을

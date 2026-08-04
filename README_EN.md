@@ -45,7 +45,6 @@ result = graph.invoke(
     {"question": "Summarize the retrieved documents."},
     {"configurable": {"thread_id": "example-session"}},
 )
-langfeather.flush(timeout=2)
 ```
 
 `compiled_graph` is the existing result of `StateGraph.compile()`.
