@@ -106,10 +106,10 @@ function overviewQuery(state: OverviewUrlState): DashboardQuery {
 
 function toolColor(name: string): string {
   const normalized = name.toLowerCase();
-  if (normalized === "retriever") return "#2c5c99";
-  if (normalized === "search") return "#c07a10";
-  if (normalized === "http") return "#5566d6";
-  return "#1d6b74";
+  if (normalized === "retriever") return "var(--blue)";
+  if (normalized === "search") return "var(--series-3)";
+  if (normalized === "http") return "var(--series-2)";
+  return "var(--accent)";
 }
 
 function specsFor(response: DashboardResponse): ChartSpec[] {
@@ -139,12 +139,12 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "Success",
-          color: "#0f7a52",
+          color: "var(--green)",
           values: values((bucket) => bucket.requests.completed),
         },
         {
           label: "Error",
-          color: "#c0392f",
+          color: "var(--red)",
           values: values((bucket) => bucket.requests.failed),
         },
       ],
@@ -156,7 +156,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "p50",
-          color: "#258590",
+          color: "var(--series-1)",
           values: values((bucket) =>
             bucket.latency_us.p50 === null
               ? null
@@ -165,7 +165,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
         },
         {
           label: "p95",
-          color: "#c07a10",
+          color: "var(--series-3)",
           values: values((bucket) =>
             bucket.latency_us.p95 === null
               ? null
@@ -174,7 +174,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
         },
         {
           label: "p99",
-          color: "#5566d6",
+          color: "var(--series-2)",
           values: values((bucket) =>
             bucket.latency_us.p99 === null
               ? null
@@ -191,7 +191,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "Error rate",
-          color: "#c0392f",
+          color: "var(--red)",
           values: values((bucket) =>
             bucket.error.rate === null ? null : bucket.error.rate * 100,
           ),
@@ -205,7 +205,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "LLM",
-          color: "#258590",
+          color: "var(--series-1)",
           values: values((bucket) => bucket.llm_calls),
         },
       ],
@@ -429,7 +429,9 @@ function ChartCard({
                     key={series.label}
                     d={linePath(series.values, min, max)}
                     fill="none"
-                    stroke={series.color}
+                    // stroke는 presentation attribute라 var()가 해석되지 않는다.
+                    // style로 넘겨야 token이 적용된다.
+                    style={{ stroke: series.color }}
                     strokeWidth="1.1"
                     vectorEffect="non-scaling-stroke"
                   />

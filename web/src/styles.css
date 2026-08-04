@@ -24,6 +24,7 @@
   --c-gray-50: #eef3f4;
   --c-gray-200: #dbe5e7;
   --c-gray-300: #c3d2d6;
+  --c-gray-400: #7a95a0;
   --c-gray-500: #567480;
   --c-gray-600: #4d6873;
   --c-gray-900: #0f2129;
@@ -89,6 +90,9 @@
   --blue: var(--c-blue-700);
   --blue-border: var(--c-blue-200);
   --blue-soft: var(--c-blue-50);
+
+  /* runtime graph의 edge. text가 아니므로 3:1 기준을 쓴다(흰 배경 3.17:1). */
+  --graph-edge: var(--c-gray-400);
 
   --series-1: var(--c-series-1);
   --series-2: var(--c-series-2);
