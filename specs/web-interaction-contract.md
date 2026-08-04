@@ -35,6 +35,23 @@
 - trace를 Evaluation에서 열었다가 돌아와도 dataset/experiment/metric/case state가
   유지되어야 한다.
 
+## client 저장 state
+
+URL이 아니라 브라우저에 저장하는 state다. 링크로 공유되지 않는다.
+
+| 소유 기능 | 저장 key | 값 |
+| --- | --- | --- |
+| shell | `langfeather.theme` | `system`, `light`, `dark` |
+
+- theme은 navigation state가 아니라 기기 취향이므로 URL에 넣지 않는다. 링크를 받은
+  사람의 theme을 링크가 덮어쓰지 않아야 한다.
+- 저장된 값이 없거나 허용되지 않은 값이면 `system`으로 취급한다.
+- `system`은 `prefers-color-scheme`을 따르고, OS 설정이 바뀌면 새로고침 없이 따라간다.
+  `light`와 `dark`는 OS 설정과 무관하게 고정한다.
+- localStorage를 쓸 수 없는 환경(비공개 모드 등)에서도 UI는 동작해야 한다. 저장에
+  실패하면 그 세션 동안만 선택을 유지하고 오류를 표시하지 않는다.
+- 첫 paint 전에 theme이 적용되어 light에서 dark로 번쩍이지 않아야 한다.
+
 ## async read 규칙
 
 - component unmount 또는 selection/query 변경 시 이전 GET을 AbortController로

@@ -30,6 +30,7 @@
 | Experiments | summary, lazy detail popup(case 표에 metadata 포함), evaluate quickstart, 검색/checkbox 삭제 | no experiment, running/cancelled/failed, detail load failure |
 | Metric 비교 | 같은 revision 2~4개, 0~N개 metric 다중 선택, metric별 그룹 bar chart, 커서 근접 tooltip, metric×experiment 표 | revision/type conflict, missing/error/target failure, metric 0개 선택, retry |
 | Local Data | `RESET` 입력과 확인 후 초기화 | 잘못된 confirmation, API 실패 |
+| Theme | system/light/dark 전환, 새로고침 뒤 유지, OS 설정 변경을 system에서 추종 | localStorage 불가 환경, 저장된 값이 잘못된 경우, 첫 paint 번쩍임 없음, 두 theme 모두 대비 기준 충족 |
 
 ## 자동 검증
 
@@ -40,6 +41,7 @@ npm run lint --prefix web
 npm run typecheck --prefix web
 npm test --prefix web
 npm run build --prefix web
+make check-contrast
 ```
 
 다음 pure/contract test는 presentation과 무관하므로 항상 유지한다.

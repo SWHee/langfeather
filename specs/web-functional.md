@@ -22,6 +22,20 @@ data 의미는 `specs/data-contract.md`가 우선한다.
 - UI는 callback/runtime evidence가 없는 graph edge를 만들어내지 않는다.
 - 사용자에게 보이는 주요 문구는 Korean-first를 유지하되 기술 명칭과 API field는
   필요에 따라 영어를 쓸 수 있다.
+- 사용자는 light와 dark theme을 전환할 수 있다. 아래 "theme 전환"을 따른다.
+
+### theme 전환
+
+- 상단 bar 오른쪽에 theme 전환 control을 둔다. 어느 기능에서도 화면을 옮기지 않고
+  전환할 수 있다.
+- 선택지는 `system`, `light`, `dark` 셋이고 기본은 `system`이다.
+- 선택은 기기에 저장되어 새로고침과 탭 이동 뒤에도 유지된다. 저장 위치와 실패 시
+  동작은 `web-interaction-contract.md`의 "client 저장 state"를 따른다.
+- theme은 색만 바꾼다. 기능, 문구, layout, 컬럼 폭, 표의 정보량은 바뀌지 않는다.
+- 두 theme 모두에서 text는 배경 대비 4.5:1, chart series와 상태 표시는 3:1을
+  만족한다. 눈으로 확인하지 않고 `make check-contrast`로 검증한다.
+- 색만으로 의미를 전달하는 표시를 새로 만들지 않는다. dark에서 색이 눌려도 상태를
+  읽을 수 있어야 한다.
 
 ### 표 공통 동작
 
