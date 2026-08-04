@@ -3,6 +3,7 @@
 .vscode/
 .impeccable/
 .codex/
+.claude/
 
 .python/
 .venv/
