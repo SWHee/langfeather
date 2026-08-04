@@ -193,6 +193,30 @@ state를 제공한다.
   frame을 요약하되 전체 raw error도 계속 접근 가능해야 한다.
 - payload가 매우 길어도 browser main thread를 불필요하게 막지 않아야 한다.
 
+### Retrieval view
+
+`kind`가 `retriever`인 observation은 일반 JSON tree 대신 검색 결과를 읽는 화면을
+보여준다. RAG 디버깅의 질문은 "어떤 문서가 몇 점으로 검색됐고, 그중 무엇이 실제로
+답변에 쓰였나"인데 JSON을 펼쳐서는 답이 나오지 않는다. 저장된 payload를 다르게
+그리는 것뿐이고 SDK, 서버, API, DB schema는 바뀌지 않는다.
+
+- output이 array면 각 항목을 rank 순서대로 문서 카드로 보여준다. rank는 array
+  순서다.
+- 카드는 본문 snippet을 보여주고, score와 source는 payload에 있을 때만 보여준다.
+  없는 값을 추정해서 채우지 않는다.
+- 문서 본문은 `page_content`, `text`, `content` 중 있는 것을 쓰고, 항목이 문자열
+  자체면 그 문자열을 쓴다. 어느 것도 아니면 그 항목은 카드로 만들지 않는다.
+- score는 `score`, `relevance_score`, `metadata.score` 중 있는 것을 쓴다.
+  source는 `metadata.source`, `metadata.file_path`, `id` 중 있는 것을 쓴다.
+- 같은 trace 안에서 이 observation보다 뒤에 실행된 `llm` observation의 input에
+  문서 본문이 포함되어 있으면 "답변에 사용됨" 배지를 붙인다. 판정은 문자열
+  대조이며, **대조할 하류 llm input을 얻지 못하면 어떤 카드에도 배지를 붙이지
+  않는다.** 근거 없이 추론하지 않는다.
+- 배지를 붙일 수 있을 때만 "N건 중 M건이 답변에 사용됨" 요약 한 줄을 보여준다.
+- output이 array가 아니거나 카드로 만들 항목이 없으면 일반 JSON tree로 되돌린다.
+- 원문 JSON은 "전체 데이터"에서 계속 볼 수 있어야 한다. 다르게 그리는 것이지
+  가리는 것이 아니다.
+
 ### trace action
 
 - 선택한 trace를 기존 Annotation Queue에 추가할 수 있다.

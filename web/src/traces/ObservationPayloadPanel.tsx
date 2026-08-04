@@ -2,6 +2,8 @@ import { useState } from "react";
 
 import type { JsonValue, Observation } from "../api/types";
 import { JsonSection } from "./PrettyJson";
+import { RetrievalView } from "./RetrievalView";
+import { readDocuments } from "./retrieval";
 
 function jsonRecord(value: JsonValue): { [key: string]: JsonValue } | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -40,10 +42,22 @@ function FailureSummary({ error }: { error: JsonValue }) {
 
 export function ObservationPayloadPanel({
   observation,
+  downstreamLlmInput = null,
 }: {
   observation: Observation;
+  /**
+   * 같은 trace의 하류 llm observation input을 문자열로 편 것. retriever 문서가
+   * 답변에 실렸는지 대조하는 데만 쓴다. null이면 대조하지 않는다.
+   */
+  downstreamLlmInput?: string | null;
 }) {
   const [detail, setDetail] = useState<"core" | "all">("core");
+  // 검색 결과로 읽을 수 있는 retriever 실행만 전용 화면을 쓴다. 읽을 문서가
+  // 없으면 일반 JSON tree로 되돌린다.
+  const asRetrieval =
+    observation.kind === "retriever" &&
+    detail === "core" &&
+    readDocuments(observation.output).length > 0;
 
   return (
     <div className="json-inspector">
@@ -69,7 +83,14 @@ export function ObservationPayloadPanel({
         </button>
       </div>
       <JsonSection title="Input" value={observation.input} />
-      <JsonSection title="Output" value={observation.output} />
+      {asRetrieval ? (
+        <RetrievalView
+          output={observation.output}
+          llmInput={downstreamLlmInput}
+        />
+      ) : (
+        <JsonSection title="Output" value={observation.output} />
+      )}
       {detail === "all" || observation.error !== null ? (
         <JsonSection title="Error" value={observation.error} />
       ) : null}

@@ -1295,6 +1295,77 @@ th.col-draggable {
   }
 }
 
+/* Retrieval view. 검색 결과를 JSON tree가 아니라 문서 카드로 읽는다. */
+.retrieval {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 15px;
+}
+.retrieval-summary {
+  color: var(--quiet);
+  font-size: 13px;
+}
+.retrieval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.retrieval-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+.retrieval-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.retrieval-rank {
+  color: var(--quiet);
+  font: 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.retrieval-score {
+  color: var(--ink);
+  font: 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.retrieval-source {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--quiet);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 색만으로 의미를 전달하지 않는다. 배지는 문구를 함께 갖는다. */
+.retrieval-used {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.retrieval-text {
+  overflow: hidden;
+  max-height: 108px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .trace-row {
   cursor: pointer;
 }

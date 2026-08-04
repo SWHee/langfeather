@@ -64,6 +64,7 @@ import {
   runtimeKindLabel,
 } from "../graph/runtimeGraph";
 import { ObservationPayloadPanel } from "./ObservationPayloadPanel";
+import { flattenText } from "./retrieval";
 import { useSplitLayout } from "./useSplitLayout";
 
 type TraceFilters = {
@@ -266,6 +267,9 @@ export function TracesView({
   >("idle");
   const [payloadError, setPayloadError] = useState("");
   const [payloadRetry, setPayloadRetry] = useState(0);
+  const [downstreamLlmInput, setDownstreamLlmInput] = useState<string | null>(
+    null,
+  );
   const [action, setAction] = useState<ActionPanel>(null);
   const [targetPanel, setTargetPanel] = useState<TargetPanel>(null);
   const [queues, setQueues] = useState<Array<{ id: string; name: string }>>([]);
@@ -414,6 +418,30 @@ export function TracesView({
       });
     return () => controller.abort();
   }, [observationId, payloadRetry]);
+
+  // retriever 문서가 답변에 실렸는지 대조하려면 하류 llm의 input이 필요하다.
+  // 그 observation은 선택되지 않았으므로 payload가 없다. retriever를 볼 때만
+  // 한 건 더 가져온다. 실패하면 null로 두고 배지를 붙이지 않는다.
+  useEffect(() => {
+    const target =
+      observation?.kind === "retriever" && detail !== null
+        ? detail.observations
+            .filter(
+              (item) =>
+                item.kind === "llm" && item.sequence > observation.sequence,
+            )
+            .sort((left, right) => left.sequence - right.sequence)[0]
+        : undefined;
+    if (target === undefined) {
+      deferState(() => setDownstreamLlmInput(null));
+      return;
+    }
+    const controller = new AbortController();
+    void getObservation(target.observation_id, controller.signal)
+      .then((response) => setDownstreamLlmInput(flattenText(response.input)))
+      .catch(() => setDownstreamLlmInput(null));
+    return () => controller.abort();
+  }, [observation, detail]);
 
   useEffect(() => {
     if (selectedTraceId !== null) {
@@ -945,6 +973,7 @@ export function TracesView({
           observation={observation}
           payloadState={payloadState}
           payloadError={payloadError}
+          downstreamLlmInput={downstreamLlmInput}
           retryPayload={() => setPayloadRetry((value) => value + 1)}
           memo={memo}
           setMemo={setMemo}
@@ -1104,6 +1133,9 @@ export function OverviewTraceDrawer({
   >("idle");
   const [payloadError, setPayloadError] = useState("");
   const [payloadRetry, setPayloadRetry] = useState(0);
+  const [downstreamLlmInput, setDownstreamLlmInput] = useState<string | null>(
+    null,
+  );
   const [drawerWidth, setDrawerWidth] = useState(950);
   const [annotationValues, setAnnotationValues] = useState<
     Record<string, AnnotationValue | null>
@@ -1227,6 +1259,30 @@ export function OverviewTraceDrawer({
     return () => controller.abort();
   }, [observationId, payloadRetry]);
 
+  // retriever 문서가 답변에 실렸는지 대조하려면 하류 llm의 input이 필요하다.
+  // 그 observation은 선택되지 않았으므로 payload가 없다. retriever를 볼 때만
+  // 한 건 더 가져온다. 실패하면 null로 두고 배지를 붙이지 않는다.
+  useEffect(() => {
+    const target =
+      observation?.kind === "retriever" && detail !== null
+        ? detail.observations
+            .filter(
+              (item) =>
+                item.kind === "llm" && item.sequence > observation.sequence,
+            )
+            .sort((left, right) => left.sequence - right.sequence)[0]
+        : undefined;
+    if (target === undefined) {
+      deferState(() => setDownstreamLlmInput(null));
+      return;
+    }
+    const controller = new AbortController();
+    void getObservation(target.observation_id, controller.signal)
+      .then((response) => setDownstreamLlmInput(flattenText(response.input)))
+      .catch(() => setDownstreamLlmInput(null));
+    return () => controller.abort();
+  }, [observation, detail]);
+
   useEffect(() => {
     if (!selectedTraceId) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -1284,6 +1340,7 @@ export function OverviewTraceDrawer({
           observation={observation}
           payloadState={payloadState}
           payloadError={payloadError}
+          downstreamLlmInput={downstreamLlmInput}
           retryPayload={() => setPayloadRetry((value) => value + 1)}
           memo={memo}
           setMemo={setMemo}
@@ -1369,6 +1426,7 @@ function DrawerContent({
   onDelete,
   readOnly = false,
   split = false,
+  downstreamLlmInput = null,
 }: {
   detail: TraceDetail | null;
   detailState: "idle" | "loading" | "success" | "error";
@@ -1409,6 +1467,8 @@ function DrawerContent({
   readOnly?: boolean;
   /** 3분할이면 이 pane은 dialog가 아니다. 닫기 버튼도 두지 않는다. */
   split?: boolean;
+  /** retriever 문서의 "사용됨" 대조에만 쓴다. null이면 대조하지 않는다. */
+  downstreamLlmInput?: string | null;
 }) {
   if (!selectedTraceId) return null;
   const traceTitle = detail?.name ?? currentTrace?.name ?? "Trace detail";
@@ -1565,7 +1625,10 @@ function DrawerContent({
                   ) : payloadState === "error" ? (
                     <ErrorBlock message={payloadError} onRetry={retryPayload} />
                   ) : payloadState === "success" && observation ? (
-                    <ObservationPayloadPanel observation={observation} />
+                    <ObservationPayloadPanel
+                      observation={observation}
+                      downstreamLlmInput={downstreamLlmInput}
+                    />
                   ) : (
                     <EmptyBlock>그래프에서 관측값을 선택하세요.</EmptyBlock>
                   )}
