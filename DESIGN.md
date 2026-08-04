@@ -59,8 +59,9 @@ mark에만 쓰고, text와 interaction에는 대비를 확보한 어두운 단�
 chart series는 `--series-1` `#258590`, `--series-2` `#5566d6`, `--series-3`
 `#c07a10`, `--series-4` `#c94f7c`이며 전부 흰 배경 대비 3:1 이상이다.
 
-text로 쓰는 색은 WCAG AA(4.5:1)를 만족한다. 새 색을 추가할 때 이 기준을 먼저
-확인한다. 상태 색은 의미를 전달할 때만 쓰고, 선택과 주요 작업은 accent만 쓴다.
+text로 쓰는 색은 WCAG AA(4.5:1)를 만족하고 chart series는 3:1을 만족한다. 눈으로는
+확인할 수 없으므로 `make check-contrast`가 `styles.css`의 token을 직접 읽어 계산한다.
+색을 바꾸거나 theme을 추가하면 이 명령을 실행한다. 상태 색은 의미를 전달할 때만 쓰고, 선택과 주요 작업은 accent만 쓴다.
 retriever tint를 accent와 다른 색으로 두는 이유는 선택 상태와 구분하기 위해서다.
 
 화면마다 token을 다르게 tint하던 `.surface-*` override는 제거했다. 같은 제품이
