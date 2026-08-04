@@ -17,37 +17,64 @@ LangFeather는 화려한 SaaS analytics가 아니라, 밝은 작업대 위에서
 정밀하게 읽는 local debugging observatory다. 장식적인 dashboard card wall 대신
 얇은 구분선, 밀도 높은 표, 넓게 이어지는 chart와 drawer 중심 workspace를 사용한다.
 
+## Token 구조
+
+`web/src/styles.css`의 token은 세 층이다. hex는 primitive 층에만 쓰고, component
+규칙은 semantic 층만 참조한다. theme을 추가할 때는 semantic 층만 다시 정의한다.
+
+```text
+primitive  --c-teal-700: #1d6b74
+semantic   --accent: var(--c-teal-700)
+component  --radius: 10px
+```
+
 ## Palette
 
-- page: `#f7f8fa`
-- surface: `#ffffff`
-- surface alternate: `#f3f6f9`
-- ink: `#1a2433`
-- muted: `#6f7c8e`
-- quiet: `#9aa5b4`
-- line: `#e5e9ee`
-- strong line: `#d8dee7`
-- primary navy: `#163b70`
-- primary soft: `#e7effa`
-- success: `#10a77f`
-- danger: `#e34a3c`
-- warning: `#d8841c`
-- comparison accent: `#7859d6`
+brand는 logo의 청록에서 왔다. logo 색 `#2fabb9`는 흰 배경 대비가 2.75:1이라
+mark에만 쓰고, text와 interaction에는 대비를 확보한 어두운 단계를 쓴다.
 
-상태 색은 의미를 전달할 때만 사용한다. 주요 작업과 선택 상태는 navy, 보조 chart
-series만 제한된 accent palette를 쓴다. Queues, Scores, Datasets, Local Data
-화면은 `.surface-*` class로 line/ink/navy 등을 미세하게 다르게 tint해 구획을
-드러내지만 핵심 palette 관계는 동일하게 유지한다.
+| 역할 | token | 값 | 흰 배경 대비 |
+| --- | --- | --- | --- |
+| page | `--page` | `#f4f7f8` | — |
+| surface | `--surface` | `#ffffff` | — |
+| surface alternate | `--surface-alt` | `#eef3f4` | — |
+| table header | `--surface-head` | `#f9fbfb` | — |
+| line | `--line` | `#dbe5e7` | — |
+| strong line | `--strong` | `#c3d2d6` | — |
+| ink | `--ink` | `#0f2129` | 16.54 |
+| muted | `--muted` | `#4d6873` | 5.93 |
+| quiet | `--quiet` | `#567480` | 4.99 |
+| accent | `--accent` | `#1d6b74` | 6.16 |
+| accent hover | `--accent-hover` | `#165157` | 8.94 |
+| accent soft | `--accent-soft` | `#e4f2f4` | — |
+| accent faint | `--accent-faint` | `#f0f7f8` | — |
+| accent border | `--accent-border` | `#8fc0c7` | — |
+| logo mark | `--accent-mark` | `#2fabb9` | 2.75 (mark 전용) |
+| success | `--green` | `#0f7a52` | 5.35 |
+| danger | `--red` | `#c0392f` | 5.43 |
+| warning | `--orange` | `#9a6212` | 5.08 |
+| llm tint | `--violet` | `#6b4fd8` | 5.62 |
+| retriever tint | `--blue` | `#2c5c99` | 6.78 |
+
+chart series는 `--series-1` `#258590`, `--series-2` `#5566d6`, `--series-3`
+`#c07a10`, `--series-4` `#c94f7c`이며 전부 흰 배경 대비 3:1 이상이다.
+
+text로 쓰는 색은 WCAG AA(4.5:1)를 만족한다. 새 색을 추가할 때 이 기준을 먼저
+확인한다. 상태 색은 의미를 전달할 때만 쓰고, 선택과 주요 작업은 accent만 쓴다.
+retriever tint를 accent와 다른 색으로 두는 이유는 선택 상태와 구분하기 위해서다.
+
+화면마다 token을 다르게 tint하던 `.surface-*` override는 제거했다. 같은 제품이
+화면에 따라 다른 색과 다른 접근성 등급을 갖게 만들었기 때문이다. 다시 넣지 않는다.
 
 ## Typography
 
 - UI: Pretendard, SF Pro Text, Inter, Apple SD Gothic Neo, system sans
-- ID, JSON, timestamp, measurement: SF Mono, IBM Plex Mono, ui-monospace
-- page title은 24px/700, section title은 16px/700, body는 13–14px를 기본으로 한다.
-- label과 table heading은 읽기 가능한 11–12px를 유지하며 과한 letter spacing을 쓰지
-  않는다.
-- `body`에 `zoom: 1.25`를 적용해 위 px 값보다 실제로는 25% 더 크게 보인다. 새 px
-  값을 추가할 때도 이 zoom을 고려해 상대적으로 작게/크게 느껴지는지 확인한다.
+- ID, JSON, timestamp, measurement: `ui-monospace` 우선. OS 기본 mono로 해석되므로
+  별도 webfont를 bundle하지 않는다.
+- body는 18px/1.45, page title 30px/700, section title 20px/700을 기본으로 한다.
+- label과 table heading은 11–12px를 유지하며 과한 letter spacing을 쓰지 않는다.
+- font-size는 11 / 12 / 13 / 14 / 15 / 16 / 18 / 20 / 24 / 30px만 쓰고,
+  font-weight는 400과 700만 쓴다.
 
 ## Structure
 
@@ -66,8 +93,16 @@ series만 제한된 accent palette를 쓴다. Queues, Scores, Datasets, Local Da
 
 ## Components and state
 
-- radius는 기본 8px이며 작은 control만 pill 형태를 허용한다.
-- button과 field는 34–38px 높이, 명확한 border와 `:focus-visible` ring을 가진다.
+- 간격은 2px 격자 위의 정수 px만 쓴다. border는 1px, radius는 기본 10px이며 작은
+  control만 pill 형태를 허용한다. 소수점 px를 새로 만들지 않는다.
+- button과 field는 44px 높이로 touch target 기준을 만족하고, 명확한 border와
+  `:focus-visible` ring을 가진다.
+- icon은 glyph 문자가 아니라 SVG로 그린다. glyph는 font fallback에 따라 굵기와
+  정렬이 기기마다 달라진다. `components.tsx`의 `Icon` 계열을 재사용한다.
+- pointer hover에서만 나타나는 control을 만들지 않는다. touch 기기에는 hover가
+  없어서 기능 자체가 사라진다. 평소 낮은 대비로 두고 hover/focus에서 강조한다.
+- shell 최상단에 본문으로 건너뛰는 skip link를 둔다. 각 화면의 `<main>`이
+  `id="lf-main"`으로 그 착지점이 된다.
 - loading, empty, error, disabled, pending mutation은 각 surface 안에서 같은 공간을
   점유해 layout jump를 줄인다.
 - destructive action은 danger color만으로 의존하지 않고 영향 설명, 정확한 확인 입력,

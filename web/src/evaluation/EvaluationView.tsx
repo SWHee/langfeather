@@ -35,22 +35,24 @@ import type {
 } from "../api/types";
 import {
   ColumnHeaderCell,
-  deferState,
   EmptyBlock,
   ErrorBlock,
-  formatDuration,
-  jsonPreview,
-  jsonText,
+  IconClose,
+  IconMore,
   LIST_PAGE_SIZE,
   LoadingBlock,
   Modal,
-  paginate,
   Pagination,
   SelectColGroup,
+  deferState,
+  formatDuration,
+  jsonPreview,
+  jsonText,
+  paginate,
   sortRows,
+  type ReorderableColumnDef,
   useEscape,
   useReorderableColumns,
-  type ReorderableColumnDef,
 } from "../components";
 import { compareExperiments, hasDatasetRevisionMismatch } from "./comparison";
 import {
@@ -82,10 +84,10 @@ const EXAMPLE_SORT_VALUES: Record<
 
 const EXPERIMENT_COLUMNS: ReorderableColumnDef[] = [
   { id: "name", label: "Experiment", width: 325 },
-  { id: "status", label: "Status", width: 137.5 },
-  { id: "revision", label: "Revision", width: 112.5 },
-  { id: "cases", label: "Cases", width: 137.5 },
-  { id: "duration", label: "Duration", width: 137.5 },
+  { id: "status", label: "Status", width: 138 },
+  { id: "revision", label: "Revision", width: 128 },
+  { id: "cases", label: "Cases", width: 138 },
+  { id: "duration", label: "Duration", width: 138 },
 ];
 
 const EXPERIMENT_SORT_VALUES: Record<
@@ -546,7 +548,7 @@ export function EvaluationView({
   };
 
   return (
-    <main className="page evaluation-page">
+    <main className="page evaluation-page" id="lf-main" tabIndex={-1}>
       {loadState === "loading" ? (
         <LoadingBlock label="Datasets를 불러오는 중…" />
       ) : loadState === "error" ? (
@@ -869,7 +871,7 @@ function DatasetList({
                     );
                   }}
                 >
-                  ⋯
+                  <IconMore />
                 </button>
                 {menuId === entry.dataset_id ? (
                   <div className="row-menu" onClick={(event) => event.stopPropagation()}>
@@ -1202,7 +1204,7 @@ function ExamplesTable({
             aria-expanded={jsonlMenuOpen}
             onClick={() => setJsonlMenuOpen((open) => !open)}
           >
-            ⋯
+            <IconMore />
           </button>
           {jsonlMenuOpen ? (
             <div className="row-menu jsonl-menu" role="menu">
@@ -1525,7 +1527,7 @@ function ExamplesTable({
                   aria-label="닫기"
                   onClick={() => setEditingId(null)}
                 >
-                  ×
+                  <IconClose />
                 </button>
               </div>
             </header>
@@ -2126,7 +2128,7 @@ function ExperimentDrawer({
                   aria-label="상세 닫기"
                   onClick={onClose}
                 >
-                  ×
+                  <IconClose />
                 </button>
               </div>
             </header>

@@ -22,24 +22,25 @@ import type {
 } from "../api/types";
 import {
   ColumnHeaderCell,
-  deferState,
   EmptyBlock,
   ErrorBlock,
+  IconClose,
   LoadingBlock,
   Modal,
   SelectColGroup,
+  deferState,
   sortRows,
-  useReorderableColumns,
   type ReorderableColumnDef,
+  useReorderableColumns,
 } from "../components";
 
 type LoadState = "loading" | "success" | "error";
 
 const SCORE_COLUMNS: ReorderableColumnDef[] = [
   { id: "name", label: "Score", width: 275 },
-  { id: "type", label: "Type", width: 187.5 },
+  { id: "type", label: "Type", width: 188 },
   { id: "value", label: "Value", width: 350 },
-  { id: "state", label: "Status", width: 137.5 },
+  { id: "state", label: "Status", width: 138 },
   { id: "description", label: "Description", width: 325 },
 ];
 
@@ -258,7 +259,7 @@ export function ScoresView() {
   };
 
   return (
-    <main className="page scores-page">
+    <main className="page scores-page" id="lf-main" tabIndex={-1}>
       <h1>Scores</h1>
       <div className="scores-toolbar">
         <button className="lf-btn is-primary" type="button" onClick={openNew}>
@@ -627,7 +628,7 @@ function ScoreConfigFields({
                 }))
               }
             >
-              ×
+              <IconClose />
             </button>
           </div>
         ))}

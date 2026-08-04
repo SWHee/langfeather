@@ -45,7 +45,7 @@ export function LocalDataView({ onReset }: { onReset: () => void }) {
   };
 
   return (
-    <main className="page settings-page">
+    <main className="page settings-page" id="lf-main" tabIndex={-1}>
       <h1>설정</h1>
       <section className="settings-section" aria-labelledby="backupTitle">
         <h2 id="backupTitle">백업</h2>

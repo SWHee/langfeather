@@ -30,21 +30,22 @@ import type {
 } from "../api/types";
 import {
   ColumnHeaderCell,
-  deferState,
   EmptyBlock,
   ErrorBlock,
-  formatDuration,
+  IconClose,
   JsonCode,
   LIST_PAGE_SIZE,
   LoadingBlock,
   Modal,
-  paginate,
   Pagination,
-  relativeTime,
   SelectColGroup,
+  deferState,
+  formatDuration,
+  paginate,
+  relativeTime,
   sortRows,
-  useReorderableColumns,
   type ReorderableColumnDef,
+  useReorderableColumns,
 } from "../components";
 import { RuntimeGraphView } from "../graph/RuntimeGraphView";
 
@@ -64,9 +65,9 @@ function completedCount(queue: AnnotationQueue): number {
 
 const QUEUE_LIST_COLUMNS: ReorderableColumnDef[] = [
   { id: "name", label: "Name", width: 275 },
-  { id: "progress", label: "Progress", width: 187.5 },
+  { id: "progress", label: "Progress", width: 188 },
   { id: "scores", label: "Scores", width: 275 },
-  { id: "updated", label: "Updated At", width: 162.5 },
+  { id: "updated", label: "Updated At", width: 162 },
   { id: "description", label: "Description", width: 325 },
 ];
 
@@ -83,12 +84,12 @@ const QUEUE_LIST_SORT_VALUES: Record<
 };
 
 const QUEUE_ITEM_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "상태", width: 112.5 },
+  { id: "status", label: "상태", width: 112 },
   { id: "started", label: "수집", width: 115 },
-  { id: "trace_id", label: "Trace ID", width: 212.5 },
+  { id: "trace_id", label: "Trace ID", width: 212 },
   { id: "input", label: "Input", width: 275 },
   { id: "output", label: "Output", width: 275 },
-  { id: "latency", label: "Latency", width: 112.5 },
+  { id: "latency", label: "Latency", width: 120 },
 ];
 
 const QUEUE_ITEM_SORT_VALUES: Record<
@@ -308,7 +309,7 @@ export function QueuesView() {
   };
 
   return (
-    <main className="page queue-page">
+    <main className="page queue-page" id="lf-main" tabIndex={-1}>
       {activeQueueId === null ? (
         <section className="queue-list-view">
           <h1>Annotation Queues</h1>
@@ -1038,7 +1039,7 @@ function QueueReview({
             aria-label="상세 닫기"
             onClick={onClose}
           >
-            ×
+            <IconClose />
           </button>
         </header>
         <div className="drawer-body">

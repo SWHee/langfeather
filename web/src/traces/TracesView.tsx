@@ -37,22 +37,26 @@ import type {
 } from "../api/types";
 import {
   ColumnHeaderCell,
-  deferState,
   EmptyBlock,
   ErrorBlock,
-  formatClockTime,
-  formatDateTime,
-  formatDuration,
-  fromLocalInput,
+  IconArrowLeft,
+  IconArrowRight,
+  IconClose,
+  IconMore,
   LoadingBlock,
   Modal,
   Pagination,
   SelectColGroup,
-  sortRows,
   StatusDot,
+  deferState,
+  formatClockTime,
+  formatDateTime,
+  formatDuration,
+  fromLocalInput,
+  sortRows,
   toLocalInput,
-  useReorderableColumns,
   type ReorderableColumnDef,
+  useReorderableColumns,
 } from "../components";
 import { RuntimeGraphView } from "../graph/RuntimeGraphView";
 import {
@@ -84,13 +88,13 @@ const EMPTY_FILTERS: TraceFilters = {
 };
 
 const TRACE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "Status", width: 87.5 },
+  { id: "status", label: "Status", width: 112 },
   { id: "started", label: "Started", width: 175 },
-  { id: "trace_id", label: "Trace ID", width: 212.5 },
+  { id: "trace_id", label: "Trace ID", width: 212 },
   { id: "input", label: "Input", width: 275 },
   { id: "output", label: "Output", width: 275 },
-  { id: "latency", label: "Latency", width: 112.5 },
-  { id: "count", label: "# Observations", width: 162.5 },
+  { id: "latency", label: "Latency", width: 120 },
+  { id: "count", label: "# Observations", width: 176 },
 ];
 
 const TRACE_SORT_VALUES: Record<
@@ -638,7 +642,7 @@ export function TracesView({
     traces.every((trace) => selectedIds.includes(trace.trace_id));
 
   return (
-    <main className="page traces-page">
+    <main className="page traces-page" id="lf-main" tabIndex={-1}>
       <header className="page-head traces-head">
         <div>
           <h1>Traces</h1>
@@ -1409,7 +1413,7 @@ function DrawerContent({
                 onNavigate(detail.previous_trace_id)
               }
             >
-              ←
+              <IconArrowLeft />
             </button>
             <span className="session-position">
               {detail?.session_position && detail.session_total
@@ -1425,7 +1429,7 @@ function DrawerContent({
                 detail?.next_trace_id && onNavigate(detail.next_trace_id)
               }
             >
-              →
+              <IconArrowRight />
             </button>
           </div> : null}
           {!readOnly ? (
@@ -1436,7 +1440,7 @@ function DrawerContent({
               aria-expanded={action !== null}
               onClick={() => setAction(action === "menu" ? null : "menu")}
             >
-              ⋯
+              <IconMore />
             </button>
           ) : null}
           <button
@@ -1445,7 +1449,7 @@ function DrawerContent({
             aria-label="상세 닫기"
             onClick={onClose}
           >
-            ×
+            <IconClose />
           </button>
           {!readOnly && action === "menu" ? (
             <div className="action-menu">
@@ -1649,7 +1653,7 @@ function DrawerContent({
                           aria-label={`${config.name} 제거`}
                           onClick={() => onRemoveScore(config.score_config_id)}
                         >
-                          ×
+                          <IconClose />
                         </button>
                       </div>
                       {scoreValueFor(
