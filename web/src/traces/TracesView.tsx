@@ -64,6 +64,7 @@ import {
   runtimeKindLabel,
 } from "../graph/runtimeGraph";
 import { ObservationPayloadPanel } from "./ObservationPayloadPanel";
+import { useSplitLayout } from "./useSplitLayout";
 
 type TraceFilters = {
   query: string;
@@ -235,6 +236,7 @@ export function TracesView({
   onSelectTrace: (traceId: string) => void;
   onClearTrace: () => void;
 }) {
+  const split = useSplitLayout();
   const [draft, setDraft] = useState<TraceFilters>(EMPTY_FILTERS);
   const [filters, setFilters] = useState<TraceFilters>(EMPTY_FILTERS);
   const [traces, setTraces] = useState<TraceListItem[]>([]);
@@ -477,6 +479,17 @@ export function TracesView({
     targetPanel,
   ]);
 
+  // 3분할일 때는 비어 있는 두 칸을 보여주지 않는다. overlay일 때는 목록을 가리므로
+  // 자동 선택하지 않는다. 분할에는 닫기 버튼이 없어 이 effect가 되돌이표가 되지 않는다.
+  useEffect(() => {
+    if (!split) return;
+    if (selectedTraceId !== null) return;
+    if (listState !== "success") return;
+    const first = sortedTraces[0];
+    if (first === undefined) return;
+    onSelectTrace(first.trace_id);
+  }, [split, selectedTraceId, listState, sortedTraces, onSelectTrace]);
+
   useEffect(() => {
     const move = (event: PointerEvent) => {
       const current = drawerResize.current;
@@ -642,7 +655,13 @@ export function TracesView({
     traces.every((trace) => selectedIds.includes(trace.trace_id));
 
   return (
-    <main className="page traces-page" id="lf-main" tabIndex={-1}>
+    <main
+      className={`page traces-page${split ? " is-split" : ""}`}
+      id="lf-main"
+      tabIndex={-1}
+      style={{ "--drawer-width": `${drawerWidth}px` } as CSSProperties}
+    >
+      <div className="traces-pane-list">
       <header className="page-head traces-head">
         <div>
           <h1>Traces</h1>
@@ -899,17 +918,20 @@ export function TracesView({
           </>
         )}
       </section>
+      </div>
       <div
         className={`trace-scrim${selectedTraceId ? " is-open" : ""}`}
         onClick={onClearTrace}
       />
       <aside
-        className={`trace-drawer${selectedTraceId ? " is-open" : ""}`}
-        style={{ "--drawer-width": `${drawerWidth}px` } as CSSProperties}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="drawerTitle"
-        aria-hidden={selectedTraceId === null}
+        className={`trace-drawer${selectedTraceId || split ? " is-open" : ""}`}
+        // 3분할에서는 목록을 덮지 않으므로 dialog가 아니다. overlay일 때만
+        // modal 의미를 준다.
+        role={split ? "complementary" : "dialog"}
+        aria-modal={split ? undefined : true}
+        aria-label={split ? "Trace 상세" : undefined}
+        aria-labelledby={split ? undefined : "drawerTitle"}
+        aria-hidden={!split && selectedTraceId === null}
       >
         <DrawerContent
           detail={detail}
@@ -964,6 +986,7 @@ export function TracesView({
           onNavigate={onSelectTrace}
           onTargets={(panel) => void openTargets(panel)}
           onDelete={() => void deleteSelectedTrace()}
+          split={split}
         />
       </aside>
       <Modal
@@ -1345,6 +1368,7 @@ function DrawerContent({
   onTargets,
   onDelete,
   readOnly = false,
+  split = false,
 }: {
   detail: TraceDetail | null;
   detailState: "idle" | "loading" | "success" | "error";
@@ -1383,6 +1407,8 @@ function DrawerContent({
   onTargets: (panel: TargetPanel) => void;
   onDelete: () => void;
   readOnly?: boolean;
+  /** 3분할이면 이 pane은 dialog가 아니다. 닫기 버튼도 두지 않는다. */
+  split?: boolean;
 }) {
   if (!selectedTraceId) return null;
   const traceTitle = detail?.name ?? currentTrace?.name ?? "Trace detail";
@@ -1444,14 +1470,16 @@ function DrawerContent({
               <IconMore />
             </button>
           ) : null}
-          <button
-            className="lf-icon-btn"
-            type="button"
-            aria-label="상세 닫기"
-            onClick={onClose}
-          >
-            <IconClose />
-          </button>
+          {!split ? (
+            <button
+              className="lf-icon-btn"
+              type="button"
+              aria-label="상세 닫기"
+              onClick={onClose}
+            >
+              <IconClose />
+            </button>
+          ) : null}
           {!readOnly && action === "menu" ? (
             <div className="action-menu">
               <button type="button" onClick={() => onTargets("queue")}>
@@ -1497,7 +1525,9 @@ function DrawerContent({
           <LoadingBlock label="Trace 상세를 불러오는 중…" />
         ) : detailState === "error" ? (
           <ErrorBlock message={detailError} onRetry={detailRetry} />
-        ) : detail ? (
+        ) : detail === null ? (
+          <EmptyBlock>목록에서 trace를 고르세요.</EmptyBlock>
+        ) : (
           <>
             <div className="detail-grid">
               <section className="detail-card">
@@ -1691,7 +1721,7 @@ function DrawerContent({
               </footer>
             </section>
           </>
-        ) : null}
+        )}
       </div>
     </>
   );

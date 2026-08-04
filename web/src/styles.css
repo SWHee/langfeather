@@ -1266,6 +1266,35 @@ th.col-draggable {
   outline: 2px solid var(--accent);
   outline-offset: -10px;
 }
+/* Traces 3분할. 목록 | (실행 graph | payload). 덮는 대신 자리를 나눈다.
+   경계 폭은 useSplitLayout.ts의 SPLIT_MIN_WIDTH와 같아야 한다. */
+@media (min-width: 1200px) {
+  .traces-page.is-split {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(0, var(--drawer-width));
+    align-items: start;
+    padding-right: 0;
+  }
+  .traces-page.is-split .traces-pane-list {
+    min-width: 0;
+  }
+  .traces-page.is-split .trace-scrim {
+    display: none;
+  }
+  .traces-page.is-split .trace-drawer {
+    position: sticky;
+    top: 72px;
+    right: auto;
+    width: auto;
+    max-width: none;
+    height: calc(100vh - 72px);
+    transform: none;
+    border-left: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 .trace-row {
   cursor: pointer;
 }
@@ -1426,7 +1455,10 @@ th.col-draggable {
 }
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(350px, 0.95fr) minmax(350px, 1.05fr);
+  /* 3분할에서 이 grid는 detail pane 폭을 따른다. 사용자가 경계를 드래그해
+     pane을 좁히면 두 칸이 들어갈 자리가 없어지므로 auto-fit으로 한 칸씩
+     떨어뜨린다. 고정 minmax를 쓰면 pane 밖으로 넘친다. */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 22px;
 }
 .detail-card {

@@ -118,10 +118,12 @@ dark의 주요 값이다. 대비는 surface(`#101f25`) 기준이다.
 - desktop content는 최대폭 없이 diagnostic evidence에 필요한 가로 공간을 사용한다.
 - page header 아래에 filter/action strip을 두고, data surface는 불필요한 중첩 card 없이
   border로 구획한다.
-- Trace, review, experiment, dataset example detail은 오른쪽에서 슬라이드되는
-  drawer를 쓴다. 기본폭은 화면마다 560–760px이고, 왼쪽 가장자리를 드래그해
-  420px에서 1300px까지 사용자가 직접 조절할 수 있다. mobile에서는 viewport
-  전체를 사용한다.
+- Traces는 넓은 화면(1200px 이상)에서 목록 / 실행 graph / payload 3분할이다.
+  덮는 대신 자리를 나눈다. 이 제품은 dashboard가 아니라 debugger이고, 디버깅은
+  목록과 상세를 계속 오가는 작업이다. 1200px 미만에서는 detail이 overlay가 된다.
+- review, experiment, dataset example detail은 오른쪽에서 슬라이드되는 drawer를
+  쓴다. 기본폭은 화면마다 560–760px이고, 왼쪽 가장자리를 드래그해 420px에서
+  1300px까지 사용자가 직접 조절할 수 있다. mobile에서는 viewport 전체를 사용한다.
 - 데이터 표는 checkbox 선택 + toolbar 기반 bulk action(Delete/Edit)으로
   일관되게 통일한다. 카드 형태로 나열하는 목록(dataset 카드 등)만 행마다
   `⋯` 메뉴를 쓴다.

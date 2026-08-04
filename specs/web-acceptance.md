@@ -21,7 +21,7 @@
 | 기능 | 필수 정상 흐름 | 필수 edge/error |
 | --- | --- | --- |
 | Overview | 기본 7일 조회, filter apply/reset, score/tool 선택, 시계열과 y축 눈금 확인 | score 최대 4개, no trace/tool/feedback, retry, number 평균과 rate 분리 |
-| Traces | 목록, filter, 20개 page 단위 이동, trace/detail, graph, lazy payload, 컬럼 순서/폭/정렬 | deep link, list/detail/payload별 error, failed-node 우선, 삭제 후 회복, filter 변경 시 1page 복귀 |
+| Traces | 목록, filter, 20개 page 단위 이동, trace/detail, graph, lazy payload, 컬럼 순서/폭/정렬, 넓은 화면 3분할과 좁은 화면 overlay | deep link, list/detail/payload별 error, failed-node 우선, 삭제 후 회복, filter 변경 시 1page 복귀, 3분할에서 첫 trace 자동 선택, overlay에서는 자동 선택 없음 |
 | Trace actions | queue/dataset 추가, trace 삭제 | 목록 실패, duplicate pending 방지, Escape/외부 클릭/focus 복귀 |
 | Scores | 세 type 생성, 수정, 검색, archive/delete | used score 제한, API 실패, destructive confirm |
 | Annotation | score 추가, 값/memo 저장, annotation 삭제 | type별 value, 일부 요청 실패, detail refresh |

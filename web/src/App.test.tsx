@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { setViewportMatches } from "./test/setup";
 
 const api = vi.hoisted(() => ({
   addAnnotationQueueItems: vi.fn(),
@@ -495,5 +496,46 @@ describe("V2 presentation", () => {
       "aria-selected",
       "true",
     );
+  });
+
+  describe("Traces 3분할", () => {
+    it("넓은 화면에서는 detail이 dialog가 아니라 목록 옆 pane이다", async () => {
+      setViewportMatches(true);
+      render(<App />);
+
+      // 비어 있는 두 칸을 보여주지 않는다 — 첫 trace가 자동 선택된다.
+      await waitFor(() =>
+        expect(new URLSearchParams(window.location.search).get("trace")).toBe(
+          "tr_001",
+        ),
+      );
+      const pane = await screen.findByRole("complementary", {
+        name: "Trace 상세",
+      });
+      expect(pane).toBeVisible();
+      expect(pane).not.toHaveAttribute("aria-modal");
+      // pane은 닫는 것이 아니라 자리를 차지한다.
+      expect(
+        within(pane).queryByRole("button", { name: "상세 닫기" }),
+      ).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Policy answer" })).toBeNull();
+    });
+
+    it("좁은 화면에서는 자동 선택하지 않고 overlay dialog를 쓴다", async () => {
+      const user = userEvent.setup();
+      render(<App />);
+
+      await screen.findByText("tr_001");
+      expect(new URLSearchParams(window.location.search).get("trace")).toBeNull();
+
+      await user.click(screen.getByText("tr_001"));
+      const dialog = await screen.findByRole("dialog", {
+        name: "Policy answer",
+      });
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+      expect(
+        within(dialog).getByRole("button", { name: "상세 닫기" }),
+      ).toBeVisible();
+    });
   });
 });

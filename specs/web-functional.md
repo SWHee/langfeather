@@ -21,7 +21,7 @@ data 의미는 `specs/data-contract.md`가 우선한다.
 
 | top-level | 흡수하는 화면 | 내부 구성 |
 | --- | --- | --- |
-| Traces | Traces | 목록, 실행 graph, payload |
+| Traces | Traces | 목록, 실행 graph, payload (3분할) |
 | Insights | Overview | 기간 filter, chart board, 최근 trace |
 | Evaluate | Evaluation, Annotation Queues, Scores | Datasets / Queues / Scores 세그먼트 |
 | Settings | Local Data | 백업, 초기화 |
@@ -138,8 +138,16 @@ state를 제공한다.
 - trace가 session에 속하면 detail header에 해당 session 안에서의 위치를
   `N / M`(N번째 trace, 총 M개)으로 보여주고, 이전/다음 버튼으로 같은 session의
   다른 trace로 이동한다. session이 없으면 `1 / 1`이며 이동 버튼은 비활성이다.
-- detail popup은 왼쪽 가장자리를 드래그해 420px에서 1300px까지 폭을 조절할 수
-  있다.
+- 넓은 화면에서는 detail이 목록을 덮지 않는다. 목록과 detail이 좌우로 자리를
+  나누고, 그 안에서 실행 graph와 payload가 다시 좌우로 나뉘어 **목록 / graph /
+  payload 3분할**이 된다. 디버깅은 목록과 상세를 계속 오가는 작업이라 덮으면
+  맥락이 끊긴다.
+- 좁은 화면에서는 3분할을 쓰지 않는다. detail이 화면을 덮는 overlay가 되고
+  기존 동작을 그대로 따른다. 나눌 가로 공간이 없을 때 나누면 셋 다 못 쓴다.
+- 분할 경계는 드래그로 옮길 수 있고 목록 쪽 폭은 320px 아래로 내려가지 않는다.
+- 3분할일 때 `trace`가 지정되지 않았다면 목록의 첫 trace를 자동으로 선택한다.
+  기본 진입이 Traces인 이유가 방금 돌린 실행을 보기 위해서이므로, 비어 있는 두
+  칸을 보여주지 않는다. overlay일 때는 자동 선택하지 않는다 — 목록을 가려 버린다.
 
 ### detail
 
