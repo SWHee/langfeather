@@ -1,16 +1,16 @@
 # Local deployment
 
-`0.3.1`은 개인 PC에서 실행하는 local-first prototype입니다. FastAPI, SQLite, UI는
+`0.3.2`은 개인 PC에서 실행하는 local-first prototype입니다. FastAPI, SQLite, UI는
 하나의 container로 실행하고 기본적으로 `127.0.0.1:4319`에만 bind합니다.
 
 ## 공개 collector image 사용
 
 ```bash
-docker pull ghcr.io/sungjinwi99/langfeather:0.3.1
+docker pull ghcr.io/sungjinwi99/langfeather:0.3.2
 docker run -d --name langfeather \
   -p 127.0.0.1:4319:4319 \
   -v langfeather-data:/data \
-  ghcr.io/sungjinwi99/langfeather:0.3.1
+  ghcr.io/sungjinwi99/langfeather:0.3.2
 ```
 
 trace data는 Docker `langfeather-data` volume에 저장됩니다. service만 멈추려면

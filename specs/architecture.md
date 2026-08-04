@@ -56,7 +56,7 @@ production에서는 FastAPI가 Vite build 결과를 제공한다. development에
 server로 proxy한다. 기본 compose는 하나의 container와 `langfeather-data` volume을 사용하며
 `127.0.0.1:4319`에 bind한다.
 
-`0.3.1`은 public remote deployment를 지원하지 않는다. GHCR image는 local collector 실행
+`0.3.2`은 public remote deployment를 지원하지 않는다. GHCR image는 local collector 실행
 마찰을 낮추는 배포 artifact이며, HTTPS·login·team access를 뜻하지 않는다.
 
 ## 변경 시 지킬 seam

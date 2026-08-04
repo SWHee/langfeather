@@ -394,7 +394,7 @@ wheels = [
 
 [[package]]
 name = "langfeather"
-version = "0.3.1"
+version = "0.3.2"
 source = { editable = "sdk/python" }
 
 [package.optional-dependencies]
@@ -408,7 +408,7 @@ provides-extras = ["langchain"]
 
 [[package]]
 name = "langfeather-server"
-version = "0.3.1"
+version = "0.3.2"
 source = { editable = "server" }
 dependencies = [
     { name = "alembic" },
@@ -437,7 +437,7 @@ dev = [{ name = "httpx", specifier = ">=0.28,<1" }]
 
 [[package]]
 name = "langfeather-workspace"
-version = "0.3.1"
+version = "0.3.2"
 source = { virtual = "." }
 
 [package.dev-dependencies]

@@ -11,7 +11,7 @@ stack으로 제공하는 것이 목표입니다.
 
 ## 현재 상태
 
-`0.3.1`은 local-first, single-project, single-user prototype입니다. collector는 자신의
+`0.3.2`은 local-first, single-project, single-user prototype입니다. collector는 자신의
 PC에서 실행하고 기본적으로 `127.0.0.1:4319`에만 열립니다. login, cloud collector,
 team sharing, public EC2 deployment는 아직 지원하지 않습니다.
 
@@ -26,7 +26,7 @@ collector를 실행합니다.
 docker run -d --name langfeather \
   -p 127.0.0.1:4319:4319 \
   -v langfeather-data:/data \
-  ghcr.io/sungjinwi99/langfeather:0.3.1
+  ghcr.io/sungjinwi99/langfeather:0.3.2
 ```
 
 브라우저에서 <http://127.0.0.1:4319>를 연 뒤 Python SDK를 설치합니다.
@@ -65,7 +65,7 @@ langfeather.flush(timeout=2)
 
 ## 피드백과 기여
 
-`0.3.1`은 실제 LangGraph project에서 사용해 보며 설치·적용 경험과 필요한 기능을
+`0.3.2`은 실제 LangGraph project에서 사용해 보며 설치·적용 경험과 필요한 기능을
 확인하는 단계입니다. bug, 설치/적용 경험, 기능 제안은
 [GitHub Issues](https://github.com/SungjinWi99/LangFeather/issues)에 남겨주세요.
 

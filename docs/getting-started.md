@@ -1,6 +1,6 @@
 # 시작하기
 
-LangFeather `0.3.1`은 local-first prototype입니다. collector와 trace data는 자신의
+LangFeather `0.3.2`은 local-first prototype입니다. collector와 trace data는 자신의
 PC에서 실행·보관하며 login이나 cloud account가 필요하지 않습니다.
 
 ## Collector 실행
@@ -8,11 +8,11 @@ PC에서 실행·보관하며 login이나 cloud account가 필요하지 않습�
 필요한 것: Docker Desktop, Python 3.10 이상, `pip`.
 
 ```bash
-docker pull ghcr.io/sungjinwi99/langfeather:0.3.1
+docker pull ghcr.io/sungjinwi99/langfeather:0.3.2
 docker run -d --name langfeather \
   -p 127.0.0.1:4319:4319 \
   -v langfeather-data:/data \
-  ghcr.io/sungjinwi99/langfeather:0.3.1
+  ghcr.io/sungjinwi99/langfeather:0.3.2
 ```
 
 브라우저에서 <http://127.0.0.1:4319>를 엽니다. collector를 끄려면 data를 지우지 않는

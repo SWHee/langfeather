@@ -106,7 +106,7 @@ def test_health_reports_applied_migration(
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "server_version": "0.3.1",
+        "server_version": "0.3.2",
         "supported_schema_versions": [1],
         "database_migration_version": "0005_queue_item_was_edited",
     }
