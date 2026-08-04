@@ -39,7 +39,6 @@ result = graph.invoke(
     {"question": "검색 결과를 요약해줘"},
     {"configurable": {"thread_id": "example-session"}},
 )
-langfeather.flush(timeout=2)
 ```
 
 기존 node, state, checkpointer, config, streaming, 예외 처리는 바꾸지 않습니다.
