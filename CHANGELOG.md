@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+### 추가됨
+
+- Python SDK `langfeather.log_feedback()`으로 특정 trace에 feedback score를 기록.
+  이름으로 활성 score를 찾고 없으면 boolean/number score를 만들며, categorical
+  score는 option label로 값을 전달 (SDK)
+
+### 수정됨
+
+- UI 개편 과정에서 사라졌던 Dataset 상세의 `Import JSONL`/`Export JSONL` 복원.
+  export는 `input`/`expected_output`/`metadata`만 쓰고, import는 빈 줄을 건너뛰며
+  줄 단위로 저장한 뒤 실패한 원본 줄 번호를 알려 줌
+
 ## [0.3.1] - 2026-08-03
 
 ### 변경됨

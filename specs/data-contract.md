@@ -95,6 +95,10 @@ memo는 score가 아니라 trace당 하나이며 queue가 달라도 공유한다
 annotation queue는 사용자가 trace를 명시적으로 넣는 고정 목록이다. item의 `pending`과
 `completed`는 annotation 존재 여부가 아니라 사용자의 완료 action으로 바뀐다.
 
+Python SDK의 `log_feedback()`도 UI와 같은 annotation을 쓴다. 이름으로 활성 score를 찾고
+없으면 boolean/number score만 만들며, categorical score는 option이 값에서 나오지 않으므로
+미리 있어야 한다. 대상 trace가 이미 저장돼 있어야 하므로 `flush()` 이후에만 성공한다.
+
 ## dataset과 experiment
 
 dataset은 mutable example 모음이고, experiment 시작 시 dataset revision과 evaluator 선언을

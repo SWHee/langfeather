@@ -30,6 +30,7 @@ from .evaluation import (
     get_or_create_dataset,
     json_field,
 )
+from .feedback import Feedback, FeedbackError, log_feedback
 
 __version__ = "0.3.1"
 
@@ -39,6 +40,8 @@ __all__ = [
     "DatasetExample",
     "Evaluator",
     "ExperimentRun",
+    "Feedback",
+    "FeedbackError",
     "Span",
     "TraceContext",
     "__version__",
@@ -55,6 +58,7 @@ __all__ = [
     "evaluator",
     "exact_match",
     "flush",
+    "log_feedback",
     "observe",
     "json_field",
     "shutdown",

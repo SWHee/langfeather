@@ -66,6 +66,8 @@ UI에서 새 trace를 열어 root graph와 내부 Runnable·LLM·retriever·tool
   shutdown, streaming의 제약
 - [Dataset, Experiment, Evaluator guide](docs/evaluation.md):
   local Python process에서 실행하는 평가 기능
+- [Trace feedback 기록](docs/feedback.md): `log_feedback()`으로 특정 trace에
+  boolean·number·categorical score 남기기
 
 ## 최소 API
 

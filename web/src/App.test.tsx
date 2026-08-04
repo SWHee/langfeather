@@ -6,6 +6,7 @@ import { App } from "./App";
 
 const api = vi.hoisted(() => ({
   addAnnotationQueueItems: vi.fn(),
+  addDatasetExample: vi.fn(),
   addTraceToDataset: vi.fn(),
   archiveScore: vi.fn(),
   completeAnnotationQueueItem: vi.fn(),
@@ -414,6 +415,63 @@ describe("V2 presentation", () => {
     expect(
       await screen.findByRole("heading", { name: "Traces" }),
     ).toBeVisible();
+  });
+
+  it("imports JSONL line by line and reports the failed source lines", async () => {
+    const user = userEvent.setup();
+    api.addDatasetExample
+      .mockResolvedValueOnce({
+        dataset_id: "dataset_001",
+        name: "Youth policy",
+        description: "평가 데이터",
+        revision: 4,
+        examples: [],
+        created_at: startedAt,
+        updated_at: startedAt,
+      })
+      .mockRejectedValueOnce(new Error("write failed"));
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Evaluation" }));
+    await user.click(
+      await screen.findByRole("button", { name: /Youth policy/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "JSONL 작업 메뉴" }),
+    );
+    expect(screen.getByRole("menuitem", { name: "Export" })).toBeEnabled();
+    await user.click(screen.getByRole("menuitem", { name: "Import" }));
+    await user.upload(
+      screen.getByLabelText("JSONL 가져오기"),
+      new File(
+        [
+          '{"input":{"question":"첫 줄"},"metadata":{"source":"jsonl"}}\n',
+          '{"input":\n',
+          '{"input":{"question":"셋째 줄"},"expected_output":{"answer":"답"}}\n',
+        ],
+        "examples.jsonl",
+        { type: "application/x-ndjson" },
+      ),
+    );
+
+    expect(
+      await screen.findByText("JSONL import: 1개 추가, 실패한 줄 2, 3."),
+    ).toHaveAttribute("data-tone", "error");
+    expect(api.addDatasetExample).toHaveBeenCalledTimes(2);
+    expect(
+      api.addDatasetExample.mock.calls.map(([, example]) => example),
+    ).toEqual([
+      {
+        input: { question: "첫 줄" },
+        expected_output: null,
+        metadata: { source: "jsonl" },
+      },
+      {
+        input: { question: "셋째 줄" },
+        expected_output: { answer: "답" },
+        metadata: {},
+      },
+    ]);
   });
 
   it("opens the V2 evaluation detail and keeps its two source tabs", async () => {
