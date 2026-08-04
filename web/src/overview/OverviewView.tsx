@@ -28,6 +28,7 @@ import {
   useReorderableColumns,
   type ReorderableColumnDef,
 } from "../components";
+import { useLocale, useT, type Translate } from "../i18n/context";
 import type { OverviewUrlState } from "../url";
 
 type ChartKey =
@@ -243,19 +244,29 @@ function linePath(
   }, "");
 }
 
-function formatValue(value: number | null, spec: ChartSpec): string {
-  if (value === null) return "값 없음";
+function formatValue(
+  value: number | null,
+  spec: ChartSpec,
+  t: Translate,
+  locale: string,
+): string {
+  if (value === null) return t("값 없음");
   const raw = spec.decimals
     ? value.toFixed(spec.decimals)
-    : Math.round(value).toLocaleString("ko-KR");
-  return `${raw}${spec.unit}`;
+    : Math.round(value).toLocaleString(locale);
+  // 단위는 번역 대상이다. 영어에서는 "건"에 해당하는 접미어를 쓰지 않는다.
+  return `${raw}${t(spec.unit)}`;
 }
 
-function timelineLabel(value: string, detailed = false): string {
+function timelineLabel(
+  value: string,
+  locale: string,
+  detailed = false,
+): string {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return value;
   return new Intl.DateTimeFormat(
-    "ko-KR",
+    locale,
     detailed
       ? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }
       : { month: "numeric", day: "numeric" },
@@ -297,6 +308,8 @@ function ChartCard({
   onDragStart: () => void;
   onDrop: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [pointerY, setPointerY] = useState<number | null>(null);
   const all = spec.series
     .flatMap((series) => series.values)
@@ -361,15 +374,17 @@ function ChartCard({
       <div className="chart-frame">
         {all.length === 0 ? (
           <div className="chart-empty">
-            {spec.emptyMessage ??
-              `이 기간에 표시할 ${spec.title} 데이터가 없습니다.`}
+            {spec.emptyMessage !== undefined
+              ? t(spec.emptyMessage)
+              :
+              t("이 기간에 표시할 {title} 데이터가 없습니다.", {title: spec.title})}
           </div>
         ) : (
           <>
             <div className="chart-yaxis" aria-hidden="true">
               {[20, 40, 60, 80].map((line) => (
                 <span key={line} style={{ top: `${line}%` }}>
-                  {formatValue(max - (line / 100) * (max - min), spec)}
+                  {formatValue(max - (line / 100) * (max - min), spec, t, locale)}
                 </span>
               ))}
             </div>
@@ -377,7 +392,7 @@ function ChartCard({
               className="chart-area"
               tabIndex={0}
               role="img"
-              aria-label={`${spec.title} 시계열. 화살표 키로 시점 이동`}
+              aria-label={t("{title} 시계열. 화살표 키로 시점 이동", {title: spec.title})}
               onMouseMove={(event) => {
                 // clientX and getBoundingClientRect share one coordinate
                 // space; clientWidth does not follow any scaling applied to
@@ -459,13 +474,13 @@ function ChartCard({
                   }}
                 >
                   <span className="tooltip-time">
-                    {timelineLabel(focusedBucket.started_at, true)}
+                    {timelineLabel(focusedBucket.started_at, locale, true)}
                   </span>
                   {spec.series.map((series) => (
                     <span key={series.label} style={{ color: series.color }}>
                       ● <span className="tooltip-label">{series.label}</span>{" "}
                       <b>
-                        {formatValue(series.values[focus ?? 0] ?? null, spec)}
+                        {formatValue(series.values[focus ?? 0] ?? null, spec, t, locale)}
                       </b>
                       <br />
                     </span>
@@ -517,6 +532,7 @@ export function OverviewView({
   selectedTraceId: string | null;
   onOpenTrace: (traceId: string) => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState(state);
   const recentColumns = useReorderableColumns(RECENT_TRACE_COLUMNS);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
@@ -566,7 +582,7 @@ export function OverviewView({
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
-        setDashboardError("Overview 데이터를 불러오지 못했습니다.");
+        setDashboardError("Insights 데이터를 불러오지 못했습니다.");
         setDashboard(null);
       })
       .finally(() => {
@@ -748,8 +764,8 @@ export function OverviewView({
         card.classList.remove("chart-highlight");
         void card.offsetWidth;
         card.classList.add("chart-highlight");
-        const title = card.querySelector("h3")?.textContent ?? "선택한";
-        setChartAnnouncement(`${title} 차트로 이동`);
+        const title = card.querySelector("h3")?.textContent ?? "";
+        setChartAnnouncement(t("{title} 차트로 이동", {title}));
       },
       reducedMotion ? 0 : 260,
     );
@@ -763,19 +779,19 @@ export function OverviewView({
             <h1>Insights</h1>
           </div>
         </header>
-        <section className="filter-bar" aria-label="Overview 필터">
-          <span className="filter-label">그룹: 전체</span>
+        <section className="filter-bar" aria-label={t("Insights 필터")}>
+          <span className="filter-label">{t("그룹: 전체")}</span>
           <button
             className="lf-btn"
             type="button"
             aria-expanded={filtersOpen}
             onClick={() => setFiltersOpen((open) => !open)}
           >
-            필터
+            {t("필터")}
           </button>
           <span className="filter-spacer" />
           <div className="period-picker">
-            <div className="period-group" role="group" aria-label="조회 기간">
+            <div className="period-group" role="group" aria-label={t("조회 기간")}>
               {PERIOD_PRESETS.map((preset) => (
                 <button
                   key={preset.hours}
@@ -786,7 +802,7 @@ export function OverviewView({
                   }
                   onClick={() => quickPeriod(preset.hours)}
                 >
-                  {preset.label}
+                  {t(preset.label)}
                 </button>
               ))}
               <button
@@ -799,13 +815,13 @@ export function OverviewView({
                   setCustomOpen((open) => !open);
                 }}
               >
-                커스텀
+                {t("커스텀")}
               </button>
             </div>
             {customOpen ? (
               <div className="period-custom-popover">
                 <label>
-                  시작
+                  {t("시작")}
                   <input
                     type="datetime-local"
                     value={customFrom}
@@ -813,7 +829,7 @@ export function OverviewView({
                   />
                 </label>
                 <label>
-                  종료
+                  {t("종료")}
                   <input
                     type="datetime-local"
                     value={customTo}
@@ -825,7 +841,7 @@ export function OverviewView({
                   type="button"
                   onClick={applyCustomPeriod}
                 >
-                  적용
+                  {t("적용")}
                 </button>
               </div>
             ) : null}
@@ -834,7 +850,7 @@ export function OverviewView({
             <div className="overview-filter-popover">
               <div className="overview-filter-grid">
                 <label>
-                  검색
+                  {t("검색")}
                   <input
                     value={draft.query}
                     onChange={(event) =>
@@ -843,7 +859,7 @@ export function OverviewView({
                   />
                 </label>
                 <label>
-                  태그
+                  {t("태그")}
                   <input
                     value={draft.tag}
                     onChange={(event) =>
@@ -910,21 +926,21 @@ export function OverviewView({
               </div>
               <div className="popover-actions">
                 <button className="lf-btn" type="button" onClick={reset}>
-                  초기화
+                  {t("초기화")}
                 </button>
                 <button
                   className="lf-btn is-primary"
                   type="button"
                   onClick={apply}
                 >
-                  적용
+                  {t("적용")}
                 </button>
               </div>
             </div>
           ) : null}
         </section>
         <section className="traffic-section" aria-label="Traffic charts">
-          <nav className="chart-navigator" aria-label="Traffic chart 바로가기">
+          <nav className="chart-navigator" aria-label={t("Chart 바로가기")}>
             {INITIAL_LAYOUT.map(({ id }) => (
               <button
                 key={id}
@@ -956,7 +972,7 @@ export function OverviewView({
             ) : dashboardError ? (
               <div className="traffic-card span-12">
                 <ErrorBlock
-                  message={dashboardError}
+                  message={t(dashboardError)}
                   onRetry={() => setRetry((value) => value + 1)}
                 />
               </div>
@@ -993,12 +1009,12 @@ export function OverviewView({
         <section className="recent-section" aria-labelledby="recent-title">
           <div className="trace-table-wrap">
             <header className="trace-table-head">
-              <h2 id="recent-title">최근 Trace</h2>
+              <h2 id="recent-title">{t("최근 Trace")}</h2>
             </header>
             {recentError ? (
-              <ErrorBlock message={recentError} />
+              <ErrorBlock message={t(recentError)} />
             ) : recent.length === 0 ? (
-              <EmptyBlock>조건에 맞는 Trace가 없습니다.</EmptyBlock>
+              <EmptyBlock>{t("조건에 맞는 Trace가 없습니다.")}</EmptyBlock>
             ) : (
               <table className="trace-table">
                 <colgroup>
@@ -1016,7 +1032,7 @@ export function OverviewView({
                         <ColumnHeaderCell
                           key={id}
                           id={id}
-                          label={def.label}
+                          label={t(def.label)}
                           align={def.align}
                           columns={recentColumns}
                         />
@@ -1028,7 +1044,7 @@ export function OverviewView({
                   {sortedRecent.map((trace) => {
                     const cell: Record<string, ReactNode> = {
                       status: <StatusDot status={trace.status} />,
-                      started: relativeTime(trace.started_at),
+                      started: relativeTime(trace.started_at, t),
                       trace_id: trace.trace_id,
                       input: trace.input_preview,
                       output: trace.output_preview,
@@ -1050,7 +1066,7 @@ export function OverviewView({
                         key={trace.trace_id}
                         data-recent-trace-id={trace.trace_id}
                         role="button"
-                        aria-label={`${trace.trace_id} 상세 열기`}
+                        aria-label={t("{id} 상세 열기", {id: trace.trace_id})}
                         aria-selected={selectedTraceId === trace.trace_id}
                         onClick={(event) => {
                           recentTraceTrigger.current = event.currentTarget;
@@ -1093,9 +1109,10 @@ export function OverviewView({
 }
 
 function LoadingChart() {
+  const t = useT();
   return (
     <p className="lf-state" role="status">
-      Traffic observatory를 불러오는 중…
+      {t("Insights를 불러오는 중…")}
     </p>
   );
 }

@@ -64,6 +64,7 @@ import {
   runtimeKindLabel,
 } from "../graph/runtimeGraph";
 import { ObservationPayloadPanel } from "./ObservationPayloadPanel";
+import { useLocale, useT, type Translate } from "../i18n/context";
 import { flattenText } from "./retrieval";
 import { useSplitLayout } from "./useSplitLayout";
 
@@ -156,6 +157,7 @@ function scoreValueFor(
   config: ScoreConfig,
   current: AnnotationValue | null | undefined,
   setValue: (value: AnnotationValue | null) => void,
+  t: Translate,
 ) {
   if (config.data_type === "boolean") {
     return (
@@ -181,7 +183,7 @@ function scoreValueFor(
     return (
       <input
         className="annotation-number"
-        aria-label={`${config.name} 값`}
+        aria-label={t("{name} 값", {name: config.name})}
         type="number"
         min={config.number_min ?? undefined}
         max={config.number_max ?? undefined}
@@ -237,6 +239,7 @@ export function TracesView({
   onSelectTrace: (traceId: string) => void;
   onClearTrace: () => void;
 }) {
+  const t = useT();
   const split = useSplitLayout();
   const [draft, setDraft] = useState<TraceFilters>(EMPTY_FILTERS);
   const [filters, setFilters] = useState<TraceFilters>(EMPTY_FILTERS);
@@ -599,7 +602,12 @@ export function TracesView({
           traceIds.map((traceId) => addTraceToDataset(targetId, traceId)),
         );
       setMutationStatus(
-        `${traceIds.length}개 trace를 ${targetPanel === "queue" ? "queue" : "dataset"}에 추가했습니다.`,
+        t(
+          targetPanel === "queue"
+            ? "{n}개 trace를 queue에 추가했습니다."
+            : "{n}개 trace를 dataset에 추가했습니다.",
+          {n: traceIds.length},
+        ),
       );
       closeTargetPanel();
     } catch {
@@ -721,7 +729,7 @@ export function TracesView({
             </div>
           ) : null}
           <span className="result">
-            {listState === "success" ? `${totalCount}건` : ""}
+            {listState === "success" ? t("{n}건", {n: totalCount}) : ""}
           </span>
         </div>
       </header>
@@ -731,18 +739,18 @@ export function TracesView({
         onReset={resetFilters}
       >
         <label className="field">
-          <span>검색</span>
+          <span>{t("검색")}</span>
           <input
             type="search"
             value={draft.query}
-            placeholder="Trace ID 또는 input 검색"
+            placeholder={t("Trace ID 또는 input 검색")}
             onChange={(event) =>
               setDraft({ ...draft, query: event.target.value })
             }
           />
         </label>
         <label className="field">
-          <span>상태</span>
+          <span>{t("상태")}</span>
           <select
             value={draft.status}
             onChange={(event) =>
@@ -752,14 +760,14 @@ export function TracesView({
               })
             }
           >
-            <option value="">전체</option>
-            <option value="completed">성공</option>
-            <option value="failed">실패</option>
-            <option value="cancelled">취소</option>
+            <option value="">{t("전체")}</option>
+            <option value="completed">{t("성공")}</option>
+            <option value="failed">{t("실패")}</option>
+            <option value="cancelled">{t("취소")}</option>
           </select>
         </label>
         <label className="field">
-          <span>기간</span>
+          <span>{t("기간")}</span>
           <select
             value={draft.period}
             onChange={(event) => {
@@ -779,16 +787,16 @@ export function TracesView({
               }
             }}
           >
-            <option value="7d">최근 7일</option>
-            <option value="24h">24시간</option>
-            <option value="30d">30일</option>
-            <option value="custom">커스텀</option>
+            <option value="7d">{t("최근 7일")}</option>
+            <option value="24h">{t("24시간")}</option>
+            <option value="30d">{t("30일")}</option>
+            <option value="custom">{t("커스텀")}</option>
           </select>
         </label>
         {draft.period === "custom" ? (
           <>
             <label className="field">
-              <span>시작</span>
+              <span>{t("시작")}</span>
               <input
                 type="datetime-local"
                 value={toLocalInput(draft.from)}
@@ -801,7 +809,7 @@ export function TracesView({
               />
             </label>
             <label className="field">
-              <span>종료</span>
+              <span>{t("종료")}</span>
               <input
                 type="datetime-local"
                 value={toLocalInput(draft.to)}
@@ -816,41 +824,41 @@ export function TracesView({
           </>
         ) : null}
         <label className="field">
-          <span>태그</span>
+          <span>{t("태그")}</span>
           <input
             value={draft.tag}
-            placeholder="태그"
+            placeholder={t("태그")}
             onChange={(event) =>
               setDraft({ ...draft, tag: event.target.value })
             }
           />
         </label>
         <button className="lf-btn is-primary" type="submit">
-          적용
+          {t("적용")}
         </button>
         <button className="lf-btn" type="reset">
-          초기화
+          {t("초기화")}
         </button>
       </form>
       {mutationError ? (
         <p className="mutation-status is-error" role="alert">
-          {mutationError}
+          {t(mutationError)}
         </p>
       ) : mutationStatus ? (
         <p className="mutation-status" role="status">
-          {mutationStatus}
+          {t(mutationStatus)}
         </p>
       ) : null}
-      <section className="trace-list" aria-label="Trace 목록">
+      <section className="trace-list" aria-label={t("Trace 목록")}>
         {listState === "loading" ? (
-          <LoadingBlock label="Trace 목록을 불러오는 중…" />
+          <LoadingBlock label={t("Trace 목록을 불러오는 중…")} />
         ) : listState === "error" ? (
           <ErrorBlock
-            message={listError}
+            message={t(listError)}
             onRetry={() => setListRetry((value) => value + 1)}
           />
         ) : traces.length === 0 ? (
-          <EmptyBlock>조건에 맞는 Trace가 없습니다.</EmptyBlock>
+          <EmptyBlock>{t("조건에 맞는 Trace가 없습니다.")}</EmptyBlock>
         ) : (
           <>
             <table>
@@ -860,7 +868,7 @@ export function TracesView({
                   <th className="select-col">
                     <input
                       type="checkbox"
-                      aria-label="모든 trace 선택"
+                      aria-label={t("모든 trace 선택")}
                       checked={selectedAll}
                       onChange={(event) => toggleAll(event.target.checked)}
                     />
@@ -871,7 +879,7 @@ export function TracesView({
                       <ColumnHeaderCell
                         key={id}
                         id={id}
-                        label={def.label}
+                        label={t(def.label)}
                         align={def.align}
                         columns={columns}
                       />
@@ -919,7 +927,7 @@ export function TracesView({
                       <td className="select-col">
                         <input
                           type="checkbox"
-                          aria-label={`${trace.trace_id} 선택`}
+                          aria-label={t("{id} 선택", {id: trace.trace_id})}
                           checked={selectedIds.includes(trace.trace_id)}
                           onChange={(event) =>
                             setSelectedIds((ids) =>
@@ -957,7 +965,7 @@ export function TracesView({
         // modal 의미를 준다.
         role={split ? "complementary" : "dialog"}
         aria-modal={split ? undefined : true}
-        aria-label={split ? "Trace 상세" : undefined}
+        aria-label={split ? t("Trace 상세") : undefined}
         aria-labelledby={split ? undefined : "drawerTitle"}
         aria-hidden={!split && selectedTraceId === null}
       >
@@ -1027,19 +1035,19 @@ export function TracesView({
           {targetLoading ? (
             <LoadingBlock />
           ) : mutationError ? (
-            <ErrorBlock message={mutationError} />
+            <ErrorBlock message={t(mutationError)} />
           ) : (
             <>
               <p className="modal-copy">
-                선택한 Trace를 추가할 대상을 고르세요.
+                {t("선택한 Trace를 추가할 대상을 고르세요.")}
               </p>
               <label className="modal-field">
-                대상
+                {t("대상")}
                 <select
                   value={targetId}
                   onChange={(event) => setTargetId(event.target.value)}
                 >
-                  <option value="">선택</option>
+                  <option value="">{t("선택")}</option>
                   {targetPanel === "queue"
                     ? queues.map((queue) => (
                         <option key={queue.id} value={queue.id}>
@@ -1064,7 +1072,7 @@ export function TracesView({
               type="button"
               onClick={closeTargetPanel}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-primary"
@@ -1072,22 +1080,23 @@ export function TracesView({
               disabled={!targetId || targetLoading}
               onClick={() => void addToTarget()}
             >
-              추가
+              {t("추가")}
             </button>
           </div>
         </div>
       </Modal>
       <Modal
         open={bulkDelete}
-        title="선택한 trace를 삭제할까요?"
+        title={t("선택한 trace를 삭제할까요?")}
         onClose={() => {
           if (!bulkPending) setBulkDelete(false);
         }}
       >
         <div className="lf-modal-body">
           <p className="modal-copy">
-            {selectedIds.length}개 trace와 연결된 observations, annotations도
-            삭제됩니다.
+            {t("{n}개 trace와 연결된 observations, annotations도 삭제됩니다.", {
+              n: selectedIds.length,
+            })}
           </p>
           <div className="modal-actions">
             <button
@@ -1096,7 +1105,7 @@ export function TracesView({
               disabled={bulkPending}
               onClick={() => setBulkDelete(false)}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-danger"
@@ -1104,7 +1113,7 @@ export function TracesView({
               disabled={bulkPending}
               onClick={() => void deleteBulk()}
             >
-              {bulkPending ? "삭제 중…" : "삭제"}
+              {bulkPending ? t("삭제 중…") : t("삭제")}
             </button>
           </div>
         </div>
@@ -1470,6 +1479,8 @@ function DrawerContent({
   /** retriever 문서의 "사용됨" 대조에만 쓴다. null이면 대조하지 않는다. */
   downstreamLlmInput?: string | null;
 }) {
+  const t = useT();
+  const locale = useLocale();
   if (!selectedTraceId) return null;
   const traceTitle = detail?.name ?? currentTrace?.name ?? "Trace detail";
   const displayedScores =
@@ -1493,7 +1504,7 @@ function DrawerContent({
             <button
               className="lf-icon-btn"
               type="button"
-              aria-label="이전 요청"
+              aria-label={t("이전 요청")}
               disabled={!detail?.previous_trace_id}
               onClick={() =>
                 detail?.previous_trace_id &&
@@ -1510,7 +1521,7 @@ function DrawerContent({
             <button
               className="lf-icon-btn"
               type="button"
-              aria-label="다음 요청"
+              aria-label={t("다음 요청")}
               disabled={!detail?.next_trace_id}
               onClick={() =>
                 detail?.next_trace_id && onNavigate(detail.next_trace_id)
@@ -1523,7 +1534,7 @@ function DrawerContent({
             <button
               className="lf-icon-btn"
               type="button"
-              aria-label="Trace 작업"
+              aria-label={t("Trace 작업")}
               aria-expanded={action !== null}
               onClick={() => setAction(action === "menu" ? null : "menu")}
             >
@@ -1534,7 +1545,7 @@ function DrawerContent({
             <button
               className="lf-icon-btn"
               type="button"
-              aria-label="상세 닫기"
+              aria-label={t("상세 닫기")}
               onClick={onClose}
             >
               <IconClose />
@@ -1559,21 +1570,21 @@ function DrawerContent({
           ) : null}
           {!readOnly && action === "delete" ? (
             <div className="confirm-popover">
-              <p>이 trace와 연결된 observations, annotations를 삭제합니다.</p>
+              <p>{t("이 trace와 연결된 observations, annotations를 삭제합니다.")}</p>
               <div className="popover-actions">
                 <button
                   className="lf-btn"
                   type="button"
                   onClick={() => setAction(null)}
                 >
-                  취소
+                  {t("취소")}
                 </button>
                 <button
                   className="lf-btn is-danger"
                   type="button"
                   onClick={onDelete}
                 >
-                  삭제
+                  {t("삭제")}
                 </button>
               </div>
             </div>
@@ -1582,16 +1593,16 @@ function DrawerContent({
       </header>
       <div className="drawer-body">
         {detailState === "loading" ? (
-          <LoadingBlock label="Trace 상세를 불러오는 중…" />
+          <LoadingBlock label={t("Trace 상세를 불러오는 중…")} />
         ) : detailState === "error" ? (
-          <ErrorBlock message={detailError} onRetry={detailRetry} />
+          <ErrorBlock message={t(detailError)} onRetry={detailRetry} />
         ) : detail === null ? (
-          <EmptyBlock>목록에서 trace를 고르세요.</EmptyBlock>
+          <EmptyBlock>{t("목록에서 trace를 고르세요.")}</EmptyBlock>
         ) : (
           <>
             <div className="detail-grid">
               <section className="detail-card">
-                <h3>실행 흐름</h3>
+                <h3>{t("실행 흐름")}</h3>
                 <RuntimeGraphView
                   observations={detail.observations}
                   selectedObservationId={observationId}
@@ -1621,31 +1632,31 @@ function DrawerContent({
                 </h3>
                 <div className="io-panel">
                   {payloadState === "loading" ? (
-                    <LoadingBlock label="Payload를 불러오는 중…" />
+                    <LoadingBlock label={t("Payload를 불러오는 중…")} />
                   ) : payloadState === "error" ? (
-                    <ErrorBlock message={payloadError} onRetry={retryPayload} />
+                    <ErrorBlock message={t(payloadError)} onRetry={retryPayload} />
                   ) : payloadState === "success" && observation ? (
                     <ObservationPayloadPanel
                       observation={observation}
                       downstreamLlmInput={downstreamLlmInput}
                     />
                   ) : (
-                    <EmptyBlock>그래프에서 관측값을 선택하세요.</EmptyBlock>
+                    <EmptyBlock>{t("그래프에서 관측값을 선택하세요.")}</EmptyBlock>
                   )}
                 </div>
               </section>
             </div>
             <div className="trace-meta">
               <div>
-                <span>상태</span>
+                <span>{t("상태")}</span>
                 <b>{detail.status}</b>
               </div>
               <div>
-                <span>시작</span>
-                <b>{formatDateTime(detail.started_at)}</b>
+                <span>{t("시작")}</span>
+                <b>{formatDateTime(detail.started_at, locale)}</b>
               </div>
               <div>
-                <span>지연</span>
+                <span>{t("지연")}</span>
                 <b>{formatDuration(detail.duration_us)}</b>
               </div>
               <div>
@@ -1685,7 +1696,7 @@ function DrawerContent({
                       config.archived_at === null &&
                       !activeScoreIds.includes(config.score_config_id),
                   ).length === 0 ? (
-                    <p className="annotation-empty">추가할 score가 없습니다.</p>
+                    <p className="annotation-empty">{t("추가할 score가 없습니다.")}</p>
                   ) : (
                     detail.score_configs
                       .filter(
@@ -1722,14 +1733,14 @@ function DrawerContent({
                       onClick={onAddPickerScores}
                       disabled={pickerScoreIds.length === 0}
                     >
-                      추가
+                      {t("추가")}
                     </button>
                   </div>
                 </div>
               ) : null}
               <div className="annotation-list">
                 {displayedScores.length === 0 ? (
-                  <p className="annotation-empty">추가된 score가 없습니다.</p>
+                  <p className="annotation-empty">{t("추가된 score가 없습니다.")}</p>
                 ) : (
                   displayedScores.map((config) => (
                     <article
@@ -1744,7 +1755,7 @@ function DrawerContent({
                         <button
                           className="remove-score"
                           type="button"
-                          aria-label={`${config.name} 제거`}
+                          aria-label={t("{name} 제거", {name: config.name})}
                           onClick={() => onRemoveScore(config.score_config_id)}
                         >
                           <IconClose />
@@ -1758,6 +1769,7 @@ function DrawerContent({
                             ...values,
                             [config.score_config_id]: value,
                           })),
+                        t,
                       )}
                     </article>
                   ))
@@ -1768,18 +1780,20 @@ function DrawerContent({
                 <textarea
                   value={memo}
                   onChange={(event) => setMemo(event.target.value)}
-                  placeholder="검토 메모"
+                  placeholder={t("검토 메모")}
                 />
               </label>
               <footer className="annotation-footer">
-                {saveError ? <span className="annotation-error">{saveError}</span> : null}
+                {saveError ? (
+                  <span className="annotation-error">{t(saveError)}</span>
+                ) : null}
                 <button
                   className="lf-btn is-primary"
                   type="button"
                   disabled={saving}
                   onClick={onSave}
                 >
-                  {saving ? "저장 중…" : "저장"}
+                  {saving ? t("저장 중…") : t("저장")}
                 </button>
               </footer>
             </section>

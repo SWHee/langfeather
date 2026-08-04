@@ -22,11 +22,14 @@ export function formatDuration(durationUs: number | null | undefined): string {
   return `${(durationUs / 1_000_000).toFixed(durationUs < 10_000_000 ? 2 : 1)}s`;
 }
 
-export function formatDateTime(value: string | null | undefined): string {
+export function formatDateTime(
+  value: string | null | undefined,
+  locale = "ko-KR",
+): string {
   if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat(locale, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

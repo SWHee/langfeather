@@ -1,6 +1,6 @@
 import {createContext, useContext} from "react";
 
-import {translate, type Language} from "./i18n";
+import {localeOf, translate, type Language} from "./i18n";
 
 export type Translate = (
   korean: string,
@@ -9,6 +9,8 @@ export type Translate = (
 
 export type LanguageContextValue = {
   language: Language;
+  /** 날짜와 숫자 서식용. Intl에 그대로 넘긴다. */
+  locale: string;
   setLanguage: (language: Language) => void;
   t: Translate;
 };
@@ -19,6 +21,7 @@ export type LanguageContextValue = {
  */
 export const LanguageContext = createContext<LanguageContextValue>({
   language: "ko",
+  locale: localeOf("ko"),
   setLanguage: () => {},
   t: (korean, params) => translate("ko", korean, params),
 });
@@ -30,4 +33,8 @@ export function useLanguage(): LanguageContextValue {
 /** 문구만 필요한 대부분의 호출부용. */
 export function useT(): Translate {
   return useContext(LanguageContext).t;
+}
+
+export function useLocale(): string {
+  return useContext(LanguageContext).locale;
 }

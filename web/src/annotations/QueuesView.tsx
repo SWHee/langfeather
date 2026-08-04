@@ -47,6 +47,7 @@ import {
   type ReorderableColumnDef,
   useReorderableColumns,
 } from "../components";
+import { useT } from "../i18n/context";
 import { RuntimeGraphView } from "../graph/RuntimeGraphView";
 
 type QueueLoad = "loading" | "success" | "error";
@@ -105,6 +106,7 @@ const QUEUE_ITEM_SORT_VALUES: Record<
 };
 
 export function QueuesView() {
+  const t = useT();
   const [queues, setQueues] = useState<AnnotationQueue[]>([]);
   const [scores, setScores] = useState<ScoreConfig[]>([]);
   const [loadState, setLoadState] = useState<QueueLoad>("loading");
@@ -324,9 +326,9 @@ export function QueuesView() {
             <input
               className="search"
               type="search"
-              aria-label="Queue 검색"
+              aria-label={t("Queue 검색")}
               value={query}
-              placeholder="Queue 검색"
+              placeholder={t("Queue 검색")}
               onChange={(event) => setQuery(event.target.value)}
             />
             {selectedQueueIds.length ? (
@@ -340,14 +342,14 @@ export function QueuesView() {
                 </button>
               </div>
             ) : null}
-            <span className="count">{visible.length}개</span>
+            <span className="count">{t("{n}개", {n: visible.length})}</span>
           </div>
           {loadState === "loading" ? (
-            <LoadingBlock label="Annotation Queues를 불러오는 중…" />
+            <LoadingBlock label={t("Annotation Queues를 불러오는 중…")} />
           ) : loadState === "error" ? (
-            <ErrorBlock message={error} onRetry={refresh} />
+            <ErrorBlock message={t(error)} onRetry={refresh} />
           ) : visible.length === 0 ? (
-            <EmptyBlock>검색 결과가 없습니다.</EmptyBlock>
+            <EmptyBlock>{t("검색 결과가 없습니다.")}</EmptyBlock>
           ) : (
             <div className="queue-table-shell">
               <table className="queue-table">
@@ -357,7 +359,7 @@ export function QueuesView() {
                     <th className="select-col">
                       <input
                         type="checkbox"
-                        aria-label="모든 queue 선택"
+                        aria-label={t("모든 queue 선택")}
                         checked={
                           visible.length > 0 &&
                           visible.every((queue) =>
@@ -383,7 +385,7 @@ export function QueuesView() {
                         <ColumnHeaderCell
                           key={id}
                           id={id}
-                          label={def.label}
+                          label={t(def.label)}
                           columns={queueColumns}
                         />
                       );
@@ -420,7 +422,7 @@ export function QueuesView() {
                           ))}
                         </div>
                       ),
-                      updated: relativeTime(queue.updated_at),
+                      updated: relativeTime(queue.updated_at, t),
                       description: queue.description ?? "",
                     };
                     const cellClass: Record<string, string> = {
@@ -448,7 +450,7 @@ export function QueuesView() {
                         <td className="select-col">
                           <input
                             type="checkbox"
-                            aria-label={`${queue.name} 선택`}
+                            aria-label={t("{name} 선택", {name: queue.name})}
                             checked={selectedQueueIds.includes(
                               queue.annotation_queue_id,
                             )}
@@ -479,9 +481,9 @@ export function QueuesView() {
       ) : (
         <section className="queue-detail-view">
           {detailState === "loading" ? (
-            <LoadingBlock label="Queue 상세를 불러오는 중…" />
+            <LoadingBlock label={t("Queue 상세를 불러오는 중…")} />
           ) : detailState === "error" ? (
-            <ErrorBlock message={detailError} onRetry={refresh} />
+            <ErrorBlock message={t(detailError)} onRetry={refresh} />
           ) : activeQueue ? (
             <>
               <header className="detail-head queue-detail-head">
@@ -495,7 +497,7 @@ export function QueuesView() {
                 <div className="detail-main">
                   <h1>{activeQueue.name}</h1>
                   <p className="queue-desc">
-                    {activeQueue.description ?? "설명 없음"}
+                    {activeQueue.description ?? t("설명 없음")}
                   </p>
                   <div className="score-line">
                     {activeQueue.score_config_ids.map((id) => (
@@ -512,7 +514,7 @@ export function QueuesView() {
                     disabled={selectedItems.length === 0}
                     onClick={() => setRemoveOpen(true)}
                   >
-                    큐에서 제거
+                    {t("큐에서 제거")}
                     {selectedItems.length ? ` (${selectedItems.length})` : ""}
                   </button>
                   <button
@@ -526,7 +528,7 @@ export function QueuesView() {
               </header>
               {mutationError ? (
                 <p className="mutation-status is-error" role="alert">
-                  {mutationError}
+                  {t(mutationError)}
                 </p>
               ) : null}
               <QueueTable
@@ -561,20 +563,20 @@ export function QueuesView() {
           onSubmit={(event) => void create(event)}
         >
           <label className="modal-field">
-            이름
+            {t("이름")}
             <input
               autoFocus
               required
               value={name}
-              placeholder="예: Release review"
+              placeholder={t("예: Release review")}
               onChange={(event) => setName(event.target.value)}
             />
           </label>
           <label className="modal-field">
-            설명
+            {t("설명")}
             <textarea
               value={description}
-              placeholder="선택 사항"
+              placeholder={t("선택 사항")}
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
@@ -601,7 +603,7 @@ export function QueuesView() {
               ))}
           </fieldset>
           {mutationError ? (
-            <p className="mutation-status is-error">{mutationError}</p>
+            <p className="mutation-status is-error">{t(mutationError)}</p>
           ) : null}
           <div className="modal-actions">
             <button
@@ -609,21 +611,21 @@ export function QueuesView() {
               type="button"
               onClick={() => setNewOpen(false)}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-primary"
               type="submit"
               disabled={pending}
             >
-              {pending ? "생성 중…" : "생성"}
+              {pending ? t("생성 중…") : t("생성")}
             </button>
           </div>
         </form>
       </Modal>
       <Modal
         open={deleteOpen}
-        title="Queue를 삭제할까요?"
+        title={t("Queue를 삭제할까요?")}
         onClose={() => {
           if (pending) return;
           setDeleteOpen(false);
@@ -631,7 +633,7 @@ export function QueuesView() {
       >
         <div className="lf-modal-body">
           <p className="modal-copy">
-            큐와 큐에 속한 항목 연결만 삭제됩니다. 원본 trace는 유지됩니다.
+            {t("큐와 큐에 속한 항목 연결만 삭제됩니다. 원본 trace는 유지됩니다.")}
           </p>
           <div className="modal-actions">
             <button
@@ -640,7 +642,7 @@ export function QueuesView() {
               disabled={pending}
               onClick={() => setDeleteOpen(false)}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-danger"
@@ -648,19 +650,19 @@ export function QueuesView() {
               disabled={pending}
               onClick={() => void deleteQueue()}
             >
-              {pending ? "삭제 중…" : "삭제"}
+              {pending ? t("삭제 중…") : t("삭제")}
             </button>
           </div>
         </div>
       </Modal>
       <Modal
         open={removeOpen}
-        title="선택한 trace를 큐에서 뺄까요?"
+        title={t("선택한 trace를 큐에서 뺄까요?")}
         onClose={() => !pending && setRemoveOpen(false)}
       >
         <div className="lf-modal-body">
           <p className="modal-copy">
-            원본 trace와 저장된 annotations는 유지됩니다.
+            {t("원본 trace와 저장된 annotations는 유지됩니다.")}
           </p>
           <div className="modal-actions">
             <button
@@ -669,7 +671,7 @@ export function QueuesView() {
               disabled={pending}
               onClick={() => setRemoveOpen(false)}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-danger"
@@ -677,22 +679,24 @@ export function QueuesView() {
               disabled={pending}
               onClick={() => void removeItems()}
             >
-              {pending ? "제거 중…" : "큐에서 제거"}
+              {pending ? t("제거 중…") : t("큐에서 제거")}
             </button>
           </div>
         </div>
       </Modal>
       <Modal
         open={bulkDeleteOpen}
-        title="선택한 Queue를 삭제할까요?"
+        title={t("선택한 Queue를 삭제할까요?")}
         onClose={() => {
           if (!bulkPending) setBulkDeleteOpen(false);
         }}
       >
         <div className="lf-modal-body">
           <p className="modal-copy">
-            {selectedQueueIds.length}개 큐와 큐에 속한 항목 연결만 삭제됩니다.
-            원본 trace는 유지됩니다.
+            {t(
+              "{n}개 큐와 큐에 속한 항목 연결만 삭제됩니다. 원본 trace는 유지됩니다.",
+              {n: selectedQueueIds.length},
+            )}
           </p>
           <div className="modal-actions">
             <button
@@ -701,7 +705,7 @@ export function QueuesView() {
               disabled={bulkPending}
               onClick={() => setBulkDeleteOpen(false)}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-danger"
@@ -709,7 +713,7 @@ export function QueuesView() {
               disabled={bulkPending}
               onClick={() => void deleteBulkQueues()}
             >
-              {bulkPending ? "삭제 중…" : "삭제"}
+              {bulkPending ? t("삭제 중…") : t("삭제")}
             </button>
           </div>
         </div>
@@ -755,6 +759,7 @@ function QueueTable({
   onToggle: (id: string, checked: boolean) => void;
   onReview: (item: AnnotationQueueItem) => void;
 }) {
+  const t = useT();
   const columns = useReorderableColumns(QUEUE_ITEM_COLUMNS);
   const sortedItems = useMemo(
     () => sortRows(queue.items, columns.sort, QUEUE_ITEM_SORT_VALUES),
@@ -776,7 +781,7 @@ function QueueTable({
               <th className="select-col">
                 <input
                   type="checkbox"
-                  aria-label="모든 trace 선택"
+                  aria-label={t("모든 trace 선택")}
                   checked={selectedAll}
                   onChange={(event) => onToggleAll(event.target.checked)}
                 />
@@ -787,7 +792,7 @@ function QueueTable({
                   <ColumnHeaderCell
                     key={id}
                     id={id}
-                    label={def.label}
+                    label={t(def.label)}
                     columns={columns}
                   />
                 );
@@ -802,14 +807,14 @@ function QueueTable({
                     <span
                       className={`queue-item-status ${item.status === "completed" ? "is-completed" : ""}`}
                     >
-                      {item.status === "completed" ? "완료" : "대기"}
+                      {item.status === "completed" ? t("완료") : t("대기")}
                     </span>
                     {item.was_edited ? (
-                      <span className="queue-item-edited">수정됨</span>
+                      <span className="queue-item-edited">{t("수정됨")}</span>
                     ) : null}
                   </>
                 ),
-                started: relativeTime(item.updated_at),
+                started: relativeTime(item.updated_at, t),
                 trace_id: item.trace_id,
                 input: item.input_preview,
                 output: item.output_preview,
@@ -838,7 +843,7 @@ function QueueTable({
                   <td className="select-col">
                     <input
                       type="checkbox"
-                      aria-label={`${item.trace_id} 선택`}
+                      aria-label={t("{id} 선택", {id: item.trace_id})}
                       checked={selectedItems.includes(
                         item.annotation_queue_item_id,
                       )}
@@ -884,6 +889,7 @@ function QueueReview({
   onItemUpdated: (item: AnnotationQueueItem) => void;
   onCompleted: () => void;
 }) {
+  const t = useT();
   const [detail, setDetail] = useState<TraceDetail | null>(null);
   const [observationId, setObservationId] = useState<string | null>(null);
   const [observation, setObservation] = useState<Observation | null>(null);
@@ -1036,7 +1042,7 @@ function QueueReview({
           <button
             className="lf-icon-btn"
             type="button"
-            aria-label="상세 닫기"
+            aria-label={t("상세 닫기")}
             onClick={onClose}
           >
             <IconClose />
@@ -1046,12 +1052,12 @@ function QueueReview({
           {state === "loading" ? (
             <LoadingBlock />
           ) : state === "error" ? (
-            <ErrorBlock message={error} />
+            <ErrorBlock message={t(error)} />
           ) : detail ? (
             <>
               <div className="review-grid">
                 <section className="detail-card">
-                  <h3>실행 흐름</h3>
+                  <h3>{t("실행 흐름")}</h3>
                   <RuntimeGraphView
                     observations={detail.observations}
                     selectedObservationId={observationId}
@@ -1067,7 +1073,7 @@ function QueueReview({
                         <JsonCode value={observation.output} />
                       </>
                     ) : (
-                      <LoadingBlock label="Payload를 불러오는 중…" />
+                      <LoadingBlock label={t("Payload를 불러오는 중…")} />
                     )}
                   </div>
                 </section>
@@ -1117,7 +1123,7 @@ function QueueReview({
                     disabled={pending}
                     onClick={() => void submit()}
                   >
-                    {pending ? "저장 중…" : "완료"}
+                    {pending ? t("저장 중…") : t("완료")}
                   </button>
                 </footer>
               </section>
