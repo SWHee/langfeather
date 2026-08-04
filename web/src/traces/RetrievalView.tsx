@@ -1,4 +1,5 @@
 import type {JsonValue} from "../api/types";
+import {useT, type Translate} from "../i18n/context";
 import {readDocuments, usedInAnswer, type RetrievedDocument} from "./retrieval";
 
 /**
@@ -15,6 +16,7 @@ export function RetrievalView({
   output: JsonValue;
   llmInput: string | null;
 }) {
+  const t = useT();
   const documents = readDocuments(output);
   if (documents.length === 0) return null;
 
@@ -28,11 +30,14 @@ export function RetrievalView({
         );
 
   return (
-    <section className="retrieval" aria-label="검색 결과">
+    <section className="retrieval" aria-label={t("검색 결과")}>
       <p className="retrieval-summary">
         {used === null
-          ? `문서 ${documents.length}건`
-          : `문서 ${documents.length}건 중 ${used.size}건이 답변에 사용됨`}
+          ? t("문서 {total}건", {total: documents.length})
+          : t("문서 {total}건 중 {used}건이 답변에 사용됨", {
+              total: documents.length,
+              used: used.size,
+            })}
       </p>
       <ol className="retrieval-list">
         {documents.map((document) => (
@@ -40,6 +45,7 @@ export function RetrievalView({
             key={document.rank}
             document={document}
             used={used === null ? null : used.has(document.rank)}
+            t={t}
           />
         ))}
       </ol>
@@ -50,9 +56,11 @@ export function RetrievalView({
 function RetrievalCard({
   document,
   used,
+  t,
 }: {
   document: RetrievedDocument;
   used: boolean | null;
+  t: Translate;
 }) {
   return (
     <li className="retrieval-card">
@@ -67,7 +75,7 @@ function RetrievalCard({
           </span>
         ) : null}
         {used === true ? (
-          <span className="retrieval-used">답변에 사용됨</span>
+          <span className="retrieval-used">{t("답변에 사용됨")}</span>
         ) : null}
       </header>
       <p className="retrieval-text">{document.text}</p>

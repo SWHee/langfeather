@@ -1,4 +1,5 @@
 import type {JsonValue, Observation} from "../api/types";
+import {useT} from "../i18n/context";
 import {
   readLlmCompletion,
   readLlmMessages,
@@ -18,12 +19,13 @@ const ROLE_LABEL: Record<string, string> = {
 
 /** llm 실행: prompt를 역할별로 나눠 보여주고 응답과 token 수를 함께 둔다. */
 export function LlmView({observation}: {observation: Observation}) {
+  const t = useT();
   const messages = readLlmMessages(observation.input);
   const completion = readLlmCompletion(observation.output);
   const usage = readTokenUsage(observation.usage);
 
   return (
-    <section className="kind-view" aria-label="LLM 호출">
+    <section className="kind-view" aria-label={t("LLM 호출")}>
       {usage !== null ? (
         <p className="kind-usage">
           {observation.model !== null ? (
@@ -46,7 +48,7 @@ export function LlmView({observation}: {observation: Observation}) {
       </ol>
       {completion !== null ? (
         <div className="message" data-role="completion">
-          <span className="message-role">응답</span>
+          <span className="message-role">{t("응답")}</span>
           <p className="message-content">{completion}</p>
         </div>
       ) : null}
@@ -56,15 +58,16 @@ export function LlmView({observation}: {observation: Observation}) {
 
 /** tool 실행: 호출을 시그니처 한 줄로, 반환값을 그 아래에. */
 export function ToolView({observation}: {observation: Observation}) {
+  const t = useT();
   const args = readToolArguments(observation.input);
   const result: JsonValue = readToolResult(observation.output);
 
   return (
-    <section className="kind-view" aria-label="Tool 호출">
+    <section className="kind-view" aria-label={t("Tool 호출")}>
       <code className="tool-signature">
         {toolSignature(observation.name, args)}
       </code>
-      <JsonSection title="반환값" value={result} />
+      <JsonSection title={t("반환값")} value={result} />
     </section>
   );
 }

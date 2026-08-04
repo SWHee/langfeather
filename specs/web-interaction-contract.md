@@ -49,6 +49,7 @@ URL이 아니라 브라우저에 저장하는 state다. 링크로 공유되지 �
 | 소유 기능 | 저장 key | 값 |
 | --- | --- | --- |
 | shell | `langfeather.theme` | `system`, `light`, `dark` |
+| shell | `langfeather.language` | `ko`, `en` |
 
 - theme은 navigation state가 아니라 기기 취향이므로 URL에 넣지 않는다. 링크를 받은
   사람의 theme을 링크가 덮어쓰지 않아야 한다.

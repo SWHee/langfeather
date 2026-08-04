@@ -3,6 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { QueuesView } from "./annotations/QueuesView";
 import { APP_TITLE } from "./constants";
 import { EvaluationView } from "./evaluation/EvaluationView";
+import { useLanguage, useT } from "./i18n/context";
+import { isLanguage, type Language } from "./i18n/i18n";
+import { LanguageProvider } from "./i18n/LanguageContext";
 import { OverviewView } from "./overview/OverviewView";
 import { ScoresView } from "./scores/ScoresView";
 import { LocalDataView } from "./settings/LocalDataView";
@@ -32,7 +35,35 @@ const THEME_OPTIONS: ReadonlyArray<{ id: ThemePreference; label: string }> = [
   { id: "dark", label: "다크" },
 ];
 
+const LANGUAGE_OPTIONS: ReadonlyArray<{ id: Language; label: string }> = [
+  { id: "ko", label: "한국어" },
+  { id: "en", label: "English" },
+];
+
+/** 언어 이름은 그 언어로 적는다. 번역 대상이 아니다. */
+function LanguageSelect() {
+  const { language, setLanguage, t } = useLanguage();
+  return (
+    <select
+      className="lf-theme-select"
+      aria-label={t("언어")}
+      value={language}
+      onChange={(event) => {
+        const next = event.target.value;
+        if (isLanguage(next)) setLanguage(next);
+      }}
+    >
+      {LANGUAGE_OPTIONS.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function ThemeSelect() {
+  const t = useT();
   const [preference, setPreference] = useState<ThemePreference>(readPreference);
 
   useEffect(() => {
@@ -45,7 +76,7 @@ function ThemeSelect() {
   return (
     <select
       className="lf-theme-select"
-      aria-label="테마"
+      aria-label={t("테마")}
       value={preference}
       onChange={(event) => {
         const next = event.target.value;
@@ -56,7 +87,7 @@ function ThemeSelect() {
     >
       {THEME_OPTIONS.map((option) => (
         <option key={option.id} value={option.id}>
-          {option.label}
+          {t(option.label)}
         </option>
       ))}
     </select>
@@ -79,7 +110,17 @@ const EVALUATE_SEGMENTS: ReadonlyArray<{
   { id: "scores", label: "Scores" },
 ];
 
+/** Provider는 App 안에 둔다. test가 <App />을 직접 render하기 때문이다. */
 export function App() {
+  return (
+    <LanguageProvider>
+      <AppShell />
+    </LanguageProvider>
+  );
+}
+
+function AppShell() {
+  const t = useT();
   const [urlState, setUrlState] = useState<AppUrlState>(() =>
     readAppUrlState(),
   );
@@ -158,7 +199,7 @@ export function App() {
   return (
     <div className={`lf-shell surface-${urlState.view}`}>
       <a className="lf-skip" href="#lf-main">
-        본문으로 건너뛰기
+        {t("본문으로 건너뛰기")}
       </a>
       <header className="lf-topbar">
         <button
@@ -172,7 +213,7 @@ export function App() {
           </svg>
           <span className="lf-wordmark">{APP_TITLE}</span>
         </button>
-        <nav className="lf-nav" aria-label="주요 영역">
+        <nav className="lf-nav" aria-label={t("주요 영역")}>
           {NAVIGATION.map((item) => (
             <button
               className="lf-nav-link"
@@ -186,6 +227,7 @@ export function App() {
           ))}
         </nav>
         <span className="lf-topbar-spacer" />
+        <LanguageSelect />
         <ThemeSelect />
       </header>
 
@@ -212,7 +254,7 @@ export function App() {
       ) : null}
       {urlState.view === "evaluate" ? (
         <>
-          <nav className="lf-segments" aria-label="Evaluate 영역">
+          <nav className="lf-segments" aria-label="Evaluate">
             {EVALUATE_SEGMENTS.map((segment) => (
               <button
                 className="lf-segment"

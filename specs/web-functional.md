@@ -36,6 +36,26 @@ data 의미는 `specs/data-contract.md`가 우선한다.
   필요에 따라 영어를 쓸 수 있다.
 - 사용자는 light와 dark theme을 전환할 수 있다. 아래 "theme 전환"을 따른다.
 
+### 언어 전환
+
+- 상단 bar 오른쪽, theme 전환 옆에 언어 전환 control을 둔다. 둘 다 "내용"이 아니라
+  "보는 방식"에 대한 설정이므로 한 묶음이다.
+- 선택지는 한국어와 English 둘이고 기본은 한국어다. 저장 위치와 실패 시 동작은
+  `web-interaction-contract.md`의 "client 저장 state"를 따른다.
+- **기술 용어는 번역하지 않는다.** trace, observation, session, dataset, example,
+  experiment, evaluator, score, annotation, queue, retriever, tool, chain,
+  runnable, payload, input/output, metadata, revision, snapshot, latency, p95,
+  kind, status는 한국어 문장 안에서도 영어 원어로 둔다. API field와 SDK 함수와의
+  연결이 끊기면 디버깅 도구로서 쓸모가 없다.
+- **번역하는 것**은 사용자가 행동하거나 상태를 이해하기 위한 문구다. 버튼 동사,
+  상태 문구, 오류 메시지, 확인 대화의 설명, 빈 화면 안내, 화면 제목.
+- **사용자 데이터는 어느 쪽도 아니다.** trace name, session ID, dataset 이름,
+  JSON payload, evaluator key는 언어를 바꿔도 손대지 않는다. 화면에 보이는 값과
+  저장된 값이 달라지는 순간 디버깅 도구로서 신뢰를 잃는다.
+- 영어 라벨은 한국어보다 길다("완료" 2자 -> "Complete" 8자). 버튼, 표 header, 탭에
+  고정 px 폭을 쓰지 않는다.
+- 번역이 없는 문구는 한국어로 남는다. 화면이 깨지는 것보다 낫다.
+
 ### theme 전환
 
 - 상단 bar 오른쪽에 theme 전환 control을 둔다. 어느 기능에서도 화면을 옮기지 않고

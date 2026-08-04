@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { useT, type Translate } from "../i18n/context";
+
 import type { JsonValue, Observation } from "../api/types";
 import { LlmView, ToolView } from "./KindPayloadViews";
 import { hasKindView } from "./payloadShapes";
@@ -13,7 +15,7 @@ function jsonRecord(value: JsonValue): { [key: string]: JsonValue } | null {
     : null;
 }
 
-function FailureSummary({ error }: { error: JsonValue }) {
+function FailureSummary({ error, t }: { error: JsonValue; t: Translate }) {
   const diagnostic = jsonRecord(error);
   if (diagnostic === null) return null;
   const errorType = diagnostic.__type__;
@@ -28,16 +30,18 @@ function FailureSummary({ error }: { error: JsonValue }) {
 
   return (
     <div className="failure-summary" role="alert">
-      <p>실패한 노드</p>
-      <strong>{typeof errorType === "string" ? errorType : "실행 오류"}</strong>
-      <span>{typeof message === "string" ? message : "오류 메시지가 없습니다."}</span>
+      <p>{t("실패한 노드")}</p>
+      <strong>{typeof errorType === "string" ? errorType : t("실행 오류")}</strong>
+      <span>{typeof message === "string" ? message : t("오류 메시지가 없습니다.")}</span>
       {typeof file === "string" && typeof line === "number" ? (
         <code>
           {file}:{line}
           {typeof functionName === "string" ? ` · ${functionName}()` : ""}
         </code>
       ) : null}
-      <small>전체 traceback과 metadata는 '전체 데이터'에서 확인할 수 있습니다.</small>
+      <small>
+        {t("전체 traceback과 metadata는 '전체 데이터'에서 확인할 수 있습니다.")}
+      </small>
     </div>
   );
 }
@@ -53,6 +57,7 @@ export function ObservationPayloadPanel({
    */
   downstreamLlmInput?: string | null;
 }) {
+  const t = useT();
   const [detail, setDetail] = useState<"core" | "all">("core");
   // 검색 결과로 읽을 수 있는 retriever 실행만 전용 화면을 쓴다. 읽을 문서가
   // 없으면 일반 JSON tree로 되돌린다.
@@ -65,16 +70,16 @@ export function ObservationPayloadPanel({
   return (
     <div className="json-inspector">
       {observation.status === "failed" ? (
-        <FailureSummary error={observation.error} />
+        <FailureSummary error={observation.error} t={t} />
       ) : null}
-      <div className="inspector-mode-toggle" role="group" aria-label="데이터 상세 수준">
+      <div className="inspector-mode-toggle" role="group" aria-label={t("데이터 상세 수준")}>
         <button
           className={detail === "core" ? "selected" : undefined}
           type="button"
           aria-pressed={detail === "core"}
           onClick={() => setDetail("core")}
         >
-          핵심 입출력
+          {t("핵심 입출력")}
         </button>
         <button
           className={detail === "all" ? "selected" : undefined}
@@ -82,7 +87,7 @@ export function ObservationPayloadPanel({
           aria-pressed={detail === "all"}
           onClick={() => setDetail("all")}
         >
-          전체 데이터
+          {t("전체 데이터")}
         </button>
       </div>
       {asKindView ? (

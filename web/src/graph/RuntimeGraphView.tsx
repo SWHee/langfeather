@@ -15,6 +15,7 @@ import {useMemo, useState} from "react";
 
 import type {ObservationSummary, TraceStatus} from "../api/types";
 import {formatDuration} from "../components";
+import {useT, type Translate} from "../i18n/context";
 import {
   buildRuntimeGraph,
   isNotableRuntimeKind,
@@ -46,6 +47,7 @@ interface RuntimeNodeData extends Record<string, unknown> {
 type RuntimeFlowNode = Node<RuntimeNodeData, "runtimeObservation">;
 
 function RuntimeObservationNode({data, selected}: NodeProps<RuntimeFlowNode>) {
+  const t = useT();
   const {graphNode} = data;
   const {observation} = graphNode;
 
@@ -77,7 +79,7 @@ function RuntimeObservationNode({data, selected}: NodeProps<RuntimeFlowNode>) {
       <div className="runtime-node-meta">
         <span className="runtime-node-status">
           <span aria-hidden="true" />
-          {STATUS_LABEL[observation.status]}
+          {t(STATUS_LABEL[observation.status])}
         </span>
         <span>{formatDuration(observation.duration_us)}</span>
       </div>
@@ -97,14 +99,15 @@ const NODE_TYPES = {
   runtimeObservation: RuntimeObservationNode,
 };
 
-function nodeAriaLabel(graphNode: RuntimeGraphNode): string {
+function nodeAriaLabel(graphNode: RuntimeGraphNode, t: Translate): string {
   const {observation} = graphNode;
   return [
-    `실행 노드 ${observation.name}`,
-    `순서 ${observation.sequence + 1}`,
-    STATUS_LABEL[observation.status],
-    ...graphNode.childKinds.map(
-      ({kind, count}) => `하위 ${runtimeKindLabel(kind)} ${count}개`,
+    // observation 이름과 ID는 사용자 데이터다. 번역하지 않는다.
+    t("실행 노드 {name}", {name: observation.name}),
+    t("순서 {n}", {n: observation.sequence + 1}),
+    t(STATUS_LABEL[observation.status]),
+    ...graphNode.childKinds.map(({kind, count}) =>
+      t("하위 {kind} {count}개", {kind: runtimeKindLabel(kind), count}),
     ),
     `ID ${observation.observation_id}`,
   ].join(", ");
@@ -121,6 +124,7 @@ export function RuntimeGraphView({
 }) {
   // 요약은 root의 직계와 dispatch만 그린다. LangGraph 앱에서 실제 llm과 tool
   // 실행은 그보다 깊이 있어, 전체로 바꾸지 않으면 kind별 renderer에 닿을 수 없다.
+  const t = useT();
   const [detail, setDetail] = useState<RuntimeGraphDetail>("summary");
   const model = useMemo(
     () => buildRuntimeGraph(observations, detail),
@@ -142,12 +146,12 @@ export function RuntimeGraphView({
         selectable: true,
         focusable: true,
         ariaRole: "button",
-        ariaLabel: nodeAriaLabel(graphNode),
+        ariaLabel: nodeAriaLabel(graphNode, t),
         domAttributes: {
           "aria-pressed": graphNode.id === selectedObservationId,
         },
       })),
-    [model.nodes, selectedObservationId],
+    [model.nodes, selectedObservationId, t],
   );
   const edges = useMemo<Edge[]>(
     () =>
@@ -171,24 +175,24 @@ export function RuntimeGraphView({
   );
 
   if (observations.length === 0) {
-    return <p className="graph-empty">실행 관측값이 없습니다.</p>;
+    return <p className="graph-empty">{t("실행 관측값이 없습니다.")}</p>;
   }
 
   return (
     <div
       className="runtime-graph"
       role="group"
-      aria-label="실제 실행 경로 그래프"
+      aria-label={t("실제 실행 경로 그래프")}
       data-testid="runtime-graph"
     >
-      <div className="graph-detail-toggle" role="group" aria-label="그래프 상세 수준">
+      <div className="graph-detail-toggle" role="group" aria-label={t("그래프 상세 수준")}>
         <button
           className={detail === "summary" ? "selected" : undefined}
           type="button"
           aria-pressed={detail === "summary"}
           onClick={() => setDetail("summary")}
         >
-          요약
+          {t("요약")}
         </button>
         <button
           className={detail === "all" ? "selected" : undefined}
@@ -196,7 +200,7 @@ export function RuntimeGraphView({
           aria-pressed={detail === "all"}
           onClick={() => setDetail("all")}
         >
-          전체
+          {t("전체")}
         </button>
       </div>
       <ReactFlow<RuntimeFlowNode, Edge>
@@ -227,7 +231,7 @@ export function RuntimeGraphView({
         <Controls
           position="bottom-right"
           showInteractive={false}
-          aria-label="그래프 확대와 축소"
+          aria-label={t("그래프 확대와 축소")}
         />
       </ReactFlow>
     </div>
