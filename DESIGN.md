@@ -112,8 +112,9 @@ dark의 주요 값이다. 대비는 surface(`#101f25`) 기준이다.
 
 ## Structure
 
-- 상단 bar는 고정 높이의 wordmark와 정확히 여섯 navigation item(Overview / Traces
-  / Annotation Queues / Scores / Evaluation / Setting)을 가진다.
+- 상단 bar는 고정 높이의 wordmark와 정확히 네 navigation item(Traces / Insights /
+  Evaluate / Settings), 그리고 오른쪽 끝에 theme 전환 control을 가진다. Evaluate
+  안에서는 Datasets / Queues / Scores 세그먼트로 나눈다.
 - desktop content는 최대폭 없이 diagnostic evidence에 필요한 가로 공간을 사용한다.
 - page header 아래에 filter/action strip을 두고, data surface는 불필요한 중첩 card 없이
   border로 구획한다.

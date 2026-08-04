@@ -6,7 +6,8 @@
 
 | 소유 기능 | URL key | 값 |
 | --- | --- | --- |
-| shell | `view` | `overview`, `traces`, `queues`, `scores`, `datasets`, `data` |
+| shell | `view` | `traces`, `insights`, `evaluate`, `settings` |
+| Evaluate | `section` | `datasets`, `queues`, `scores`; `datasets`는 생략 가능 |
 | Traces | `trace` | selected trace ID 또는 없음 |
 | Overview | `overview_from` | ISO timestamp |
 | Overview | `overview_to` | ISO timestamp |
@@ -26,8 +27,14 @@
 | Evaluation | `metrics` | comma-separated evaluator keys |
 | Evaluation | `case` | dataset example ID |
 
-- URL에 `view`가 없거나 허용되지 않은 값이면 Overview를 연다.
-- Overview filter, Traces filter, Evaluation state는 서로 빌리거나 동기화하지 않는다.
+- URL에 `view`가 없거나 허용되지 않은 값이면 Traces를 연다.
+- 재편 이전 `view` 값은 새 값으로 옮겨 읽는다. 이미 공유된 link를 깨지 않기 위해서다.
+  `overview` -> `insights`, `data` -> `settings`, `queues`/`scores`/`datasets` ->
+  `evaluate`이고 이때 `section`이 각각 `queues`/`scores`/`datasets`가 된다.
+  URL을 다시 쓸 때는 항상 새 값으로만 쓴다.
+- Insights의 filter key는 `overview_` 접두어를 유지한다. tab 이름만 바뀌었을 뿐
+  state의 소유자는 같은 화면이고, 접두어를 바꾸면 공유된 link가 전부 깨진다.
+- Insights filter, Traces filter, Evaluation state는 서로 빌리거나 동기화하지 않는다.
 - URL write는 LangFeather가 소유한 key만 교체하고 다른 query parameter는 보존한다.
 - state 변화는 history를 무한히 쌓지 않도록 replace semantics를 사용할 수 있다.
 - `popstate`에서는 모든 URL-owned state를 다시 읽고 stale detail/payload selection을

@@ -803,7 +803,7 @@ function DatasetList({
 }) {
   return (
     <section className="dataset-list-view">
-      <h1>Datasets &amp; Evaluation</h1>
+      <h1>Datasets</h1>
       <div className="dataset-toolbar">
         <button className="lf-btn is-primary" type="button" onClick={onNew}>
           + New Dataset

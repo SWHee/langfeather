@@ -355,6 +355,40 @@ textarea:focus-visible,
   color: var(--accent);
   font-weight: 700;
 }
+/* Evaluate 안의 세그먼트. 폭은 라벨 길이를 따른다 — 한/영 전환에서 영어 라벨이
+   길어지므로 고정 px를 쓰지 않는다. */
+.lf-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 12px 30px 0;
+}
+
+.lf-segment {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.lf-segment:hover {
+  background: var(--surface-alt);
+  color: var(--ink);
+}
+
+.lf-segment[aria-current="page"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .lf-theme-select {
   flex: 0 0 auto;
   height: 44px;

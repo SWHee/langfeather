@@ -20,6 +20,7 @@ import {
   replaceAppUrlState,
   type AppUrlState,
   type AppView,
+  type EvaluateSection,
   type EvaluationUrlState,
   type OverviewUrlState,
 } from "./url";
@@ -63,12 +64,19 @@ function ThemeSelect() {
 }
 
 const NAVIGATION: ReadonlyArray<{ id: AppView; label: string }> = [
-  { id: "overview", label: "Overview" },
   { id: "traces", label: "Traces" },
-  { id: "queues", label: "Annotation Queues" },
+  { id: "insights", label: "Insights" },
+  { id: "evaluate", label: "Evaluate" },
+  { id: "settings", label: "Settings" },
+];
+
+const EVALUATE_SEGMENTS: ReadonlyArray<{
+  id: EvaluateSection;
+  label: string;
+}> = [
+  { id: "datasets", label: "Datasets" },
+  { id: "queues", label: "Queues" },
   { id: "scores", label: "Scores" },
-  { id: "datasets", label: "Evaluation" },
-  { id: "data", label: "Setting" },
 ];
 
 export function App() {
@@ -94,6 +102,14 @@ export function App() {
         view,
         traceId: view === "traces" ? current.traceId : null,
       };
+      replaceAppUrlState(next);
+      return next;
+    });
+  }, []);
+
+  const selectSection = useCallback((section: EvaluateSection) => {
+    setUrlState((current) => {
+      const next = { ...current, section };
       replaceAppUrlState(next);
       return next;
     });
@@ -148,8 +164,8 @@ export function App() {
         <button
           className="lf-brand"
           type="button"
-          onClick={() => selectView("overview")}
-          aria-label={`${APP_TITLE} Overview 열기`}
+          onClick={() => selectView("traces")}
+          aria-label={`${APP_TITLE} Traces 열기`}
         >
           <svg className="lf-mark" viewBox="0 0 64 64" aria-hidden="true">
             <path d="M49.6 12.6c.5.2.8.6.9 1.1 1.4 8.5-.4 16.2-5.3 21.6-3.6 4-8.3 6.1-13.3 6.3 2.8 1.3 6.4 1.6 10.2.6-3 5.1-8.2 8.2-14.2 8.4-2.2.1-4.3-.2-6.2-.8l-4.6 6.9a1.6 1.6 0 1 1-2.7-1.8l4.6-6.9c-1.4-1.4-2.5-3.1-3.2-5.1-2-5.7-.7-11.6 2.9-15.8-.5 3.9.2 7.4 1.9 9.9-1.1-4.9-.3-10 2.4-14.4 3.6-6 9.8-9.9 18.1-11 .5-.1 1 .1 1.3.5.3.4.3 1 0 1.4l-9.7 15.3c-.2.4-.1.9.3 1.1.4.2.9.1 1.1-.3l14.2-16.4c.3-.4.8-.5 1.3-.4Z" />
@@ -173,7 +189,7 @@ export function App() {
         <ThemeSelect />
       </header>
 
-      {urlState.view === "overview" ? (
+      {urlState.view === "insights" ? (
         <>
           <OverviewView
             state={urlState.overview}
@@ -194,12 +210,34 @@ export function App() {
           onClearTrace={() => commit({ ...urlState, traceId: null })}
         />
       ) : null}
-      {urlState.view === "queues" ? <QueuesView /> : null}
-      {urlState.view === "scores" ? <ScoresView /> : null}
-      {urlState.view === "datasets" ? (
-        <EvaluationView state={urlState.evaluation} onChange={setEvaluation} />
+      {urlState.view === "evaluate" ? (
+        <>
+          <nav className="lf-segments" aria-label="Evaluate 영역">
+            {EVALUATE_SEGMENTS.map((segment) => (
+              <button
+                className="lf-segment"
+                key={segment.id}
+                type="button"
+                aria-current={
+                  urlState.section === segment.id ? "page" : undefined
+                }
+                onClick={() => selectSection(segment.id)}
+              >
+                {segment.label}
+              </button>
+            ))}
+          </nav>
+          {urlState.section === "datasets" ? (
+            <EvaluationView
+              state={urlState.evaluation}
+              onChange={setEvaluation}
+            />
+          ) : null}
+          {urlState.section === "queues" ? <QueuesView /> : null}
+          {urlState.section === "scores" ? <ScoresView /> : null}
+        </>
       ) : null}
-      {urlState.view === "data" ? (
+      {urlState.view === "settings" ? (
         <LocalDataView
           onReset={() => commit({ ...urlState, view: "traces", traceId: null })}
         />

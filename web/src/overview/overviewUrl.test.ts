@@ -35,7 +35,8 @@ describe("Overview URL state", () => {
       toolNames: ["search"],
     };
     replaceAppUrlState({
-      view: "overview",
+      view: "insights",
+      section: "datasets",
       overview,
       evaluation: {
         datasetId: null,

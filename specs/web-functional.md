@@ -14,9 +14,21 @@ data 의미는 `specs/data-contract.md`가 우선한다.
 
 - 제품명은 `LangFeather`다.
 - 사용자는 local collector를 혼자 사용하는 Python 개발자다.
-- top-level 기능은 Overview, Traces, Annotation Queues, Scores, Evaluation, Local
-  Data 여섯 개다.
-- 기본 진입 기능은 Overview다.
+- top-level 기능은 Traces, Insights, Evaluate, Settings 네 개다.
+- 기본 진입 기능은 Traces다. 사용자는 방금 돌린 실행이 왜 그렇게 됐는지 보러 온다.
+- 네 기능이 흡수하는 화면은 다음과 같다. 화면의 기능 자체는 바뀌지 않고 어디에서
+  접근하는지만 바뀐다.
+
+| top-level | 흡수하는 화면 | 내부 구성 |
+| --- | --- | --- |
+| Traces | Traces | 목록, 실행 graph, payload |
+| Insights | Overview | 기간 filter, chart board, 최근 trace |
+| Evaluate | Evaluation, Annotation Queues, Scores | Datasets / Queues / Scores 세그먼트 |
+| Settings | Local Data | 백업, 초기화 |
+
+- Evaluate의 세그먼트는 셋이다. experiment는 dataset 안에서 접근한다. dataset을
+  가로지르는 experiment 목록은 지금 없는 표면이므로 이 재편에 포함하지 않는다.
+  재편은 되돌릴 수 있어야 하고, 되돌릴 때 신규 기능이 함께 사라지면 안 된다.
 - server-side evaluator 실행, login, RBAC, multi-project 전환 UI를 추가하지 않는다.
 - raw payload를 자동 redact, truncate, summarize, sample하지 않는다.
 - UI는 callback/runtime evidence가 없는 graph edge를 만들어내지 않는다.

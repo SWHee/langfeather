@@ -760,7 +760,7 @@ export function OverviewView({
       <main className="page overview-page" id="lf-main" tabIndex={-1}>
         <header className="page-head overview-head">
           <div>
-            <h1>Overview</h1>
+            <h1>Insights</h1>
           </div>
         </header>
         <section className="filter-bar" aria-label="Overview 필터">

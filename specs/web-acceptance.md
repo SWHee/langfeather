@@ -5,7 +5,8 @@
 
 ## 공통 gate
 
-- [ ] 여섯 top-level 기능에 접근할 수 있고 기본 진입은 Overview다.
+- [ ] 네 top-level 기능에 접근할 수 있고 기본 진입은 Traces다.
+- [ ] 재편 이전 `view` 값을 담은 link가 대응하는 새 화면을 연다.
 - [ ] URL-owned state가 새로고침과 back/forward 뒤 복원된다.
 - [ ] 각 remote read에 loading, empty, error, retry가 있다.
 - [ ] 각 mutation에 pending, success, failure가 있고 중복 실행을 막는다.

@@ -212,19 +212,21 @@ beforeEach(() => {
 });
 
 describe("V2 presentation", () => {
-  it("keeps the six V2 surfaces and opens a trace investigation drawer", async () => {
+  it("keeps the four V2 surfaces and opens a trace investigation drawer", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Overview" });
-    expect(screen.getByRole("button", { name: "Overview" })).toBeVisible();
+    // 기본 진입은 Traces다.
+    await screen.findByRole("heading", { name: "Traces" });
     expect(screen.getByRole("button", { name: "Traces" })).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Annotation Queues" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Insights" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Evaluate" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    expect(screen.getByRole("button", { name: "Datasets" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Queues" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Scores" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Evaluation" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Setting" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Traces" }));
     await screen.findByRole("heading", { name: "Traces" });
@@ -245,10 +247,11 @@ describe("V2 presentation", () => {
     );
   });
 
-  it("opens an Overview recent trace drawer from click and Enter, then restores its trigger", async () => {
+  it("opens an Insights recent trace drawer from click and Enter, then restores its trigger", async () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Insights" }));
     const row = await screen.findByRole("button", {
       name: "tr_001 상세 열기",
     });
@@ -257,7 +260,7 @@ describe("V2 presentation", () => {
     await user.click(row);
 
     expect(new URLSearchParams(window.location.search).get("view")).toBe(
-      "overview",
+      "insights",
     );
     expect(new URLSearchParams(window.location.search).get("trace")).toBe(
       "tr_001",
@@ -349,7 +352,7 @@ describe("V2 presentation", () => {
 
     await user.selectOptions(period, "24h");
     await user.click(within(form).getByRole("button", { name: "적용" }));
-    await waitFor(() => expect(api.getTraces).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(api.getTraces).toHaveBeenCalledTimes(2));
     const query = api.getTraces.mock.calls.at(-1)?.[0];
     expect(query).toEqual(
       expect.objectContaining({
@@ -365,6 +368,7 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
     await user.click(screen.getByRole("button", { name: "Scores" }));
     await screen.findByRole("button", { name: "+ New Score" });
     await user.click(screen.getByRole("button", { name: "+ New Score" }));
@@ -384,7 +388,8 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Annotation Queues" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    await user.click(screen.getByRole("button", { name: "Queues" }));
     await user.click(await screen.findByRole("button", { name: "+ New Queue" }));
     await user.type(screen.getByRole("textbox", { name: "이름" }), "릴리스 검토");
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -396,7 +401,7 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Setting" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.type(
       screen.getByRole("textbox", { name: "계속하려면 RESET 입력" }),
       "RESET",
@@ -432,7 +437,7 @@ describe("V2 presentation", () => {
       .mockRejectedValueOnce(new Error("write failed"));
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Evaluation" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
     await user.click(
       await screen.findByRole("button", { name: /Youth policy/ }),
     );
@@ -478,7 +483,7 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Evaluation" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
     await user.click(
       await screen.findByRole("button", { name: /Youth policy/ }),
     );

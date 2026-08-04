@@ -1,7 +1,9 @@
 import type { DashboardBucket } from "./api/types";
 
-export type AppView =
-  "overview" | "traces" | "queues" | "scores" | "datasets" | "data";
+export type AppView = "traces" | "insights" | "evaluate" | "settings";
+
+/** Evaluate 안의 세그먼트. */
+export type EvaluateSection = "datasets" | "queues" | "scores";
 
 export type OverviewUrlState = {
   from: string;
@@ -28,19 +30,42 @@ export type EvaluationUrlState = {
 
 export type AppUrlState = {
   view: AppView;
+  section: EvaluateSection;
   overview: OverviewUrlState;
   evaluation: EvaluationUrlState;
   traceId: string | null;
 };
 
+/**
+ * top-level 기능은 이 배열 하나에서만 정의한다. 탭 재편은 되돌릴 수 있어야 한다고
+ * 합의했고, 되돌리는 비용은 여기가 유일한 정의 지점일 때만 낮다.
+ */
 const APP_VIEWS: readonly AppView[] = [
-  "overview",
   "traces",
+  "insights",
+  "evaluate",
+  "settings",
+];
+
+const EVALUATE_SECTIONS: readonly EvaluateSection[] = [
+  "datasets",
   "queues",
   "scores",
-  "datasets",
-  "data",
 ];
+
+/**
+ * 재편 이전 `view` 값. 이미 공유된 link를 깨지 않기 위해 읽을 때만 옮겨 준다.
+ * URL을 다시 쓸 때는 항상 새 값으로만 쓴다.
+ */
+const LEGACY_VIEWS: Record<string, { view: AppView; section?: EvaluateSection }> =
+  {
+    overview: { view: "insights" },
+    traces: { view: "traces" },
+    queues: { view: "evaluate", section: "queues" },
+    scores: { view: "evaluate", section: "scores" },
+    datasets: { view: "evaluate", section: "datasets" },
+    data: { view: "settings" },
+  };
 const DASHBOARD_BUCKETS: readonly DashboardBucket[] = [
   "auto",
   "minute",
@@ -117,10 +142,24 @@ function readOverviewUrlState(params: URLSearchParams): OverviewUrlState {
   };
 }
 
+function readShell(params: URLSearchParams): {
+  view: AppView;
+  section: EvaluateSection;
+} {
+  const raw = params.get("view");
+  const section = oneOf(params.get("section"), EVALUATE_SECTIONS, "datasets");
+  if (raw !== null && APP_VIEWS.includes(raw as AppView)) {
+    return { view: raw as AppView, section };
+  }
+  const legacy = raw === null ? undefined : LEGACY_VIEWS[raw];
+  if (legacy === undefined) return { view: "traces", section };
+  return { view: legacy.view, section: legacy.section ?? section };
+}
+
 export function readAppUrlState(search = window.location.search): AppUrlState {
   const params = new URLSearchParams(search);
   return {
-    view: oneOf(params.get("view"), APP_VIEWS, "overview"),
+    ...readShell(params),
     overview: readOverviewUrlState(params),
     evaluation: {
       datasetId: params.get("dataset"),
@@ -138,6 +177,7 @@ export function replaceAppUrlState(state: AppUrlState): void {
   const params = url.searchParams;
   for (const key of [
     "view",
+    "section",
     "overview_from",
     "overview_to",
     "overview_timezone",
@@ -161,6 +201,9 @@ export function replaceAppUrlState(state: AppUrlState): void {
   }
 
   params.set("view", state.view);
+  if (state.view === "evaluate" && state.section !== "datasets") {
+    params.set("section", state.section);
+  }
   const overview = state.overview;
   params.set("overview_from", overview.from);
   params.set("overview_to", overview.to);
@@ -179,7 +222,7 @@ export function replaceAppUrlState(state: AppUrlState): void {
   if (overview.toolNames.length)
     params.set("overview_tools", overview.toolNames.join(","));
   const hasEvaluationContext =
-    state.view === "datasets" ||
+    (state.view === "evaluate" && state.section === "datasets") ||
     state.evaluation.datasetId !== null ||
     state.evaluation.experimentIds.length > 0 ||
     state.evaluation.metricKeys.length > 0 ||
