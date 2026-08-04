@@ -5,8 +5,8 @@
 
 | 영역 | 현재 결정 |
 | --- | --- |
-| 배포 범위 | `0.3.1`은 local-first, single-project, single-user다. 기본 bind는 `127.0.0.1:4319`이며 login이 없다. |
-| package | Python SDK는 PyPI에, collector image는 GHCR에 `0.3.1` artifact로 공개한다. public 문서는 실제 artifact install/pull로 확인한 version만 안내한다. |
+| 배포 범위 | `0.3.2`은 local-first, single-project, single-user다. 기본 bind는 `127.0.0.1:4319`이며 login이 없다. |
+| package | Python SDK는 PyPI에, collector image는 GHCR에 `0.3.2` artifact로 공개한다. public 문서는 실제 artifact install/pull로 확인한 version만 안내한다. |
 | SDK | Python 3.10 이상, framework-independent core, optional LangChain/LangGraph integration을 사용한다. |
 | 계측 | `wrap_runnable()`으로 최상위 compiled graph를 한 번 감싼다. 자동 수집은 `invoke`, `ainvoke`, `stream`, `astream`의 callback-visible run에 한정한다. |
 | trace model | trace는 container이며 실행은 observation이다. root observation은 하나이고 실제 runtime parent 관계만 표시한다. |

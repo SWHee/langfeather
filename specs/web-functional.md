@@ -1,6 +1,6 @@
 # Web 기능 명세
 
-이 문서는 LangFeather `0.3.1` Web UI가 보존해야 하는 사용자 기능을 정의한다. 시각
+이 문서는 LangFeather `0.3.2` Web UI가 보존해야 하는 사용자 기능을 정의한다. 시각
 디자인, DOM 구조, component 이름, CSS class, 화면 분할 방식은 계약이 아니다. API와
 data 의미는 `specs/data-contract.md`가 우선한다.
 

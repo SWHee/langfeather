@@ -9,7 +9,11 @@ services:
       - langfeather-data:/data
     environment:
       LANGFEATHER_DATABASE_URL: sqlite:////data/langfeather.db
-      LANGFEATHER_TRUSTED_HOSTS: localhost,127.0.0.1,langfeather
+      # Host 헤더 허용 목록이다. 목록에 없는 Host로 온 요청은 400으로 막는다.
+      # host.docker.internal은 Docker Desktop이 호스트를 가리키라고 주는 이름이라,
+      # 다른 컨테이너의 application이 그 주소로 trace를 보낼 때 필요하다.
+      # Linux Docker에는 이 이름이 기본으로 없으니 있어도 무해하다.
+      LANGFEATHER_TRUSTED_HOSTS: localhost,127.0.0.1,langfeather,host.docker.internal
 
 volumes:
   langfeather-data:

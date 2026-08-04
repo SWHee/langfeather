@@ -6,17 +6,36 @@
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-08-04
+
 ### 추가됨
 
 - Python SDK `langfeather.log_feedback()`으로 특정 trace에 feedback score를 기록.
   이름으로 활성 score를 찾고 없으면 boolean/number score를 만들며, categorical
-  score는 option label로 값을 전달 (SDK)
+  score는 option label로 값을 전달. UI에서 사람이 매긴 점수와 같은 annotation이라
+  trace 상세와 Overview score 추이에 함께 나타남 (SDK)
+
+### 변경됨
+
+- 화면 전체를 1.25배로 확대하던 방식을 걷어내고 각 구성 요소의 크기를 그만큼
+  키웠습니다. 화면상 크기는 그대로지만, 확대 때문에 어긋나던 좌표 계산이 함께
+  정리됐습니다
+- 표의 컬럼 폭 조절과 상세 popup 폭 조절이 이제 커서를 정확히 따라옵니다. 이전에는
+  마우스보다 25% 더 많이 움직였습니다
+- `compose.yaml`의 `LANGFEATHER_TRUSTED_HOSTS`에 `host.docker.internal`을 추가해,
+  다른 컨테이너에서 실행하는 application이 collector로 trace를 보낼 수 있습니다
 
 ### 수정됨
 
-- UI 개편 과정에서 사라졌던 Dataset 상세의 `Import JSONL`/`Export JSONL` 복원.
-  export는 `input`/`expected_output`/`metadata`만 쓰고, import는 빈 줄을 건너뛰며
-  줄 단위로 저장한 뒤 실패한 원본 줄 번호를 알려 줌
+- UI 개편 과정에서 사라졌던 Dataset 상세의 JSONL 입출력 복원. 예제 목록의 `⋯`
+  메뉴에서 `Import`/`Export`를 실행합니다. export는 `input`/`expected_output`/
+  `metadata`만 쓰고, import는 빈 줄을 건너뛰며 줄 단위로 저장한 뒤 실패한 원본 줄
+  번호를 알려 줌
+- Overview 차트의 세로 점선이 커서보다 앞서 나가고 오른쪽 끝에서 멈춰 있던 문제.
+  화면 확대 배율이 반영되지 않은 너비로 커서 위치를 계산하고 있었습니다
+- Overview 차트의 세부 수치 popup이 커서와 무관하게 가운데 위에 고정돼 있던 문제.
+  이제 점선과 커서 높이를 따라가며, 오른쪽 끝에서는 반대편으로 접힙니다
+- Evaluation의 metric 비교 막대그래프 popup도 같은 이유로 커서에서 벗어나 있던 문제
 
 ## [0.3.1] - 2026-08-03
 
@@ -141,7 +160,8 @@ Phase 6 release-hardening 단계로 남아 있습니다.
 - trace delivery는 bounded in-memory best-effort 방식
 - 원본 diagnostic payload를 자동 redaction하지 않고 local에 보관
 
-[Unreleased]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/SungjinWi99/LangFeather/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/SungjinWi99/LangFeather/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/SungjinWi99/LangFeather/compare/v0.1.0...v0.2.0

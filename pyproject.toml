@@ -1,6 +1,6 @@
 [project]
 name = "langfeather-workspace"
-version = "0.3.1"
+version = "0.3.2"
 description = "Development workspace for LangFeather"
 requires-python = ">=3.10"
 dependencies = []
