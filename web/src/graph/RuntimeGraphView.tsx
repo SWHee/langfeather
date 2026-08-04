@@ -11,7 +11,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import {useMemo} from "react";
+import {useMemo, useState} from "react";
 
 import type {ObservationSummary, TraceStatus} from "../api/types";
 import {formatDuration} from "../components";
@@ -19,6 +19,7 @@ import {
   buildRuntimeGraph,
   isNotableRuntimeKind,
   runtimeKindLabel,
+  type RuntimeGraphDetail,
   type RuntimeGraphEdge,
   type RuntimeGraphNode,
 } from "./runtimeGraph";
@@ -118,11 +119,12 @@ export function RuntimeGraphView({
   selectedObservationId: string | null;
   onSelect: (observationId: string | null) => void;
 }) {
-  // Only the collapsed "node" level is exposed for now; buildRuntimeGraph still
-  // supports "all" (every runnable) if the toggle comes back.
+  // 요약은 root의 직계와 dispatch만 그린다. LangGraph 앱에서 실제 llm과 tool
+  // 실행은 그보다 깊이 있어, 전체로 바꾸지 않으면 kind별 renderer에 닿을 수 없다.
+  const [detail, setDetail] = useState<RuntimeGraphDetail>("summary");
   const model = useMemo(
-    () => buildRuntimeGraph(observations, "summary"),
-    [observations],
+    () => buildRuntimeGraph(observations, detail),
+    [observations, detail],
   );
   const nodes = useMemo<RuntimeFlowNode[]>(
     () =>
@@ -179,6 +181,24 @@ export function RuntimeGraphView({
       aria-label="실제 실행 경로 그래프"
       data-testid="runtime-graph"
     >
+      <div className="graph-detail-toggle" role="group" aria-label="그래프 상세 수준">
+        <button
+          className={detail === "summary" ? "selected" : undefined}
+          type="button"
+          aria-pressed={detail === "summary"}
+          onClick={() => setDetail("summary")}
+        >
+          요약
+        </button>
+        <button
+          className={detail === "all" ? "selected" : undefined}
+          type="button"
+          aria-pressed={detail === "all"}
+          onClick={() => setDetail("all")}
+        >
+          전체
+        </button>
+      </div>
       <ReactFlow<RuntimeFlowNode, Edge>
         nodes={nodes}
         edges={edges}

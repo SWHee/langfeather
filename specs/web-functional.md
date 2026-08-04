@@ -217,6 +217,29 @@ state를 제공한다.
 - 원문 JSON은 "전체 데이터"에서 계속 볼 수 있어야 한다. 다르게 그리는 것이지
   가리는 것이 아니다.
 
+### graph 상세 수준
+
+- runtime graph는 요약과 전체를 전환할 수 있다. 요약은 root의 직계와 dispatch만
+  그리고, 전체는 모든 observation을 그린다.
+- LangGraph 앱에서 실제 `llm`과 `tool` 실행은 node보다 깊이 있다. 전체로 바꿀 수
+  없으면 그 payload를 아예 선택할 수 없고 kind별 renderer에 닿지 못한다.
+- 기본은 요약이다. 처음 열었을 때 실행 흐름이 한눈에 들어와야 한다.
+
+### kind별 renderer
+
+`retriever` 외에 `llm`과 `tool`도 전용 renderer를 가진다. Retrieval view와 같은
+원칙이다 — 저장된 payload를 다르게 그릴 뿐이고, 읽어낼 수 없으면 일반 JSON tree로
+되돌리며, 원문은 "전체 데이터"에서 계속 볼 수 있다.
+
+- `llm`: prompt를 message 역할별로 나눠 보여준다. 역할은 `system`, `human`,
+  `ai`, `tool`이며 payload의 message type에서 읽는다. content가 block 배열이면
+  text block만 이어 붙인다. 응답 text와 token 수(input/output/total)를 함께
+  보여준다. token 수는 payload에 있을 때만 보여준다.
+- `tool`: 호출을 `name(arg=value, ...)` 시그니처 한 줄로 보여주고 반환값을 그
+  아래에 둔다. 반환값이 JSON 문자열이면 파싱해서 보여주되 파싱에 실패하면
+  문자열 그대로 둔다.
+- 어느 쪽도 값을 추정해 채우지 않는다. 없는 token 수를 0으로 표시하지 않는다.
+
 ### trace action
 
 - 선택한 trace를 기존 Annotation Queue에 추가할 수 있다.

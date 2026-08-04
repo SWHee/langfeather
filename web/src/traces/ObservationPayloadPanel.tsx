@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import type { JsonValue, Observation } from "../api/types";
+import { LlmView, ToolView } from "./KindPayloadViews";
+import { hasKindView } from "./payloadShapes";
 import { JsonSection } from "./PrettyJson";
 import { RetrievalView } from "./RetrievalView";
 import { readDocuments } from "./retrieval";
@@ -58,6 +60,7 @@ export function ObservationPayloadPanel({
     observation.kind === "retriever" &&
     detail === "core" &&
     readDocuments(observation.output).length > 0;
+  const asKindView = detail === "core" && hasKindView(observation);
 
   return (
     <div className="json-inspector">
@@ -82,14 +85,24 @@ export function ObservationPayloadPanel({
           전체 데이터
         </button>
       </div>
-      <JsonSection title="Input" value={observation.input} />
-      {asRetrieval ? (
-        <RetrievalView
-          output={observation.output}
-          llmInput={downstreamLlmInput}
-        />
+      {asKindView ? (
+        observation.kind === "llm" ? (
+          <LlmView observation={observation} />
+        ) : (
+          <ToolView observation={observation} />
+        )
       ) : (
-        <JsonSection title="Output" value={observation.output} />
+        <>
+          <JsonSection title="Input" value={observation.input} />
+          {asRetrieval ? (
+            <RetrievalView
+              output={observation.output}
+              llmInput={downstreamLlmInput}
+            />
+          ) : (
+            <JsonSection title="Output" value={observation.output} />
+          )}
+        </>
       )}
       {detail === "all" || observation.error !== null ? (
         <JsonSection title="Error" value={observation.error} />

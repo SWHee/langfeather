@@ -1295,6 +1295,107 @@ th.col-draggable {
   }
 }
 
+.graph-detail-toggle {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.graph-detail-toggle button {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.graph-detail-toggle button.selected {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* kind별 renderer. llm은 역할별 message, tool은 시그니처 + 반환값. */
+.kind-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 15px;
+}
+.kind-usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--quiet);
+  font: 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.kind-model {
+  color: var(--ink);
+}
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--strong);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+/* 역할은 색만이 아니라 라벨 문구로 구분한다. */
+.message[data-role="human"] {
+  border-left-color: var(--accent);
+}
+.message[data-role="ai"],
+.message[data-role="completion"] {
+  border-left-color: var(--violet);
+}
+.message[data-role="tool"] {
+  border-left-color: var(--orange);
+}
+.message-role {
+  color: var(--quiet);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.message-content {
+  overflow: auto;
+  max-height: 220px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.tool-signature {
+  display: block;
+  overflow-x: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: var(--ink);
+  font: 13px var(--mono);
+  white-space: pre;
+}
+
 /* Retrieval view. 검색 결과를 JSON tree가 아니라 문서 카드로 읽는다. */
 .retrieval {
   display: flex;
