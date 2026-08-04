@@ -30,8 +30,9 @@ component  --radius: 10px
 
 ## Palette
 
-brand는 logo의 청록에서 왔다. logo 색 `#2fabb9`는 흰 배경 대비가 2.75:1이라
-mark에만 쓰고, text와 interaction에는 대비를 확보한 어두운 단계를 쓴다.
+brand는 logo의 청록에서 왔다. 출처 이미지는 `docs/assets/langfeather-logo-ref.png`다.
+logo 색 `#2fabb9`는 흰 배경 대비가 2.75:1이라 mark에만 쓰고, text와 interaction에는
+대비를 확보한 어두운 단계를 쓴다.
 
 | 역할 | token | 값 | 흰 배경 대비 |
 | --- | --- | --- | --- |
@@ -96,8 +97,11 @@ retriever tint를 accent와 다른 색으로 두는 이유는 선택 상태와 �
 
 - 간격은 2px 격자 위의 정수 px만 쓴다. border는 1px, radius는 기본 10px이며 작은
   control만 pill 형태를 허용한다. 소수점 px를 새로 만들지 않는다.
-- button과 field는 44px 높이로 touch target 기준을 만족하고, 명확한 border와
-  `:focus-visible` ring을 가진다.
+- button, field, navigation item, 표의 선택 checkbox, header의 정렬 버튼은 모두
+  44px touch target을 가지고, 명확한 border와 `:focus-visible` ring을 가진다.
+  checkbox는 보이는 상자만 20px이고 클릭 영역이 44px이다. 이를 위해
+  `appearance: none`으로 native 렌더링을 끄고 상자와 체크를 직접 그린다 —
+  native checkbox는 보이는 크기와 hit area를 분리할 수 없기 때문이다.
 - icon은 glyph 문자가 아니라 SVG로 그린다. glyph는 font fallback에 따라 굵기와
   정렬이 기기마다 달라진다. `components.tsx`의 `Icon` 계열을 재사용한다.
 - pointer hover에서만 나타나는 control을 만들지 않는다. touch 기기에는 hover가

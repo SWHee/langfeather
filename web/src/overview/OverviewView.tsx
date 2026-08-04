@@ -65,13 +65,13 @@ const ALLOWED_SPANS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const OTHERS_TOOL_KEY = "__others__";
 
 const RECENT_TRACE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "상태", width: 88 },
+  { id: "status", label: "상태", width: 100 },
   { id: "started", label: "수집", width: 115 },
   { id: "trace_id", label: "Trace ID", width: 212 },
   { id: "input", label: "Input", width: 275 },
   { id: "output", label: "Output", width: 275 },
-  { id: "latency", label: "Latency", width: 120 },
-  { id: "count", label: "# Observations", width: 176 },
+  { id: "latency", label: "Latency", width: 152, align: "end" },
+  { id: "count", label: "# Observations", width: 208, align: "end" },
 ];
 
 const RECENT_TRACE_SORT_VALUES: Record<
@@ -1015,6 +1015,7 @@ export function OverviewView({
                           key={id}
                           id={id}
                           label={def.label}
+                          align={def.align}
                           columns={recentColumns}
                         />
                       );
@@ -1037,8 +1038,8 @@ export function OverviewView({
                       trace_id: "trace-id mono",
                       input: "payload-cell",
                       output: "payload-cell",
-                      latency: "metric",
-                      count: "metric",
+                      latency: "metric is-end",
+                      count: "metric is-end",
                     };
                     return (
                       <tr

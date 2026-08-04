@@ -88,13 +88,13 @@ const EMPTY_FILTERS: TraceFilters = {
 };
 
 const TRACE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "Status", width: 112 },
+  { id: "status", label: "Status", width: 144 },
   { id: "started", label: "Started", width: 175 },
   { id: "trace_id", label: "Trace ID", width: 212 },
   { id: "input", label: "Input", width: 275 },
   { id: "output", label: "Output", width: 275 },
-  { id: "latency", label: "Latency", width: 120 },
-  { id: "count", label: "# Observations", width: 176 },
+  { id: "latency", label: "Latency", width: 152, align: "end" },
+  { id: "count", label: "# Observations", width: 208, align: "end" },
 ];
 
 const TRACE_SORT_VALUES: Record<
@@ -825,6 +825,7 @@ export function TracesView({
                         key={id}
                         id={id}
                         label={def.label}
+                        align={def.align}
                         columns={columns}
                       />
                     );
@@ -847,8 +848,8 @@ export function TracesView({
                     trace_id: "trace-id mono",
                     input: "payload",
                     output: "payload",
-                    latency: "mono",
-                    count: "mono",
+                    latency: "mono is-end",
+                    count: "mono is-end",
                   };
                   return (
                     <tr

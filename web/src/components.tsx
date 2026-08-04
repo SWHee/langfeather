@@ -335,6 +335,8 @@ export interface ReorderableColumnDef {
   id: string;
   label: string;
   width: number;
+  /** 자릿수를 세로로 비교해야 하는 숫자 열은 "end"로 우측 정렬한다. */
+  align?: "end";
 }
 
 export type SortDirection = "asc" | "desc";
@@ -507,17 +509,19 @@ export function SelectColGroup({ columns }: { columns: ReorderableColumns }) {
 export function ColumnHeaderCell({
   id,
   label,
+  align,
   columns,
 }: {
   id: string;
   label: string;
+  align?: "end";
   columns: ReorderableColumns;
 }) {
   const isDragging = columns.dragId === id;
   const sortActive = columns.sort?.id === id;
   return (
     <th
-      className={`col-draggable${isDragging ? " is-dragging" : ""}`}
+      className={`col-draggable${isDragging ? " is-dragging" : ""}${align === "end" ? " is-end" : ""}`}
       style={
         isDragging
           ? { transform: `translateX(${columns.dragOffset}px)` }
