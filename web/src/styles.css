@@ -5,6 +5,10 @@
    theme을 추가할 때는 semantic 층만 다시 정의하면 된다. */
 
 :root {
+  /* scrollbar, select 드롭다운, native focus ring처럼 CSS가 그리지 않는 UI를
+     theme에 맞춘다. 이것이 없으면 dark에서 scrollbar만 흰색으로 남는다. */
+  color-scheme: light;
+
   /* 1) primitive */
   --c-white: #ffffff;
 
@@ -114,6 +118,86 @@
   --sans:
     "Pretendard", "SF Pro Text", "Inter", -apple-system, BlinkMacSystemFont,
     "Apple SD Gothic Neo", sans-serif;
+}
+
+/* dark theme. semantic 층만 다시 정의하고 component 규칙은 손대지 않는다.
+   data-theme은 shell이 붙인다. 값은 항상 해석된 결과(light 또는 dark)이며
+   system은 여기 오지 않는다. 대비는 make check-contrast가 두 theme 모두 센다. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* 1) primitive. dark 전용 색만 더한다. */
+  --c-teal-200: #a3d9e0;
+  --c-teal-400: #4aa9b5;
+  --c-teal-900: #14424a;
+  --c-teal-950: #0e3038;
+
+  --c-slate-950: #0b171b;
+  --c-slate-900: #101f25;
+  --c-slate-850: #16282f;
+  --c-slate-800: #1b2f37;
+  --c-slate-700: #26414a;
+  --c-slate-600: #385a65;
+  --c-slate-300: #9fb8c0;
+  --c-slate-200: #b8ccd2;
+  --c-slate-100: #e3eef1;
+
+  --c-green-300: #5cc98f;
+  --c-green-900: #10352a;
+  --c-red-300: #f0837a;
+  --c-red-100: #f9c4bf;
+  --c-red-900: #3d1a18;
+  --c-amber-300: #ddab4a;
+  --c-amber-900: #392a12;
+  --c-violet-300: #a999f2;
+  --c-violet-900: #2a2350;
+  --c-blue-300: #7fb2e8;
+  --c-blue-900: #17304d;
+
+  --c-ink-alpha: 0, 0, 0;
+
+  /* 2) semantic */
+  --page: var(--c-slate-950);
+  --surface: var(--c-slate-900);
+  --surface-alt: var(--c-slate-800);
+  --surface-head: var(--c-slate-850);
+  --surface-glass: rgba(16, 31, 37, 0.94);
+  --track: var(--c-slate-700);
+  --line: var(--c-slate-700);
+  --strong: var(--c-slate-600);
+  --ink: var(--c-slate-100);
+  --muted: var(--c-slate-200);
+  --quiet: var(--c-slate-300);
+
+  --accent: var(--c-teal-200);
+  --accent-hover: var(--c-teal-100);
+  --accent-border: var(--c-teal-400);
+  --accent-soft: var(--c-teal-900);
+  --accent-faint: var(--c-teal-950);
+  --on-accent: var(--c-slate-950);
+
+  --green: var(--c-green-300);
+  --green-soft: var(--c-green-900);
+  --red: var(--c-red-300);
+  --red-ink: var(--c-red-100);
+  --red-border: var(--c-red-900);
+  --red-soft: var(--c-red-900);
+  --orange: var(--c-amber-300);
+  --orange-border: var(--c-amber-900);
+  --orange-soft: var(--c-amber-900);
+  --violet: var(--c-violet-300);
+  --violet-border: var(--c-violet-900);
+  --violet-soft: var(--c-violet-900);
+  --blue: var(--c-blue-300);
+  --blue-border: var(--c-blue-900);
+  --blue-soft: var(--c-blue-900);
+
+  --graph-edge: var(--c-slate-300);
+
+  --series-1: var(--c-teal-200);
+  --series-2: var(--c-violet-300);
+  --series-3: var(--c-amber-300);
+  --series-4: #ef8fb2;
 }
 
 * {
@@ -271,6 +355,17 @@ textarea:focus-visible,
   color: var(--accent);
   font-weight: 700;
 }
+.lf-theme-select {
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+}
+
 .lf-topbar-spacer {
   flex: 1;
 }
@@ -1792,6 +1887,8 @@ th.col-draggable {
   padding: 10px;
   border: 1px solid var(--strong);
   border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
   resize: vertical;
 }
 .annotation-footer {
@@ -2172,6 +2269,8 @@ th.col-draggable {
   padding: 10px 12px;
   border: 1px solid var(--strong);
   border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
 }
 .remove-option {
   border: 1px solid var(--strong);
@@ -2543,6 +2642,7 @@ th.col-draggable {
   border: 1px solid var(--strong);
   border-radius: 5px;
   background: var(--surface);
+  color: var(--ink);
   font-size: 14px;
 }
 .bar-chart {

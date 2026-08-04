@@ -65,6 +65,38 @@ text로 쓰는 색은 WCAG AA(4.5:1)를 만족하고 chart series는 3:1을 만�
 색을 바꾸거나 theme을 추가하면 이 명령을 실행한다. 상태 색은 의미를 전달할 때만 쓰고, 선택과 주요 작업은 accent만 쓴다.
 retriever tint를 accent와 다른 색으로 두는 이유는 선택 상태와 구분하기 위해서다.
 
+## Theme
+
+light와 dark 두 theme이 있다. dark는 `:root[data-theme="dark"]`에서 semantic 층만
+다시 정의하고 component 규칙은 손대지 않는다. 이것이 3층 token 구조를 만든 이유다.
+
+`data-theme`에는 항상 해석된 결과(`light` 또는 `dark`)만 들어간다. 사용자의 선택
+(`system` 포함)은 localStorage `langfeather.theme`에 따로 저장한다. 둘을 섞지 않는다.
+계약은 `specs/web-interaction-contract.md`의 "client 저장 state"에 있다.
+
+첫 paint 전에 theme을 정해야 번쩍이지 않으므로 `index.html`의 inline script가
+`data-theme`을 붙인다. 해석 규칙이 `web/src/theme.ts`와 두 곳에 있으니 함께 고친다.
+
+`color-scheme`을 두 theme 모두에 선언한다. scrollbar와 select 드롭다운처럼 CSS가
+그리지 않는 native UI는 이것이 없으면 dark에서 흰색으로 남는다.
+
+dark의 주요 값이다. 대비는 surface(`#101f25`) 기준이다.
+
+| 역할 | 값 | 대비 |
+| --- | --- | --- |
+| page | `#0b171b` | — |
+| surface | `#101f25` | — |
+| line | `#26414a` | — |
+| ink | `#e3eef1` | 14.27 |
+| muted | `#b8ccd2` | 10.13 |
+| quiet | `#9fb8c0` | 8.11 |
+| accent | `#a3d9e0` | 10.89 |
+| success | `#5cc98f` | 8.20 |
+| danger | `#f0837a` | 6.61 |
+| warning | `#ddab4a` | 8.03 |
+
+`make check-contrast`는 두 theme을 모두 계산한다. 색을 바꾸면 실행한다.
+
 화면마다 token을 다르게 tint하던 `.surface-*` override는 제거했다. 같은 제품이
 화면에 따라 다른 색과 다른 접근성 등급을 갖게 만들었기 때문이다. 다시 넣지 않는다.
 

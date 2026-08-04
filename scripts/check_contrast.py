@@ -53,8 +53,12 @@ PAIRS: list[tuple[str, str, float]] = [
 EXEMPT = {"accent-mark"}
 
 
-def read_tokens(css: str) -> dict[str, str]:
-    block = css[css.index(":root {") : css.index("}", css.index(":root {"))]
+THEMES = [("light", ":root {"), ("dark", ':root[data-theme="dark"] {')]
+
+
+def read_tokens(css: str, selector: str) -> dict[str, str]:
+    start = css.index(selector)
+    block = css[start : css.index("}", start)]
     return {
         name: " ".join(value.split())
         for name, value in re.findall(r"(--[\w-]+):\s*([^;]+);", block)
@@ -88,31 +92,38 @@ def ratio(foreground: str, background: str) -> float:
 
 
 def main() -> int:
-    tokens = read_tokens(STYLES.read_text(encoding="utf-8"))
+    css = STYLES.read_text(encoding="utf-8")
+    light = read_tokens(css, ":root {")
     failures: list[str] = []
+    checked = 0
 
-    for fg, bg, minimum in PAIRS:
-        foreground = resolve(f"--{fg}", tokens)
-        background = resolve(f"--{bg}", tokens)
-        if not (foreground.startswith("#") and background.startswith("#")):
-            failures.append(f"{fg} on {bg}: hex가 아니라 검사할 수 없다")
-            continue
-        value = ratio(foreground, background)
-        status = "ok" if value >= minimum else "FAIL"
-        print(f"  {fg:>10} on {bg:<12} {value:5.2f}:1  (>= {minimum}) {status}")
-        if value < minimum:
-            failures.append(f"{fg} on {bg}: {value:.2f}:1 < {minimum}")
+    for theme, selector in THEMES:
+        # dark는 semantic 층만 다시 정의하므로 light 위에 덮어쓴다.
+        tokens = light if theme == "light" else {**light, **read_tokens(css, selector)}
+        print(f"\n[{theme}]")
+        for fg, bg, minimum in PAIRS:
+            foreground = resolve(f"--{fg}", tokens)
+            background = resolve(f"--{bg}", tokens)
+            if not (foreground.startswith("#") and background.startswith("#")):
+                failures.append(f"[{theme}] {fg} on {bg}: hex가 아니라 검사할 수 없다")
+                continue
+            value = ratio(foreground, background)
+            status = "ok" if value >= minimum else "FAIL"
+            print(f"  {fg:>10} on {bg:<12} {value:5.2f}:1  (>= {minimum}) {status}")
+            checked += 1
+            if value < minimum:
+                failures.append(f"[{theme}] {fg} on {bg}: {value:.2f}:1 < {minimum}")
 
-    unchecked = {
-        name.lstrip("-")
-        for name in tokens
-        if not name.startswith("--c-")
-        and re.fullmatch(r"#[0-9a-fA-F]{6}", resolve(name, tokens) or "")
-    }
-    unchecked -= {fg for fg, _, _ in PAIRS} | {bg for _, bg, _ in PAIRS} | EXEMPT
-    if unchecked:
-        print(f"\n검사 대상에 없는 색 token: {', '.join(sorted(unchecked))}")
-        print("text로 쓰인다면 PAIRS에 추가한다.")
+        unchecked = {
+            name.lstrip("-")
+            for name in tokens
+            if not name.startswith("--c-")
+            and re.fullmatch(r"#[0-9a-fA-F]{6}", resolve(name, tokens) or "")
+        }
+        unchecked -= {fg for fg, _, _ in PAIRS} | {bg for _, bg, _ in PAIRS} | EXEMPT
+        if unchecked:
+            print(f"  검사 대상에 없는 색 token: {', '.join(sorted(unchecked))}")
+            print("  text로 쓰인다면 PAIRS에 추가한다.")
 
     if failures:
         print(f"\n{len(failures)}개 조합이 기준 미달이다:")
@@ -120,7 +131,7 @@ def main() -> int:
             print(f"  - {failure}")
         return 1
 
-    print(f"\n{len(PAIRS)}개 조합 전부 기준을 만족한다.")
+    print(f"\n{checked}개 조합 전부 기준을 만족한다.")
     return 0
 
 

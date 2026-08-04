@@ -8,6 +8,14 @@ import { ScoresView } from "./scores/ScoresView";
 import { LocalDataView } from "./settings/LocalDataView";
 import { OverviewTraceDrawer, TracesView } from "./traces/TracesView";
 import {
+  applyTheme,
+  isThemePreference,
+  readPreference,
+  watchSystemTheme,
+  writePreference,
+  type ThemePreference,
+} from "./theme";
+import {
   readAppUrlState,
   replaceAppUrlState,
   type AppUrlState,
@@ -16,6 +24,43 @@ import {
   type OverviewUrlState,
 } from "./url";
 import "./styles.css";
+
+const THEME_OPTIONS: ReadonlyArray<{ id: ThemePreference; label: string }> = [
+  { id: "system", label: "시스템" },
+  { id: "light", label: "라이트" },
+  { id: "dark", label: "다크" },
+];
+
+function ThemeSelect() {
+  const [preference, setPreference] = useState<ThemePreference>(readPreference);
+
+  useEffect(() => {
+    applyTheme(preference);
+    // system일 때만 OS 설정 변경을 따라간다.
+    if (preference !== "system") return;
+    return watchSystemTheme(() => applyTheme("system"));
+  }, [preference]);
+
+  return (
+    <select
+      className="lf-theme-select"
+      aria-label="테마"
+      value={preference}
+      onChange={(event) => {
+        const next = event.target.value;
+        if (!isThemePreference(next)) return;
+        writePreference(next);
+        setPreference(next);
+      }}
+    >
+      {THEME_OPTIONS.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 const NAVIGATION: ReadonlyArray<{ id: AppView; label: string }> = [
   { id: "overview", label: "Overview" },
@@ -125,6 +170,7 @@ export function App() {
           ))}
         </nav>
         <span className="lf-topbar-spacer" />
+        <ThemeSelect />
       </header>
 
       {urlState.view === "overview" ? (
