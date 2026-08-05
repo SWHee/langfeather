@@ -4,7 +4,7 @@ export UV_CACHE_DIR
 export UV_PYTHON_INSTALL_DIR
 
 .PHONY: setup lint format typecheck test test-sdk test-server test-web \
-	test-integration contract contract-check build smoke
+	test-integration contract contract-check build smoke check-contrast
 
 setup:
 	uv python install 3.12
@@ -52,3 +52,6 @@ build:
 smoke:
 	uv run python scripts/smoke_imports.py
 	npm run build --prefix web
+
+check-contrast:
+	uv run python scripts/check_contrast.py

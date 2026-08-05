@@ -92,6 +92,81 @@ export function statusLabel(status: TraceStatus): string {
       : "취소";
 }
 
+/* icon은 glyph 대신 SVG로 그린다. glyph는 font fallback에 따라 굵기와 정렬이
+   기기마다 달라진다. 크기와 색은 부모의 font-size, color를 따른다. */
+function Icon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      className="lf-svg-icon"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+export function IconClose() {
+  return (
+    <Icon>
+      <path d="M4 4 12 12M12 4 4 12" />
+    </Icon>
+  );
+}
+
+export function IconArrowLeft() {
+  return (
+    <Icon>
+      <path d="M10 3.5 5.5 8l4.5 4.5" />
+    </Icon>
+  );
+}
+
+export function IconArrowRight() {
+  return (
+    <Icon>
+      <path d="M6 3.5 10.5 8 6 12.5" />
+    </Icon>
+  );
+}
+
+export function IconMore() {
+  return (
+    <Icon>
+      <circle cx="3.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function IconSort({ direction }: { direction?: SortDirection }) {
+  if (direction === "asc") {
+    return (
+      <Icon>
+        <path d="M8 12.5V4M4.5 7.5 8 4l3.5 3.5" />
+      </Icon>
+    );
+  }
+  if (direction === "desc") {
+    return (
+      <Icon>
+        <path d="M8 3.5V12M4.5 8.5 8 12l3.5-3.5" />
+      </Icon>
+    );
+  }
+  return (
+    <Icon>
+      <path d="M5 6.5 5 12M3.2 10.2 5 12l1.8-1.8M11 9.5 11 4M9.2 5.8 11 4l1.8 1.8" />
+    </Icon>
+  );
+}
+
 export function StatusDot({ status }: { status: TraceStatus }) {
   return (
     <span
@@ -192,7 +267,7 @@ export function Modal({
             onClick={onClose}
             aria-label="닫기"
           >
-            ×
+            <IconClose />
           </button>
         </header>
         {children}
@@ -230,7 +305,7 @@ export function Pagination({
         disabled={page <= 1}
         onClick={() => onChange(Math.max(1, page - 1))}
       >
-        ←
+        <IconArrowLeft />
       </button>
       <span className="pagination-position">
         {page} / {totalPages}
@@ -242,7 +317,7 @@ export function Pagination({
         disabled={page >= totalPages}
         onClick={() => onChange(Math.min(totalPages, page + 1))}
       >
-        →
+        <IconArrowRight />
       </button>
     </div>
   );
@@ -260,6 +335,8 @@ export interface ReorderableColumnDef {
   id: string;
   label: string;
   width: number;
+  /** 자릿수를 세로로 비교해야 하는 숫자 열은 "end"로 우측 정렬한다. */
+  align?: "end";
 }
 
 export type SortDirection = "asc" | "desc";
@@ -432,17 +509,19 @@ export function SelectColGroup({ columns }: { columns: ReorderableColumns }) {
 export function ColumnHeaderCell({
   id,
   label,
+  align,
   columns,
 }: {
   id: string;
   label: string;
+  align?: "end";
   columns: ReorderableColumns;
 }) {
   const isDragging = columns.dragId === id;
   const sortActive = columns.sort?.id === id;
   return (
     <th
-      className={`col-draggable${isDragging ? " is-dragging" : ""}`}
+      className={`col-draggable${isDragging ? " is-dragging" : ""}${align === "end" ? " is-end" : ""}`}
       style={
         isDragging
           ? { transform: `translateX(${columns.dragOffset}px)` }
@@ -461,11 +540,7 @@ export function ColumnHeaderCell({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => columns.onSortToggle(id)}
         >
-          {sortActive
-            ? columns.sort?.direction === "asc"
-              ? "▲"
-              : "▼"
-            : "⇅"}
+          <IconSort direction={sortActive ? columns.sort?.direction : undefined} />
         </button>
       </span>
       <span

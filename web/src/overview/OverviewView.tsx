@@ -65,13 +65,13 @@ const ALLOWED_SPANS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const OTHERS_TOOL_KEY = "__others__";
 
 const RECENT_TRACE_COLUMNS: ReorderableColumnDef[] = [
-  { id: "status", label: "상태", width: 87.5 },
+  { id: "status", label: "상태", width: 100 },
   { id: "started", label: "수집", width: 115 },
-  { id: "trace_id", label: "Trace ID", width: 212.5 },
+  { id: "trace_id", label: "Trace ID", width: 212 },
   { id: "input", label: "Input", width: 275 },
   { id: "output", label: "Output", width: 275 },
-  { id: "latency", label: "Latency", width: 112.5 },
-  { id: "count", label: "# Observations", width: 162.5 },
+  { id: "latency", label: "Latency", width: 152, align: "end" },
+  { id: "count", label: "# Observations", width: 208, align: "end" },
 ];
 
 const RECENT_TRACE_SORT_VALUES: Record<
@@ -106,10 +106,10 @@ function overviewQuery(state: OverviewUrlState): DashboardQuery {
 
 function toolColor(name: string): string {
   const normalized = name.toLowerCase();
-  if (normalized === "retriever") return "#10a77f";
-  if (normalized === "search") return "#d8841c";
-  if (normalized === "http") return "#7859d6";
-  return "#163b70";
+  if (normalized === "retriever") return "#2c5c99";
+  if (normalized === "search") return "#c07a10";
+  if (normalized === "http") return "#5566d6";
+  return "#1d6b74";
 }
 
 function specsFor(response: DashboardResponse): ChartSpec[] {
@@ -139,12 +139,12 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "Success",
-          color: "#10a77f",
+          color: "#0f7a52",
           values: values((bucket) => bucket.requests.completed),
         },
         {
           label: "Error",
-          color: "#e34a3c",
+          color: "#c0392f",
           values: values((bucket) => bucket.requests.failed),
         },
       ],
@@ -156,7 +156,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "p50",
-          color: "#163b70",
+          color: "#258590",
           values: values((bucket) =>
             bucket.latency_us.p50 === null
               ? null
@@ -165,7 +165,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
         },
         {
           label: "p95",
-          color: "#d8841c",
+          color: "#c07a10",
           values: values((bucket) =>
             bucket.latency_us.p95 === null
               ? null
@@ -174,7 +174,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
         },
         {
           label: "p99",
-          color: "#7859d6",
+          color: "#5566d6",
           values: values((bucket) =>
             bucket.latency_us.p99 === null
               ? null
@@ -191,7 +191,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "Error rate",
-          color: "#e34a3c",
+          color: "#c0392f",
           values: values((bucket) =>
             bucket.error.rate === null ? null : bucket.error.rate * 100,
           ),
@@ -205,7 +205,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "LLM",
-          color: "#163b70",
+          color: "#258590",
           values: values((bucket) => bucket.llm_calls),
         },
       ],
@@ -755,7 +755,7 @@ export function OverviewView({
 
   return (
     <>
-      <main className="page overview-page">
+      <main className="page overview-page" id="lf-main" tabIndex={-1}>
         <header className="page-head overview-head">
           <div>
             <h1>Overview</h1>
@@ -1015,6 +1015,7 @@ export function OverviewView({
                           key={id}
                           id={id}
                           label={def.label}
+                          align={def.align}
                           columns={recentColumns}
                         />
                       );
@@ -1037,8 +1038,8 @@ export function OverviewView({
                       trace_id: "trace-id mono",
                       input: "payload-cell",
                       output: "payload-cell",
-                      latency: "metric",
-                      count: "metric",
+                      latency: "metric is-end",
+                      count: "metric is-end",
                     };
                     return (
                       <tr

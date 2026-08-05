@@ -33,9 +33,9 @@ const EDGE_STYLE: Record<
   RuntimeGraphEdge["relation"],
   {stroke: string; dash?: string}
 > = {
-  callback: {stroke: "#94a3b8"},
-  dispatch: {stroke: "#7c3aed", dash: "5 4"},
-  join: {stroke: "#94a3b8"},
+  callback: {stroke: "#7a95a0"},
+  dispatch: {stroke: "#6b4fd8", dash: "5 4"},
+  join: {stroke: "#7a95a0"},
 };
 
 interface RuntimeNodeData extends Record<string, unknown> {
@@ -199,7 +199,7 @@ export function RuntimeGraphView({
         proOptions={{hideAttribution: true}}
       >
         <Background
-          color="#d9e4dc"
+          color="#dbe5e7"
           gap={22}
           size={1}
           variant={BackgroundVariant.Dots}
