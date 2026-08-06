@@ -20,16 +20,16 @@ export function duration(value: number | null): string {
     : `${(value / 1_000_000).toFixed(2)} s`;
 }
 
-export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
+export function formatDate(value: string, locale = "ko-KR"): string {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
   }).format(new Date(value));
 }
 
-export function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
+export function formatDateTime(value: string, locale = "ko-KR"): string {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",

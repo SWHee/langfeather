@@ -5,7 +5,8 @@
 
 ## 공통 gate
 
-- [ ] 여섯 top-level 기능에 접근할 수 있고 기본 진입은 Overview다.
+- [ ] 네 top-level 기능에 접근할 수 있고 기본 진입은 Overview다.
+- [ ] 재편 이전 `view` 값을 담은 link가 대응하는 새 화면을 연다.
 - [ ] URL-owned state가 새로고침과 back/forward 뒤 복원된다.
 - [ ] 각 remote read에 loading, empty, error, retry가 있다.
 - [ ] 각 mutation에 pending, success, failure가 있고 중복 실행을 막는다.
@@ -20,16 +21,18 @@
 | 기능 | 필수 정상 흐름 | 필수 edge/error |
 | --- | --- | --- |
 | Overview | 기본 7일 조회, filter apply/reset, score/tool 선택, 시계열과 y축 눈금 확인 | score 최대 4개, no trace/tool/feedback, retry, number 평균과 rate 분리 |
-| Traces | 목록, filter, 20개 page 단위 이동, trace/detail, graph, lazy payload, 컬럼 순서/폭/정렬 | deep link, list/detail/payload별 error, failed-node 우선, 삭제 후 회복, filter 변경 시 1page 복귀 |
+| Traces | 목록, filter, 20개 page 단위 이동, trace/detail, graph, lazy payload, 넓은 화면은 카드 목록, 좁은 화면은 표(컬럼 순서/폭/정렬), 3분할과 단 전환 | deep link, list/detail/payload별 error, failed-node 우선, 삭제 후 회복, filter 변경 시 1page 복귀, 첫 trace 자동 선택, 목록 접기(48px 레일과 펼치기 버튼 유지), 카드별 미리보기 펼치기, bulk action이 카드를 가리지 않음, 어느 폭에서도 dialog 아님 |
+| Payload renderer | kind 전용 뷰가 검사기 첫 탭, retriever 문서 카드와 사용됨 배지와 매칭 구간 하이라이트, llm 역할별 message와 token, tool 시그니처와 반환값 | 읽어낼 수 없는 payload는 JSON tree로 회귀, 대조할 llm input이 없으면 배지 없음, 없는 token/score를 지어내지 않음, Input/Output 탭에서 원문 유지 |
 | Trace actions | queue/dataset 추가, trace 삭제 | 목록 실패, duplicate pending 방지, Escape/외부 클릭/focus 복귀 |
 | Scores | 세 type 생성, 수정, 검색, archive/delete | used score 제한, API 실패, destructive confirm |
 | Annotation | score 추가, 값/memo 저장, annotation 삭제 | type별 value, 일부 요청 실패, detail refresh |
 | Queues | 빈 queue 생성, 설정 수정, item 추가/제거, 완료(신규/재편집 공통 흐름), Progress 시각화 | trace/payload 실패, 재편집 후 "수정됨" 표시, 다음 pending 이동, item 목록 pagination |
-| Datasets | 선택/검색/생성/삭제(카드 `⋯` 메뉴), example CRUD(검색/추가/행 클릭 편집/checkbox 삭제) | 404 회복, history 409, JSON field 오류, stale refetch, example pagination |
+| Datasets | context bar에서 선택/바꾸기, 검색/생성/삭제(카드 `⋯` 메뉴), example CRUD(검색/추가/행 클릭 편집/checkbox 삭제), 세그먼트를 옮겨도 선택 유지 | 404 회복, history 409, JSON field 오류, stale refetch, example pagination |
 | JSONL | round-trip export/import | blank line, partial failure, 실패 line number, 내부 field 제외 |
 | Experiments | summary, lazy detail popup(case 표에 metadata 포함), evaluate quickstart, 검색/checkbox 삭제 | no experiment, running/cancelled/failed, detail load failure |
 | Metric 비교 | 같은 revision 2~4개, 0~N개 metric 다중 선택, metric별 그룹 bar chart, 커서 근접 tooltip, metric×experiment 표 | revision/type conflict, missing/error/target failure, metric 0개 선택, retry |
 | Local Data | `RESET` 입력과 확인 후 초기화 | 잘못된 confirmation, API 실패 |
+| Theme | light/dark 전환, 새로고침 뒤 유지 | localStorage 불가 환경, 저장된 값이 없거나 잘못된 경우 OS 설정을 첫 값으로, 첫 paint 번쩍임 없음, 두 theme 모두 대비 기준 충족 |
 
 ## 자동 검증
 
@@ -40,6 +43,7 @@ npm run lint --prefix web
 npm run typecheck --prefix web
 npm test --prefix web
 npm run build --prefix web
+make check-contrast
 ```
 
 다음 pure/contract test는 presentation과 무관하므로 항상 유지한다.
@@ -64,7 +68,7 @@ layout, navigation, dialog 또는 주요 action을 구현한 변경은 build만�
 - trace 선택 → graph node 선택 → payload 확인
 - queue 또는 dataset에 trace 추가
 - score/queue/dataset dialog keyboard 사용
-- Evaluation Examples/Experiments tab 이동과 Metric 비교 선택
+- Evaluate의 Examples/Experiments 세그먼트 이동과 Metric 비교 선택
 - destructive confirmation
 - focus-visible, Escape, scroll, console 확인
 

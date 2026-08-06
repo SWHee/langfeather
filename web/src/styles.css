@@ -5,6 +5,10 @@
    theme을 추가할 때는 semantic 층만 다시 정의하면 된다. */
 
 :root {
+  /* scrollbar, select 드롭다운, native focus ring처럼 CSS가 그리지 않는 UI를
+     theme에 맞춘다. 이것이 없으면 dark에서 scrollbar만 흰색으로 남는다. */
+  color-scheme: light;
+
   /* 1) primitive */
   --c-white: #ffffff;
 
@@ -14,16 +18,19 @@
   --c-teal-600: #258590;
   --c-teal-700: #1d6b74;
   --c-teal-800: #165157;
+  --c-teal-900: #12383d;
   --c-teal-100: #e4f2f4;
   --c-teal-50: #f0f7f8;
   --c-teal-300: #8fc0c7;
 
-  /* neutral. 청록 기운을 옅게 섞어 brand와 같은 계열에 둔다. */
+  /* neutral. 청록 기운을 옅게 섞어 brand와 같은 계열에 둔다. light 전용이다 —
+     dark는 같은 채도라도 색이 덮는 면적이 훨씬 넓어 따로 중성색을 쓴다. */
   --c-gray-10: #f9fbfb;
   --c-gray-25: #f4f7f8;
   --c-gray-50: #eef3f4;
   --c-gray-200: #dbe5e7;
   --c-gray-300: #c3d2d6;
+  --c-gray-400: #7a95a0;
   --c-gray-500: #567480;
   --c-gray-600: #4d6873;
   --c-gray-900: #0f2129;
@@ -63,6 +70,8 @@
   --line: var(--c-gray-200);
   --strong: var(--c-gray-300);
   --ink: var(--c-gray-900);
+  /* 기획서 02절의 Teal 900. 화면 제목에만 써서 brand를 한 번 더 얹는다. */
+  --ink-title: var(--c-teal-900);
   --muted: var(--c-gray-600);
   --quiet: var(--c-gray-500);
 
@@ -73,6 +82,16 @@
   --accent-faint: var(--c-teal-50);
   --accent-mark: var(--c-teal-mark);
   --on-accent: var(--c-white);
+
+  /* 선택 상태와 주요 action은 brand accent와 별도 역할이다. light에서는 기존
+     palette를 그대로 쓰고 dark에서만 중성 surface로 바꾼다. */
+  --selection-ink: var(--accent);
+  --selection-border: var(--accent-border);
+  --selection-soft: var(--accent-soft);
+  --selection-faint: var(--accent-faint);
+  --primary: var(--accent);
+  --primary-hover: var(--accent-hover);
+  --on-primary: var(--on-accent);
 
   --green: var(--c-green-600);
   --green-soft: var(--c-green-50);
@@ -89,6 +108,9 @@
   --blue: var(--c-blue-700);
   --blue-border: var(--c-blue-200);
   --blue-soft: var(--c-blue-50);
+
+  /* runtime graph의 edge. text가 아니므로 3:1 기준을 쓴다(흰 배경 3.17:1). */
+  --graph-edge: var(--c-gray-400);
 
   --series-1: var(--c-series-1);
   --series-2: var(--c-series-2);
@@ -110,6 +132,106 @@
   --sans:
     "Pretendard", "SF Pro Text", "Inter", -apple-system, BlinkMacSystemFont,
     "Apple SD Gothic Neo", sans-serif;
+}
+
+/* dark theme. semantic 층만 다시 정의하고 component 규칙은 손대지 않는다.
+   data-theme은 shell이 붙인다. 값은 항상 해석된 결과(light 또는 dark)이며
+   system은 여기 오지 않는다. 대비는 make check-contrast가 두 theme 모두 센다. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* 1) primitive. dark 전용 색만 더한다. */
+  --c-teal-200: #a3d9e0;
+  --c-teal-400: #4aa9b5;
+  /* 선택 상태의 면 채움. accent 자체(글자·icon)는 brand 그대로 두되, 카드를
+     통째로 덮는 이 두 색은 채도를 눌러 둔다. 진한 청록 면이 화면에서 청록기를
+     가장 크게 만들었다. */
+  --c-teal-900: #22343a;
+  --c-teal-950: #1c2b30;
+
+  /* dark의 중성색. light와 달리 brand 청록을 섞지 않는다 — 어두운 화면에서는
+     같은 채도라도 색이 훨씬 넓은 면적을 덮어, 화면 전체에 청록기가 돌았다.
+     채도만 걷고 밝기 사다리는 그대로 둔다(page L 12.5% … ink L 92.5%).
+     남긴 5–7%는 청록이 아니라 아주 옅은 한기다. 완전한 무채색은 청록 accent
+     옆에서 누렇게 읽힌다. */
+  --c-slate-950: #1e2023;
+  --c-slate-900: #26282c;
+  --c-slate-850: #2c2f33;
+  --c-slate-800: #33363b;
+  --c-slate-700: #43474d;
+  --c-slate-600: #595e66;
+  --c-slate-300: #b0b4ba;
+  --c-slate-200: #c9ccd1;
+  --c-slate-100: #ebedef;
+
+  --c-green-300: #5cc98f;
+  --c-green-900: #164234;
+  --c-red-300: #f0837a;
+  --c-red-100: #f9c4bf;
+  --c-red-900: #4d221f;
+  --c-amber-300: #ddab4a;
+  --c-amber-900: #46341a;
+  --c-violet-300: #a999f2;
+  --c-violet-900: #332b60;
+  --c-blue-300: #7fb2e8;
+  --c-blue-900: #1e3d61;
+
+  --c-ink-alpha: 0, 0, 0;
+
+  /* 2) semantic */
+  --page: var(--c-slate-950);
+  --surface: var(--c-slate-900);
+  --surface-alt: var(--c-slate-800);
+  --surface-head: var(--c-slate-850);
+  --surface-glass: rgba(38, 40, 44, 0.94);
+  --track: var(--c-slate-700);
+  --line: var(--c-slate-700);
+  --strong: var(--c-slate-600);
+  --ink: var(--c-slate-100);
+  /* 제목은 넓은 화면에서 반복되므로 brand hue 대신 본문과 같은 neutral을 쓴다. */
+  --ink-title: var(--c-slate-100);
+  --muted: var(--c-slate-200);
+  --quiet: var(--c-slate-300);
+
+  --accent: var(--c-teal-200);
+  --accent-hover: var(--c-teal-100);
+  --accent-border: var(--c-teal-400);
+  --accent-soft: var(--c-teal-900);
+  --accent-faint: var(--c-teal-950);
+  --on-accent: var(--c-slate-950);
+
+  /* 청록은 logo/chart/status/focus처럼 작은 signal에 남긴다. 선택 면과 주요
+     action은 주변 surface와 같은 slate 사다리로 맞춘다. */
+  --selection-ink: var(--c-slate-100);
+  --selection-border: var(--c-slate-600);
+  --selection-soft: var(--c-slate-800);
+  --selection-faint: var(--c-slate-850);
+  --primary: var(--c-slate-200);
+  --primary-hover: var(--c-slate-100);
+  --on-primary: var(--c-slate-950);
+
+  --green: var(--c-green-300);
+  --green-soft: var(--c-green-900);
+  --red: var(--c-red-300);
+  --red-ink: var(--c-red-100);
+  --red-border: var(--c-red-900);
+  --red-soft: var(--c-red-900);
+  --orange: var(--c-amber-300);
+  --orange-border: var(--c-amber-900);
+  --orange-soft: var(--c-amber-900);
+  --violet: var(--c-violet-300);
+  --violet-border: var(--c-violet-900);
+  --violet-soft: var(--c-violet-900);
+  --blue: var(--c-blue-300);
+  --blue-border: var(--c-blue-900);
+  --blue-soft: var(--c-blue-900);
+
+  --graph-edge: var(--c-slate-300);
+
+  --series-1: var(--c-teal-200);
+  --series-2: var(--c-violet-300);
+  --series-3: var(--c-amber-300);
+  --series-4: #ef8fb2;
 }
 
 * {
@@ -167,8 +289,8 @@ textarea:focus-visible,
   left: 8px;
   padding: 10px 16px;
   border-radius: 6px;
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--primary);
+  color: var(--on-primary);
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
@@ -201,11 +323,13 @@ textarea:focus-visible,
 }
 
 
+/* 레퍼런스 로고의 비율을 그대로 옮긴다 — 깃털 높이 : 워드마크 크기 ≈ 1.4,
+   둘 사이는 깃털 높이의 1/4. 여기서 셋을 함께 정해야 비율이 어긋나지 않는다. */
 .lf-brand {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-height: 44px;
   padding: 0;
   border: 0;
@@ -215,10 +339,14 @@ textarea:focus-visible,
   letter-spacing: -0.02em;
 }
 
-
+/* 원본 png는 1024 상자 안에 깃털이 59%만 차 있고 그마저 가운데가 아니다.
+   상자를 그 비율만큼 키우고 남는 투명 여백을 음수 여백으로 걷어내야, gap과
+   좌우 정렬이 눈에 보이는 깃털을 기준으로 맞는다. 이미지는 손대지 않는다.
+   깃털 28px = 48 x 602/1024. 여백: 위 9 · 아래 11 · 좌우 11. */
 .lf-mark {
-  width: 26px;
-  height: 26px;
+  width: 48px;
+  height: 48px;
+  margin: -9px -11px -11px;
   flex: none;
   object-fit: contain;
 }
@@ -235,7 +363,7 @@ textarea:focus-visible,
   display: flex;
   align-self: stretch;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -251,7 +379,7 @@ textarea:focus-visible,
   height: 44px;
   padding: 0 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--muted);
   font-size: 16px;
@@ -263,16 +391,98 @@ textarea:focus-visible,
   color: var(--ink);
 }
 .lf-nav-link[aria-current="page"] {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--selection-soft);
+  color: var(--selection-ink);
   font-weight: 700;
 }
+/* Evaluate 안의 세그먼트. 폭은 라벨 길이를 따른다 — 한/영 전환에서 영어 라벨이
+   길어지므로 고정 px를 쓰지 않는다. */
+.lf-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 12px 30px 0;
+}
+
+.lf-segment {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.lf-segment:hover {
+  background: var(--surface-alt);
+  color: var(--ink);
+}
+
+.lf-segment[aria-current="page"] {
+  border-color: var(--selection-border);
+  background: var(--selection-soft);
+  color: var(--selection-ink);
+  font-weight: 700;
+}
+
+/* 값이 둘뿐인 전환. 두 라벨을 모두 보여주고 고른 쪽으로 thumb가 미끄러진다.
+   thumb는 track의 절반을 차지하므로 위치는 index 하나로 정해진다. */
+.lf-switch {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-alt);
+}
+.lf-switch::before {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 2);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  content: "";
+  transform: translateX(calc(var(--switch-index, 0) * 100%));
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.lf-switch-option {
+  position: relative;
+  z-index: 1;
+  min-width: 46px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+.lf-switch-option:hover {
+  color: var(--ink);
+}
+.lf-switch-option[aria-pressed="true"] {
+  color: var(--selection-ink);
+  font-weight: 700;
+}
+
 .lf-topbar-spacer {
   flex: 1;
 }
 .lf-environment {
   flex: 0 0 auto;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--strong);
   border-radius: 6px;
   color: var(--muted);
@@ -294,20 +504,21 @@ textarea:focus-visible,
 .page {
   max-width: 1950px;
   margin: 0 auto;
-  padding: 38px 35px 55px;
+  padding: 38px 36px 56px;
 }
 .queue-page,
 .scores-page,
 .evaluation-page {
-  padding: 40px 35px 60px;
+  padding: 40px 36px 60px;
 }
 .settings-page {
   max-width: 1125px;
-  padding: 42px 35px 65px;
+  padding: 42px 36px 64px;
 }
 
 h1 {
   margin: 0;
+  color: var(--ink-title);
   font-size: 30px;
   line-height: 1.2;
   letter-spacing: -0.035em;
@@ -325,12 +536,12 @@ p {
   margin-top: 0;
 }
 .eyebrow {
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
   font-size: 16px;
 }
 .sub {
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
   font-size: 16px;
 }
@@ -344,7 +555,7 @@ p {
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--strong);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--ink);
   font-size: 16px;
@@ -354,13 +565,14 @@ p {
   background: var(--surface-alt);
 }
 .lf-btn.is-primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
   font-weight: 700;
 }
 .lf-btn.is-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  border-color: var(--primary-hover);
+  background: var(--primary-hover);
 }
 .lf-btn.is-danger {
   border-color: var(--red-border);
@@ -392,7 +604,7 @@ p {
 }
 .lf-state.is-empty {
   border: 1px dashed var(--strong);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
 }
 .lf-state.is-error {
@@ -434,14 +646,14 @@ p {
 }
 .score-modal {
   width: min(950px, 100%);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: var(--shadow-4);
 }
 .lf-modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
+  gap: 16px;
   padding: 22px;
   border-bottom: 1px solid var(--line);
 }
@@ -520,7 +732,7 @@ p {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 25px;
+  gap: 24px;
   margin-bottom: 28px;
 }
 .list-actions,
@@ -554,7 +766,7 @@ p {
   overflow: hidden;
   gap: 0;
   border: 1px solid var(--strong);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 .period-custom-popover {
   position: absolute;
@@ -564,9 +776,9 @@ p {
   display: grid;
   gap: 12px;
   width: 325px;
-  padding: 15px;
+  padding: 16px;
   border: 1px solid var(--strong);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-3);
 }
@@ -607,8 +819,8 @@ p {
   border-right: 0;
 }
 .period-group button[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--selection-soft);
+  color: var(--selection-ink);
   font-weight: 700;
 }
 .overview-filter-popover {
@@ -617,9 +829,9 @@ p {
   top: 62px;
   left: 0;
   width: min(900px, 100%);
-  padding: 15px;
+  padding: 16px;
   border: 1px solid var(--strong);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-3);
 }
@@ -658,7 +870,7 @@ p {
   margin: 0 0 20px;
   padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface-glass);
   scrollbar-width: none;
 }
@@ -684,9 +896,9 @@ p {
 }
 .chart-navigator button:hover,
 .chart-navigator button[aria-current="true"] {
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: var(--selection-border);
+  background: var(--selection-soft);
+  color: var(--selection-ink);
   font-weight: 700;
 }
 .traffic-board {
@@ -710,14 +922,14 @@ p {
 }
 @keyframes chart-highlight {
   0% {
-    border-color: var(--accent-border);
-    box-shadow: 0 0 0 0 var(--accent-soft);
-    background: var(--accent-faint);
+    border-color: var(--selection-border);
+    box-shadow: 0 0 0 0 var(--selection-soft);
+    background: var(--selection-faint);
   }
   45% {
-    border-color: var(--accent);
+    border-color: var(--selection-ink);
     box-shadow: 0 0 0 10px transparent;
-    background: var(--accent-faint);
+    background: var(--selection-faint);
   }
   100% {
     border-color: var(--line);
@@ -757,8 +969,8 @@ p {
   align-items: center;
   justify-content: space-between;
   min-height: 72px;
-  gap: 15px;
-  padding: 15px 18px;
+  gap: 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--line);
 }
 .layout-editing .traffic-card-head {
@@ -807,12 +1019,13 @@ p {
   display: flex;
   align-items: stretch;
   gap: 2px;
-  padding: 15px 18px 12px 10px;
+  padding: 16px 18px 12px 10px;
 }
 .chart-yaxis {
   position: relative;
   flex: none;
-  width: 38px;
+  /* "7,038ms" 같은 라벨이 약 52px를 쓴다. 38px에서는 첫 글자가 잘렸다. */
+  width: 60px;
   height: 240px;
   color: var(--quiet);
   font: 12px var(--mono);
@@ -929,7 +1142,7 @@ p {
 }
 .trace-table th,
 .trace-table td {
-  padding: 15px 18px;
+  padding: 16px 18px;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
   text-align: left;
@@ -953,11 +1166,11 @@ p {
 .overview-trace-row:hover,
 .overview-trace-row:focus-visible,
 .overview-trace-row[aria-selected="true"] {
-  background: var(--accent-faint);
+  background: var(--selection-faint);
   outline: none;
 }
 .trace-id {
-  color: var(--accent);
+  color: var(--selection-ink);
   font-weight: 700;
 }
 .payload-cell,
@@ -999,18 +1212,18 @@ p {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 25px;
+  gap: 24px;
   margin-bottom: 28px;
 }
 .result {
   color: var(--quiet);
   font-size: 15px;
 }
+/* 폭에 따라 스스로 접힌다. 고정 5열은 좁은 화면과 3분할 목록 열에서 버튼
+   라벨을 세로로 쪼갰다 — 이 화면에서 가장 먼저 눈에 띄던 결함이다. */
 .filter-panel {
   display: grid;
-  grid-template-columns:
-    minmax(275px, 1.6fr) repeat(3, minmax(162px, 0.65fr))
-    auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   align-items: end;
   padding: 18px;
@@ -1018,6 +1231,14 @@ p {
   border-radius: var(--radius);
   background: var(--surface);
 }
+.filter-actions {
+  display: flex;
+  gap: 8px;
+}
+.filter-actions > .lf-btn {
+  flex: 1;
+}
+
 .field {
   display: grid;
   min-width: 0;
@@ -1043,11 +1264,185 @@ p {
   font-size: 15px;
 }
 .trace-list {
-  margin-top: 25px;
+  margin-top: 24px;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+}
+/* 3분할의 왼쪽 단. 기획서 05절 스케치의 카드 목록이다. */
+/* 선택 바. 비어 있을 때는 한 줄, 선택이 생기면 action이 아래로 흐른다. */
+.list-select {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-head);
+}
+.list-select:empty {
+  display: none;
+}
+.list-select-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.list-select-count {
+  margin-left: auto;
+  color: var(--selection-ink);
+  font: 700 12px var(--mono);
+}
+/* 선택이 생기면 세 버튼이 한 줄을 통째로 쓴다. 좁은 단에서 라벨이 세로로
+   쪼개지지 않게 폭을 나눠 갖는다. */
+.list-select .bulk-actions {
+  flex: 1 0 100%;
+  justify-content: stretch;
+  gap: 6px;
+}
+.list-select .bulk-actions .lf-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.trace-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+}
+/* 선택 | 정보 | 펼치기. 셋이 각자 열을 가져야 이름과 메타가 같은 선에서
+   시작하고, 펼치기가 이름 길이에 따라 흔들리지 않는다. */
+.trace-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+.trace-card:hover {
+  border-color: var(--strong);
+}
+.trace-card.is-selected {
+  border-color: var(--selection-border);
+  background: var(--selection-soft);
+}
+.trace-card-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.trace-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+/* 스케치의 카드는 상태를 점 하나로만 알린다. 라벨은 화면에서만 접고 접근성
+   트리에는 남겨, 좁은 단에서 이름이 밀리지 않게 한다. */
+.trace-card-title .lf-status {
+  flex: none;
+  gap: 0;
+  width: 8px;
+  overflow: hidden;
+  font-size: 0;
+}
+.trace-card-title strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 카드 하나를 접고 편다. 44px 클릭 영역을 유지하되 음수 여백으로 카드
+   높이를 밀어내지 않는다. 방향은 chevron을 돌려서만 알린다. */
+.trace-card-toggle {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  margin: -10px -6px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--quiet);
+  cursor: pointer;
+  font-size: 15px;
+}
+.trace-card-toggle .lf-svg-icon {
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.trace-card-toggle[aria-expanded="true"] .lf-svg-icon {
+  transform: rotate(180deg);
+}
+.trace-card-toggle:hover {
+  color: var(--accent);
+}
+.trace-card-preview {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  animation: trace-card-reveal 160ms ease;
+}
+@keyframes trace-card-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.trace-card-preview dt {
+  color: var(--quiet);
+  font: 400 11px var(--mono);
+}
+.trace-card-preview dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trace-card-meta {
+  overflow: hidden;
+  margin: 0;
+  font: 400 12px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trace-card-meta {
+  color: var(--muted);
+}
+.trace-card-usage {
+  display: flex;
+  gap: 4px 10px;
+  overflow: hidden;
+  margin: 0;
+  color: var(--quiet);
+  font: 400 11px var(--mono);
+  white-space: nowrap;
+}
+.trace-card-usage span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .trace-list table {
   width: 100%;
@@ -1064,7 +1459,7 @@ p {
 }
 .trace-list th,
 .trace-list td {
-  padding: 15px 18px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--line);
   text-align: left;
 }
@@ -1090,7 +1485,9 @@ th.col-draggable {
   padding-right: 0 !important;
   text-align: center !important;
 }
-.select-col input {
+.select-col input,
+.list-select-all input,
+.trace-card-check {
   /* touch target은 44px, 눈에 보이는 상자는 20px로 둔다. native 렌더링으로는
      둘을 분리할 수 없어 appearance를 끄고 상자와 체크를 직접 그린다. */
   display: grid;
@@ -1105,20 +1502,26 @@ th.col-draggable {
   cursor: pointer;
   place-items: center;
 }
-.select-col input::before {
+.select-col input::before,
+.list-select-all input::before,
+.trace-card-check::before {
   content: "";
   box-sizing: border-box;
   width: 20px;
   height: 20px;
   border: 1px solid var(--strong);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--surface);
 }
-.select-col input:checked::before {
+.select-col input:checked::before,
+.list-select-all input:checked::before,
+.trace-card-check:checked::before {
   border-color: var(--accent);
   background: var(--accent);
 }
-.select-col input:checked::after {
+.select-col input:checked::after,
+.list-select-all input:checked::after,
+.trace-card-check:checked::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -1129,23 +1532,386 @@ th.col-draggable {
   border-width: 0 2px 2px 0;
   transform: translate(-50%, -60%) rotate(45deg);
 }
-.select-col input:focus-visible {
+.select-col input:focus-visible,
+.list-select-all input:focus-visible,
+.trace-card-check:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -10px;
 }
+/* 44px 클릭 영역은 유지하되 그 높이가 카드를 밀어내지 않게 음수 여백으로
+   흡수한다. 표에서 행 높이를 지킨 것과 같은 처리다. */
+.list-select-all input {
+  flex: none;
+  margin: -12px 0;
+}
+/* 카드에서는 왼쪽 여백까지 흡수해 상자가 카드 안쪽 선에 맞는다. */
+.trace-card-check {
+  margin: -10px 0 -10px -6px;
+}
+/* Traces 3분할. 목록 | (실행 graph | payload). 덮는 대신 자리를 나눈다.
+   경계 폭은 useSplitLayout.ts의 SPLIT_MIN_WIDTH와 같아야 한다. */
+@media (min-width: 1200px) {
+  /* 목록 | 그래프 | 검사기. 목록은 좁게 고정하고 남는 폭을 그래프와 검사기가
+     나눠 갖는다 — 이 화면의 주인공은 목록이 아니라 실행 증거다. */
+  /* 두 단 사이에 page 바탕이 드러나는 고랑을 둔다. 맞붙은 1px 선은 두 단이
+     한 덩어리인지 아닌지를 알려주지 못했다. 폭은 접기 애니메이션이 흐른다. */
+  .traces-page.is-split {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    align-items: start;
+    gap: 0 20px;
+    padding-right: 0;
+    transition: grid-template-columns 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .traces-page.is-split .traces-pane-list {
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+  }
+  /* 기획서 스케치의 `TRACES · 128`. 30px 제목과 별도 건수는 340px 단에서
+     목록보다 자기 자리를 더 차지했다. */
+  .traces-page.is-split .traces-head {
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .traces-page.is-split .traces-head h1 {
+    color: var(--muted);
+    font: 700 12px var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .traces-page.is-split .result {
+    color: var(--muted);
+    font: 400 12px var(--mono);
+  }
+  .traces-page.is-split .result::before {
+    content: "· ";
+  }
+  .traces-page.is-split .list-actions {
+    flex: 1;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .traces-page.is-split .list-collapse {
+    margin-left: auto;
+  }
+  /* 접었을 때는 스케치처럼 입력 하나만 남는다. panel 테두리도 걷는다. */
+  .traces-page.is-split .filter-panel.is-collapsed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .traces-page.is-split .filter-panel.is-collapsed .field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* 라벨은 화면에서만 접는다. 접근성 이름은 남아야 한다. */
+  .traces-page.is-split .filter-panel.is-collapsed .field > span {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .traces-page.is-split .filter-panel.is-collapsed .filter-actions {
+    flex: none;
+    display: flex;
+  }
+  /* 접힌 동안 적용은 Enter가 맡는다. 초기화는 필터를 펴야 보인다. */
+  .traces-page.is-split
+    .filter-panel.is-collapsed
+    .filter-actions
+    .lf-btn:not(.filter-toggle) {
+    display: none;
+  }
+  /* 좁은 열에서는 filter를 세로로 쌓는다. 가로 6열은 버튼 라벨을 쪼갠다. */
+  .traces-page.is-split .filter-panel {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  /* 접었을 때는 검색만 남긴다. 나머지는 DOM에 남아 값이 그대로 제출된다. */
+  .traces-page.is-split .filter-panel.is-collapsed .field:not(:first-of-type) {
+    display: none;
+  }
+  /* 필터 토글까지 셋이라 2열 격자는 한 칸을 비웠다. 폭에 맞춰 흐르게 둔다. */
+  .traces-page.is-split .filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .traces-page.is-split .filter-actions .lf-btn {
+    flex: 1 1 auto;
+  }
+  /* 목록을 접으면 48px 레일만 남기고 나머지 폭을 그래프와 검사기가 쓴다.
+     0으로 줄이면 다시 펼 버튼까지 사라져 경계 밖에 띄워야 했다. */
+  .traces-page.is-split.is-list-collapsed {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  /* 접힐 때 내용이 사라지는 대신 흐려지며 잘려 나간다. display:none은 폭이
+     줄기도 전에 단을 비워 화면이 한 번 껌뻑였다. visibility가 tab 순서까지
+     함께 걷어낸다. */
+  .traces-page.is-split .traces-pane-list > *:not(.traces-head) {
+    transition:
+      opacity 160ms ease,
+      visibility 160ms;
+  }
+  .traces-page.is-split.is-list-collapsed
+    .traces-pane-list
+    > *:not(.traces-head) {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .traces-page.is-split.is-list-collapsed .traces-head {
+    margin-bottom: 0;
+  }
+  .traces-page.is-split.is-list-collapsed .traces-head h1,
+  .traces-page.is-split.is-list-collapsed .result,
+  .traces-page.is-split.is-list-collapsed .list-collapse-label {
+    display: none;
+  }
+  .list-collapse {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .traces-page.is-split .trace-scrim {
+    display: none;
+  }
+  /* 오른쪽 단도 하나의 판이다. topbar 아래 16px을 띄워 붙어 있지 않게 하고,
+     오른쪽은 화면 끝에 붙이므로 그쪽 테두리만 걷는다. */
+  .traces-page.is-split .trace-drawer {
+    position: sticky;
+    top: 88px;
+    right: auto;
+    width: auto;
+    max-width: none;
+    height: calc(100vh - 104px);
+    transform: none;
+    border: 1px solid var(--line);
+    border-right: 0;
+    border-radius: 10px 0 0 10px;
+    box-shadow: var(--shadow-1);
+  }
+  /* 기획서 05절 스케치의 폭 비다(그래프 330 : 검사기 286). 실행 흐름이 검사기보다
+     넓어야 축을 따라 갈라지는 형제 노드가 잘리지 않는다. 목록이 280–360px로
+     묶여 있어 이 media query 안에서는 두 칸 다 300px를 넘는다. */
+  .traces-page.is-split .detail-grid {
+    grid-template-columns: minmax(0, 1.154fr) minmax(0, 1fr);
+  }
+}
+
+.graph-detail-toggle {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.graph-detail-toggle button {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.graph-detail-toggle button.selected {
+  background: var(--selection-soft);
+  color: var(--selection-ink);
+  font-weight: 700;
+}
+
+/* kind별 renderer. llm은 역할별 message, tool은 시그니처 + 반환값. */
+.kind-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.kind-usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--quiet);
+  font: 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.kind-model {
+  color: var(--ink);
+}
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--strong);
+  border-radius: 10px;
+  background: var(--surface-alt);
+}
+/* 역할은 색만이 아니라 라벨 문구로 구분한다. */
+.message[data-role="human"] {
+  border-left-color: var(--accent);
+}
+.message[data-role="ai"],
+.message[data-role="completion"] {
+  border-left-color: var(--violet);
+}
+.message[data-role="tool"] {
+  border-left-color: var(--orange);
+}
+.message-role {
+  color: var(--quiet);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.message-content {
+  overflow: auto;
+  max-height: 220px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.tool-signature {
+  display: block;
+  overflow-x: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-alt);
+  color: var(--ink);
+  font: 13px var(--mono);
+  white-space: pre;
+}
+
+/* Retrieval view. 검색 결과를 JSON tree가 아니라 문서 카드로 읽는다. */
+.retrieval {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.retrieval-summary {
+  color: var(--quiet);
+  font-size: 13px;
+}
+.retrieval-summary[data-warn] {
+  color: var(--orange);
+}
+.retrieval-summary[data-warn]::before {
+  content: "⚠ ";
+}
+.retrieval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.retrieval-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-alt);
+}
+.retrieval-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.retrieval-rank {
+  color: var(--quiet);
+  font: 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.retrieval-score {
+  color: var(--ink);
+  font: 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.retrieval-source {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--quiet);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 색만으로 의미를 전달하지 않는다. 배지는 문구를 함께 갖는다. */
+.retrieval-used {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.retrieval-unused {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 8px;
+  color: var(--quiet);
+  font-size: 12px;
+}
+.retrieval-text {
+  overflow: hidden;
+  max-height: 108px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+/* 답변에 그대로 실린 구간. 색만으로 알리지 않도록 밑줄을 함께 쓴다. */
+.retrieval-text mark {
+  border-bottom: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
 .trace-row {
   cursor: pointer;
 }
 .trace-row:hover,
 .trace-row.is-selected {
-  background: var(--accent-faint);
+  background: var(--selection-faint);
 }
 .pagination {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 15px;
+  padding: 16px;
   border-top: 1px solid var(--line);
 }
 .pagination-position {
@@ -1154,6 +1920,89 @@ th.col-draggable {
   text-align: center;
   font: 14px var(--mono);
 }
+/* Insights 요약 수치. 요약이 먼저, 상세가 나중이다. */
+.summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.summary-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.summary-metric-label {
+  color: var(--quiet);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.summary-metric-value {
+  color: var(--ink);
+  font: 700 24px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 좁은 화면 단 전환. 기획서: "drawer 슬라이드 제거. 좁은 화면에서는 목록 ->
+   그래프 -> 검사기 순으로 단이 접히고 상단에 단 전환 컨트롤이 생긴다."
+   덮을 자리가 없을 때 덮으면 맥락이 끊기는 것은 넓은 화면과 같다. */
+.pane-switch {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.pane-switch button {
+  flex: 1;
+  height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+}
+.pane-switch button[aria-current="true"] {
+  background: var(--selection-soft);
+  color: var(--selection-ink);
+  font-weight: 700;
+}
+.traces-page.is-stacked .trace-scrim {
+  display: none;
+}
+.traces-page.is-stacked .trace-drawer {
+  position: static;
+  width: auto;
+  height: auto;
+  border-left: 0;
+  box-shadow: none;
+  transform: none;
+  transition: none;
+}
+.traces-page.is-stacked[data-pane="list"] .trace-drawer {
+  display: none;
+}
+.traces-page.is-stacked[data-pane="graph"] .traces-pane-list,
+.traces-page.is-stacked[data-pane="inspector"] .traces-pane-list {
+  display: none;
+}
+.traces-page.is-stacked[data-pane="graph"]
+  .detail-grid
+  > .detail-card:nth-child(2),
+.traces-page.is-stacked[data-pane="inspector"]
+  .detail-grid
+  > .detail-card:nth-child(1) {
+  display: none;
+}
+
 .trace-scrim {
   position: fixed;
   z-index: 19;
@@ -1200,7 +2049,7 @@ th.col-draggable {
   left: 5px;
   width: 2px;
   height: 45px;
-  border-radius: 2px;
+  border-radius: 6px;
   background: var(--quiet);
   content: "";
   transform: translateY(-50%);
@@ -1213,7 +2062,7 @@ th.col-draggable {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
+  gap: 16px;
   padding: 18px 22px;
   border-bottom: 1px solid var(--line);
 }
@@ -1238,7 +2087,7 @@ th.col-draggable {
 .session-nav {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 .session-position {
   min-width: 38px;
@@ -1255,7 +2104,7 @@ th.col-draggable {
   width: 222px;
   padding: 6px;
   border: 1px solid var(--strong);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-3);
 }
@@ -1269,7 +2118,7 @@ th.col-draggable {
   width: 100%;
   padding: 10px 12px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: transparent;
   color: var(--ink);
   text-align: left;
@@ -1293,17 +2142,20 @@ th.col-draggable {
 }
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(350px, 0.95fr) minmax(350px, 1.05fr);
+  /* 3분할에서 이 grid는 detail pane 폭을 따른다. 사용자가 경계를 드래그해
+     pane을 좁히면 두 칸이 들어갈 자리가 없어지므로 auto-fit으로 한 칸씩
+     떨어뜨린다. 고정 minmax를 쓰면 pane 밖으로 넘친다. */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 22px;
 }
 .detail-card {
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
 }
 .detail-card > h3 {
-  padding: 14px 15px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--line);
   font-size: 15px;
 }
@@ -1324,7 +2176,7 @@ th.col-draggable {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 6px;
 }
 .runtime-graph {
   position: relative;
@@ -1338,7 +2190,7 @@ th.col-draggable {
 .runtime-graph .react-flow__controls {
   overflow: hidden;
   border: 1px solid var(--strong);
-  border-radius: 7px;
+  border-radius: 6px;
   box-shadow: none;
 }
 .runtime-graph .react-flow__controls-button {
@@ -1347,21 +2199,36 @@ th.col-draggable {
   border-bottom-color: var(--line);
   background: var(--surface);
 }
+/* 기획서 01·05절의 rachis. viewport 안에 두어 pan/zoom을 함께 따라간다.
+   장식이라 pointer를 받지 않고 노드보다 아래에 깔린다. */
+.runtime-graph[data-axis] .react-flow__viewport::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: var(--axis-top);
+  left: var(--axis-x);
+  width: 2px;
+  height: var(--axis-height);
+  border-radius: 999px;
+  background: var(--accent-mark);
+  opacity: 0.35;
+  pointer-events: none;
+}
 .runtime-node {
   display: grid;
   width: 184px;
   min-height: 92px;
   padding: 10px;
   border: 1px solid var(--strong);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--ink);
   background: var(--surface);
   box-shadow: var(--shadow-2);
   gap: 6px;
 }
 .runtime-node[data-selected="true"] {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-color: var(--selection-border);
+  box-shadow: 0 0 0 2px var(--selection-soft);
 }
 .runtime-node[data-status="failed"] {
   border-color: var(--red);
@@ -1383,17 +2250,17 @@ th.col-draggable {
 }
 .runtime-kind,
 .runtime-child-kind {
-  padding: 2px 5px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-soft);
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--selection-ink);
+  background: var(--selection-soft);
   font-size: 11px;
   font-weight: 700;
 }
 .runtime-child-kind {
   display: inline-flex;
   align-items: baseline;
-  gap: 3px;
+  gap: 4px;
   color: var(--muted);
   background: var(--surface-alt);
   box-shadow: inset 0 0 0 1px var(--line);
@@ -1457,13 +2324,13 @@ th.col-draggable {
   pointer-events: none;
 }
 .graph-empty {
-  padding: 30px 15px;
+  padding: 30px 16px;
   margin: 0;
   color: var(--quiet);
   font-size: 15px;
 }
 .io-panel {
-  padding: 15px;
+  padding: 16px;
 }
 .payload-section + .payload-section {
   padding-top: 2px;
@@ -1479,7 +2346,7 @@ th.col-draggable {
 .io-label button {
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--selection-ink);
   font-size: 14px;
 }
 .lf-code {
@@ -1498,38 +2365,49 @@ th.col-draggable {
 .json-inspector {
   min-width: 0;
 }
-.inspector-mode-toggle {
+/* 기획서 05절 스케치의 `Retrieval | Input | Output | Error` 탭 줄. 라벨은 전부
+   API field 이름이라 mono로 쓰고, 영어로 길어져도 접히도록 wrap을 허용한다. */
+.inspector-tabs {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }
-.inspector-mode-toggle button {
-  min-height: 35px;
+.inspector-tabs button {
+  min-height: 44px;
   padding: 0 12px;
   border: 0;
-  border-radius: 8px;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
+  font: 700 12px var(--mono);
 }
-.inspector-mode-toggle button:hover {
+.inspector-tabs button:hover {
+  color: var(--ink);
   background: var(--surface-alt);
 }
-.inspector-mode-toggle button.selected {
-  color: var(--accent);
-  background: var(--accent-soft);
+.inspector-tabs button.selected {
+  border-bottom-color: var(--selection-border);
+  color: var(--selection-ink);
+}
+.inspector-empty {
+  margin: 0;
+  padding: 16px 0;
+  color: var(--quiet);
+  font-size: 14px;
 }
 .json-section {
   position: relative;
   margin: 0 0 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 .json-section > summary {
-  padding: 10px 75px 10px 12px;
+  padding: 10px 76px 10px 12px;
   color: var(--ink);
   cursor: pointer;
   font-size: 14px;
@@ -1558,7 +2436,7 @@ th.col-draggable {
 }
 .json-section > summary:hover::before,
 .json-tree-branch > summary:hover::before {
-  color: var(--accent);
+  color: var(--selection-ink);
 }
 .json-copy-button {
   position: absolute;
@@ -1591,11 +2469,11 @@ th.col-draggable {
   list-style: none;
 }
 .json-tree-list {
-  margin: 5px 0;
+  margin: 6px 0;
   padding-left: 20px;
 }
 .json-tree-key {
-  color: var(--accent);
+  color: var(--selection-ink);
 }
 .json-tree-value {
   color: var(--ink);
@@ -1605,9 +2483,9 @@ th.col-draggable {
 .failure-summary {
   display: grid;
   margin-bottom: 10px;
-  padding: 12px 15px;
+  padding: 12px 16px;
   border: 1px solid var(--red-border);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--red-ink);
   background: var(--red-soft);
   gap: 4px;
@@ -1627,7 +2505,7 @@ th.col-draggable {
   margin-top: 22px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 10px;
 }
 .trace-meta div {
   padding: 12px 14px;
@@ -1657,7 +2535,7 @@ th.col-draggable {
   position: relative;
   margin-top: 22px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
 }
 .annotation-head {
@@ -1665,7 +2543,7 @@ th.col-draggable {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 15px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--line);
 }
 .annotation-head h3 {
@@ -1679,7 +2557,7 @@ th.col-draggable {
   width: 298px;
   padding: 12px;
   border: 1px solid var(--strong);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-3);
 }
@@ -1687,7 +2565,7 @@ th.col-draggable {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 5px;
+  padding: 8px 6px;
   font-size: 15px;
 }
 .score-choice small {
@@ -1709,14 +2587,14 @@ th.col-draggable {
 }
 .annotation-empty {
   margin: 0;
-  padding: 5px 2px;
+  padding: 6px 2px;
   color: var(--quiet);
   font-size: 15px;
 }
 .annotation-card {
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface-head);
 }
 .annotation-card-head {
@@ -1730,7 +2608,7 @@ th.col-draggable {
   font-size: 15px;
 }
 .annotation-card-head span {
-  margin-left: 5px;
+  margin-left: 6px;
   color: var(--quiet);
   font: 12px var(--mono);
 }
@@ -1759,9 +2637,9 @@ th.col-draggable {
 }
 .annotation-toggle button[aria-pressed="true"],
 .annotation-options button[aria-pressed="true"] {
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: var(--selection-border);
+  background: var(--selection-soft);
+  color: var(--selection-ink);
   font-weight: 700;
 }
 .annotation-number {
@@ -1788,6 +2666,8 @@ th.col-draggable {
   padding: 10px;
   border: 1px solid var(--strong);
   border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
   resize: vertical;
 }
 .annotation-footer {
@@ -1821,7 +2701,7 @@ th.col-draggable {
   height: 45px;
   padding: 0 14px 0 40px;
   border: 1px solid var(--strong);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface)
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%234d6873' stroke-width='1.7'%3E%3Ccircle cx='7' cy='7' r='4.2'/%3E%3Cpath d='m10.3 10.3 3.2 3.2'/%3E%3C/svg%3E")
     12px center no-repeat;
@@ -1842,7 +2722,7 @@ th.col-draggable {
 }
 .queue-table th,
 .queue-table td {
-  padding: 15px 18px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--line);
   text-align: left;
 }
@@ -1882,12 +2762,12 @@ th.col-draggable {
 .queue-progress-bar {
   height: 8px;
   overflow: hidden;
-  border-radius: 1249px;
+  border-radius: 999px;
   background: var(--track);
 }
 .queue-progress-fill {
   height: 100%;
-  border-radius: 1249px;
+  border-radius: 999px;
   background: var(--accent);
 }
 .queue-progress-label {
@@ -1897,7 +2777,7 @@ th.col-draggable {
 .tag {
   padding: 4px 8px;
   border: 1px solid var(--strong);
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--surface-alt);
   color: var(--muted);
   font: 12px var(--mono);
@@ -1918,15 +2798,15 @@ th.col-draggable {
 .queue-detail-head {
   display: flex;
   align-items: flex-start;
-  gap: 15px;
+  gap: 16px;
   margin-bottom: 22px;
 }
 .back {
-  margin-top: 1px;
+  margin-top: 2px;
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--selection-ink);
   font-size: 15px;
 }
 .detail-main {
@@ -1956,7 +2836,7 @@ th.col-draggable {
 }
 .queue-trace-table th,
 .queue-trace-table td {
-  padding: 15px 18px;
+  padding: 16px 18px;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
   text-align: left;
@@ -2087,7 +2967,7 @@ th.col-draggable {
   gap: 10px;
   padding: 8px 12px;
   border: 1px solid var(--strong);
-  border-radius: 8px;
+  border-radius: 10px;
   font-weight: 700;
 }
 .score-name::before {
@@ -2110,7 +2990,7 @@ th.col-draggable {
 .score-state {
   display: inline-flex;
   padding: 6px 10px;
-  border-radius: 1249px;
+  border-radius: 999px;
   background: var(--green-soft);
   color: var(--green);
   font-size: 14px;
@@ -2130,7 +3010,7 @@ th.col-draggable {
   width: 145px;
   padding: 6px;
   border: 1px solid var(--strong);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-3);
 }
@@ -2139,7 +3019,7 @@ th.col-draggable {
   width: 100%;
   padding: 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--surface);
   color: var(--ink);
   text-align: left;
@@ -2167,7 +3047,9 @@ th.col-draggable {
   min-height: 46px;
   padding: 10px 12px;
   border: 1px solid var(--strong);
-  border-radius: 8px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
 }
 .remove-option {
   border: 1px solid var(--strong);
@@ -2181,11 +3063,11 @@ th.col-draggable {
   font-size: 30px;
 }
 .settings-page .sub {
-  margin: 6px 0 35px;
+  margin: 6px 0 36px;
   font-size: 16px;
 }
 .settings-section {
-  margin-top: 25px;
+  margin-top: 24px;
 }
 .settings-section h2 {
   margin: 0 0 10px;
@@ -2195,7 +3077,7 @@ th.col-draggable {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 25px;
+  gap: 24px;
   padding: 22px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -2217,7 +3099,7 @@ th.col-draggable {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 25px;
+  gap: 24px;
 }
 .reset-form {
   display: flex;
@@ -2257,6 +3139,29 @@ th.col-draggable {
 }
 
 /* Evaluation */
+/* 기획서 05절의 dataset context bar. 세그먼트를 옮겨도 어느 dataset을 보고
+   있는지 계속 남는다 — 이중 구조를 편 자리를 이것이 대신한다. */
+.dataset-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.dataset-context-main {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.dataset-context-main h1 {
+  font-size: 24px;
+}
+.dataset-context-main .sub {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
 .evaluation-detail-head {
   display: flex;
   align-items: flex-start;
@@ -2328,7 +3233,7 @@ th.col-draggable {
 }
 .dataset-card:hover {
   z-index: 1;
-  border-color: var(--accent-border);
+  border-color: var(--selection-border);
   box-shadow: var(--shadow-2);
   transform: translateY(-1px);
 }
@@ -2339,7 +3244,7 @@ th.col-draggable {
 }
 .dataset-desc {
   display: block;
-  margin-top: 5px;
+  margin-top: 6px;
   color: var(--muted);
   font-size: 15px;
 }
@@ -2354,9 +3259,9 @@ th.col-draggable {
   font: 700 18px var(--sans);
 }
 .compare-count {
-  padding: 5px 8px;
+  padding: 6px 8px;
   border: 1px solid var(--strong);
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--surface-alt);
   color: var(--muted);
   font: 12px var(--mono);
@@ -2376,8 +3281,8 @@ th.col-draggable {
   font-size: 15px;
 }
 .tab.active {
-  border-bottom-color: var(--accent);
-  color: var(--accent);
+  border-bottom-color: var(--selection-border);
+  color: var(--selection-ink);
   font-weight: 700;
 }
 .table-shell {
@@ -2395,7 +3300,7 @@ th.col-draggable {
 }
 .table-shell th,
 .table-shell td {
-  padding: 15px 18px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--line);
   text-align: left;
 }
@@ -2422,7 +3327,7 @@ th.col-draggable {
 .col-draggable.is-dragging {
   z-index: 3;
   cursor: grabbing;
-  background: var(--accent-faint);
+  background: var(--selection-faint);
   box-shadow: var(--shadow-3);
   transition: none;
 }
@@ -2455,7 +3360,7 @@ th.col-draggable {
   margin-left: auto;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
   color: var(--quiet);
   font-size: 16px;
@@ -2466,7 +3371,7 @@ th.col-draggable {
     background 150ms ease;
 }
 .col-sort:hover {
-  background: var(--accent-soft);
+  background: var(--selection-soft);
 }
 .col-draggable:hover .col-sort,
 .col-sort:focus-visible,
@@ -2474,7 +3379,7 @@ th.col-draggable {
   opacity: 1;
 }
 .col-sort.is-active {
-  color: var(--accent);
+  color: var(--selection-ink);
 }
 .col-resize-handle {
   position: absolute;
@@ -2487,7 +3392,7 @@ th.col-draggable {
 }
 .col-resize-handle:hover,
 .col-resize-handle:active {
-  background: var(--accent-border);
+  background: var(--selection-border);
 }
 .example-row,
 .experiment-row {
@@ -2509,7 +3414,7 @@ th.col-draggable {
 .compare-grid {
   display: grid;
   grid-template-columns: 1.35fr 0.9fr;
-  gap: 15px;
+  gap: 16px;
   margin-bottom: 22px;
 }
 .chart-card {
@@ -2523,7 +3428,7 @@ th.col-draggable {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 15px;
+  gap: 16px;
 }
 .chart-head h2 {
   font-size: 16px;
@@ -2537,8 +3442,9 @@ th.col-draggable {
   height: 36px;
   max-width: 200px;
   border: 1px solid var(--strong);
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--surface);
+  color: var(--ink);
   font-size: 14px;
 }
 .bar-chart {
@@ -2609,7 +3515,7 @@ th.col-draggable {
   position: relative;
   width: 22px;
   min-height: 4px;
-  border-radius: 5px 5px 0 0;
+  border-radius: 6px 6px 0 0;
   background: var(--series-1);
 }
 .bar.c1 {
@@ -2673,8 +3579,8 @@ th.col-draggable {
   display: inline-block;
   width: 8px;
   height: 8px;
-  margin-right: 5px;
-  border-radius: 2px;
+  margin-right: 6px;
+  border-radius: 6px;
   background: var(--series-1);
 }
 .legend-color.c1 {
@@ -2702,7 +3608,7 @@ th.col-draggable {
   width: 262px;
   padding: 12px;
   border: 1px solid var(--strong);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow-3);
 }
@@ -2902,10 +3808,13 @@ th.col-draggable {
   .surface-traces .lf-wordmark {
     font-size: 0;
   }
+  /* 상자만 줄이면 png 여백까지 같이 줄어 깃털이 제 몫보다 작아진다. 여백을
+     걷는 음수 여백도 함께 줄인다 — 깃털 22px = 38 x 602/1024. */
   .surface-overview .lf-mark,
   .surface-traces .lf-mark {
-    width: 25px;
-    height: 25px;
+    width: 38px;
+    height: 38px;
+    margin: -7px -9px -9px;
   }
   .lf-nav-link {
     padding: 0 10px;
@@ -2926,10 +3835,10 @@ th.col-draggable {
     grid-template-columns: 1fr;
   }
   .traffic-board {
-    gap: 15px;
+    gap: 16px;
   }
   .traffic-card-head {
-    padding: 14px 15px;
+    padding: 14px 16px;
   }
   .chart-frame {
     padding-right: 12px;
@@ -2958,7 +3867,7 @@ th.col-draggable {
     top: 65px;
   }
   .drawer-body {
-    padding: 15px;
+    padding: 16px;
   }
   .runtime-graph {
     height: 400px;

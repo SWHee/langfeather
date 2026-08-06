@@ -64,6 +64,8 @@ export interface TraceListItem {
   observation_count: number;
   input_preview: string;
   output_preview: string;
+  total_tokens: number | null;
+  time_to_first_token_us: number | null;
 }
 
 export interface TraceListResponse {

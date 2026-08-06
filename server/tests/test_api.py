@@ -263,6 +263,112 @@ def test_list_is_latest_first_and_excludes_full_payload(
     assert {"input", "output", "error", "metadata"}.isdisjoint(body["items"][0])
 
 
+def test_list_preview_prefers_the_last_langchain_message_before_truncating(
+    api: tuple[TestClient, Path],
+) -> None:
+    client, _ = api
+    envelope = make_envelope()
+    envelope["trace"]["input"] = {
+        "messages": [
+            {
+                "__type__": "langchain_core.messages.human.HumanMessage",
+                "fields": {
+                    "content": "은행이 파산하면 예금은 얼마나 보호되나요?",
+                    "type": "human",
+                    "response_metadata": {},
+                },
+            }
+        ],
+        "streaming": True,
+    }
+    envelope["trace"]["output"] = {
+        "messages": [
+            {
+                "__type__": "langchain_core.messages.human.HumanMessage",
+                "fields": {"content": "이전 질문", "type": "human"},
+            },
+            {
+                "__type__": "langchain_core.messages.ai.AIMessage",
+                "fields": {
+                    "content": "최대 5천만원까지 보호됩니다.",
+                    "type": "ai",
+                    "response_metadata": {"noise": "x" * 400},
+                },
+            },
+        ]
+    }
+
+    stored = client.post("/api/v1/traces/batch", json={"items": [envelope]})
+    response = client.get("/api/v1/traces")
+
+    assert stored.json()["results"][0]["status"] == "stored"
+    item = response.json()["items"][0]
+    assert item["input_preview"] == (
+        "human: 은행이 파산하면 예금은 얼마나 보호되나요?"
+    )
+    assert item["output_preview"] == "ai: 최대 5천만원까지 보호됩니다."
+
+
+def test_list_aggregates_complete_llm_tokens_and_trace_first_token(
+    api: tuple[TestClient, Path],
+) -> None:
+    client, _ = api
+    envelope = make_envelope()
+    first_llm = envelope["observations"][1]
+    first_llm["kind"] = "llm"
+    first_llm["time_to_first_token_us"] = 200_000
+    second_llm = copy.deepcopy(first_llm)
+    second_llm.update(
+        {
+            "observation_id": "obs_api_second_llm",
+            "sequence": 2,
+            "started_at": "2026-07-25T12:00:00.400000Z",
+            "ended_at": "2026-07-25T12:00:01.300000Z",
+            "duration_us": 900_000,
+            "time_to_first_token_us": 100_000,
+            "usage": {
+                "input_tokens": 5,
+                "output_tokens": 2,
+                "total_tokens": 7,
+                "provider": "test",
+                "raw": {},
+            },
+        }
+    )
+    envelope["observations"].append(second_llm)
+
+    stored = client.post("/api/v1/traces/batch", json={"items": [envelope]})
+    response = client.get("/api/v1/traces")
+
+    assert stored.json()["results"][0]["status"] == "stored"
+    item = response.json()["items"][0]
+    assert item["total_tokens"] == 26
+    assert item["time_to_first_token_us"] == 300_000
+
+
+def test_list_does_not_invent_a_partial_trace_token_total(
+    api: tuple[TestClient, Path],
+) -> None:
+    client, _ = api
+    envelope = make_envelope()
+    first_llm = envelope["observations"][1]
+    first_llm["kind"] = "llm"
+    second_llm = copy.deepcopy(first_llm)
+    second_llm.update(
+        {
+            "observation_id": "obs_api_second_llm",
+            "sequence": 2,
+            "usage": None,
+        }
+    )
+    envelope["observations"].append(second_llm)
+
+    client.post("/api/v1/traces/batch", json={"items": [envelope]})
+    item = client.get("/api/v1/traces").json()["items"][0]
+
+    assert item["total_tokens"] is None
+
+
 def test_list_filters_and_uses_an_exclusive_opaque_cursor(
     api: tuple[TestClient, Path],
 ) -> None:

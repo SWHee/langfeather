@@ -9,6 +9,12 @@ import {
 } from "react";
 
 import type { JsonValue, TraceStatus } from "./api/types";
+import { previewOf } from "./preview";
+import { useT, type Translate } from "./i18n/context";
+import { translate } from "./i18n/i18n";
+
+/** t를 넘기지 않은 호출부의 기본값. */
+const koT: Translate = (korean, params) => translate("ko", korean, params);
 
 export function formatDuration(durationUs: number | null | undefined): string {
   if (durationUs === null || durationUs === undefined) return "—";
@@ -17,11 +23,14 @@ export function formatDuration(durationUs: number | null | undefined): string {
   return `${(durationUs / 1_000_000).toFixed(durationUs < 10_000_000 ? 2 : 1)}s`;
 }
 
-export function formatDateTime(value: string | null | undefined): string {
+export function formatDateTime(
+  value: string | null | undefined,
+  locale = "ko-KR",
+): string {
   if (!value) return "—";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat(locale, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -41,16 +50,17 @@ export function formatClockTime(value: string): string {
   return `${month}/${day} ${hours12}:${minutes} ${period}`;
 }
 
-export function relativeTime(value: string): string {
+/** 호출부가 t를 넘긴다. 넘기지 않으면 한국어로 나온다. */
+export function relativeTime(value: string, t: Translate = koT): string {
   const elapsed = Date.now() - new Date(value).valueOf();
   if (!Number.isFinite(elapsed)) return value;
   const seconds = Math.max(0, Math.floor(elapsed / 1_000));
-  if (seconds < 60) return `${seconds}초 전`;
+  if (seconds < 60) return t("{n}초 전", {n: seconds});
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}분 전`;
+  if (minutes < 60) return t("{n}분 전", {n: minutes});
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}시간 전`;
-  return `${Math.floor(hours / 24)}일 전`;
+  if (hours < 24) return t("{n}시간 전", {n: hours});
+  return t("{n}일 전", {n: Math.floor(hours / 24)});
 }
 
 export function toLocalInput(iso: string): string {
@@ -80,16 +90,28 @@ export function jsonPreview(value: JsonValue | undefined | null): string {
   return text.length > 96 ? `${text.slice(0, 96)}…` : text;
 }
 
+/**
+ * input/output처럼 값만 읽으면 되는 payload의 목록용 요약. metadata에는 쓰지
+ * 않는다 — 거기서는 key 자체가 정보다. 읽어낼 값이 없으면 JSON으로 되돌린다.
+ */
+export function valuePreview(value: JsonValue | undefined | null): string {
+  // 없는 값은 "null"이 아니라 다른 빈 표기와 같은 —로 읽힌다.
+  if (value === null || value === undefined) return "—";
+  const text = previewOf(value);
+  if (text === "") return jsonPreview(value);
+  return text.length > 96 ? `${text.slice(0, 96)}…` : text;
+}
+
 export function deferState(callback: () => void): void {
   void Promise.resolve().then(callback);
 }
 
-export function statusLabel(status: TraceStatus): string {
+export function statusLabel(status: TraceStatus, t: Translate = koT): string {
   return status === "completed"
-    ? "성공"
+    ? t("성공")
     : status === "failed"
-      ? "실패"
-      : "취소";
+      ? t("실패")
+      : t("취소");
 }
 
 /* icon은 glyph 대신 SVG로 그린다. glyph는 font fallback에 따라 굵기와 정렬이
@@ -135,6 +157,15 @@ export function IconArrowRight() {
   );
 }
 
+/** 펼치기. 펼친 상태는 CSS가 180° 돌려서 나타낸다 — glyph를 바꾸지 않는다. */
+export function IconChevronDown() {
+  return (
+    <Icon>
+      <path d="M3.5 6 8 10.5 12.5 6" />
+    </Icon>
+  );
+}
+
 export function IconMore() {
   return (
     <Icon>
@@ -168,11 +199,12 @@ export function IconSort({ direction }: { direction?: SortDirection }) {
 }
 
 export function StatusDot({ status }: { status: TraceStatus }) {
+  const t = useT();
   return (
     <span
       className={`lf-status ${status === "failed" ? "is-error" : status === "cancelled" ? "is-cancelled" : ""}`}
     >
-      {statusLabel(status)}
+      {statusLabel(status, t)}
     </span>
   );
 }
@@ -187,10 +219,11 @@ export function JsonCode({
   return <pre className={`lf-code ${className}`.trim()}>{jsonText(value)}</pre>;
 }
 
-export function LoadingBlock({ label = "불러오는 중…" }: { label?: string }) {
+export function LoadingBlock({ label }: { label?: string }) {
+  const t = useT();
   return (
     <p className="lf-state" role="status">
-      {label}
+      {label ?? t("불러오는 중…")}
     </p>
   );
 }
@@ -202,12 +235,13 @@ export function ErrorBlock({
   message: string;
   onRetry?: () => void;
 }) {
+  const t = useT();
   return (
     <div className="lf-state is-error" role="alert">
       <p>{message}</p>
       {onRetry ? (
         <button className="lf-btn" type="button" onClick={onRetry}>
-          다시 시도
+          {t("다시 시도")}
         </button>
       ) : null}
     </div>
@@ -242,6 +276,7 @@ export function Modal({
   onClose: () => void;
   className?: string;
 }) {
+  const t = useT();
   const titleId = useId();
   useEscape(open, onClose);
   if (!open) return null;
@@ -265,7 +300,7 @@ export function Modal({
             className="lf-icon-btn"
             type="button"
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={t("닫기")}
           >
             <IconClose />
           </button>
@@ -296,12 +331,13 @@ export function Pagination({
   totalPages: number;
   onChange: (page: number) => void;
 }) {
+  const t = useT();
   return (
     <div className="pagination">
       <button
         className="lf-icon-btn"
         type="button"
-        aria-label="이전 페이지"
+        aria-label={t("이전 페이지")}
         disabled={page <= 1}
         onClick={() => onChange(Math.max(1, page - 1))}
       >
@@ -313,7 +349,7 @@ export function Pagination({
       <button
         className="lf-icon-btn"
         type="button"
-        aria-label="다음 페이지"
+        aria-label={t("다음 페이지")}
         disabled={page >= totalPages}
         onClick={() => onChange(Math.min(totalPages, page + 1))}
       >
@@ -517,6 +553,7 @@ export function ColumnHeaderCell({
   align?: "end";
   columns: ReorderableColumns;
 }) {
+  const t = useT();
   const isDragging = columns.dragId === id;
   const sortActive = columns.sort?.id === id;
   return (
@@ -536,7 +573,7 @@ export function ColumnHeaderCell({
         <button
           className={`col-sort${sortActive ? " is-active" : ""}`}
           type="button"
-          aria-label={`${label} 기준 정렬`}
+          aria-label={t("{label} 기준 정렬", {label})}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => columns.onSortToggle(id)}
         >

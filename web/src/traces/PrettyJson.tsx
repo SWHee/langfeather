@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 
 import type {JsonValue} from "../api/types";
 import {copyText} from "../components";
+import {useT} from "../i18n/context";
 
 function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2) ?? "null";
@@ -52,6 +53,7 @@ function JsonTree({value, depth = 0}: {value: JsonValue; depth?: number}) {
 }
 
 export function JsonSection({title, value}: {title: string; value: unknown}) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -77,7 +79,7 @@ export function JsonSection({title, value}: {title: string; value: unknown}) {
           void copyText(formatJson(value)).then(() => setCopied(true));
         }}
       >
-        {copied ? "복사됨" : "복사"}
+        {copied ? t("복사됨") : t("복사")}
       </button>
       <div className="json-tree" aria-label={`${title} JSON`}>
         <JsonTree value={value as JsonValue} />

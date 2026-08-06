@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { setViewportMatches } from "./test/setup";
 
 const api = vi.hoisted(() => ({
   addAnnotationQueueItems: vi.fn(),
@@ -53,6 +54,8 @@ const trace = {
   observation_count: 1,
   input_preview: "청년 정책 알려줘",
   output_preview: "지원 조건을 확인하세요.",
+  total_tokens: 1_374,
+  time_to_first_token_us: 2_960_000,
 };
 
 const score = {
@@ -205,6 +208,15 @@ function mockDefaults() {
   api.updateScore.mockResolvedValue(score);
 }
 
+/**
+ * 기본 진입은 Overview다. Traces를 보는 test는 진입 URL을 직접 정해
+ * navigation 클릭 한 단계를 줄인다.
+ */
+function renderTraces() {
+  window.history.replaceState(null, "", "/?view=traces");
+  return render(<App />);
+}
+
 beforeEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset());
   mockDefaults();
@@ -212,43 +224,42 @@ beforeEach(() => {
 });
 
 describe("V2 presentation", () => {
-  it("keeps the six V2 surfaces and opens a trace investigation drawer", async () => {
+  it("keeps the four V2 surfaces and opens a trace investigation drawer", async () => {
     const user = userEvent.setup();
     render(<App />);
 
+    // 기본 진입은 Overview다.
     await screen.findByRole("heading", { name: "Overview" });
     expect(screen.getByRole("button", { name: "Overview" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Traces" })).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Annotation Queues" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Evaluate" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    // 기획서 05절: dataset 안에 다시 탭을 두지 않고 세그먼트 넷으로 편다.
+    expect(screen.getByRole("button", { name: "Examples" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Experiments" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Queues" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Scores" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Evaluation" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Setting" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Traces" }));
     await screen.findByRole("heading", { name: "Traces" });
-    await user.click(await screen.findByText("tr_001"));
+    await user.click((await screen.findAllByText("tr_001"))[0]);
+    // 상세는 목록을 덮지 않으므로 dialog가 아니다.
     expect(
-      await screen.findByRole("dialog", { name: "Policy answer" }),
+      await screen.findByRole("complementary", { name: "Trace 상세" }),
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "+ Add scores" }));
     await user.click(screen.getByRole("checkbox", { name: /정확성/ }));
     await user.click(screen.getByRole("button", { name: "추가" }));
     expect(screen.getByText("정확성")).toBeVisible();
-    await user.keyboard("{Escape}");
-    await waitFor(() =>
-      expect(screen.getByRole("dialog", { hidden: true })).toHaveAttribute(
-        "aria-hidden",
-        "true",
-      ),
-    );
   });
 
   it("opens an Overview recent trace drawer from click and Enter, then restores its trigger", async () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Overview" }));
     const row = await screen.findByRole("button", {
       name: "tr_001 상세 열기",
     });
@@ -292,16 +303,16 @@ describe("V2 presentation", () => {
     await waitFor(() => expect(row).toHaveFocus());
   });
 
-  it("closes the Add to queue picker and its parent action state before closing the drawer", async () => {
+  it("closes the Add to queue picker and resets its parent action state", async () => {
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Traces" }));
-    await screen.findByText("tr_001");
+    await screen.findAllByText("tr_001");
     expect(screen.getByText("지원 조건을 확인하세요.")).toBeInTheDocument();
     expect(screen.queryByText("상세에서 확인")).toBeNull();
-    await user.click(screen.getByText("tr_001"));
-    await screen.findByRole("dialog", { name: "Policy answer" });
+    await user.click(screen.getAllByText("tr_001")[0]);
+    await screen.findByRole("complementary", { name: "Trace 상세" });
 
     const actionButton = screen.getByRole("button", { name: "Trace 작업" });
     await user.click(actionButton);
@@ -318,20 +329,16 @@ describe("V2 presentation", () => {
       expect(actionButton).toHaveAttribute("aria-expanded", "false");
     });
 
+    // 상세는 단이라 닫히지 않는다 — Escape가 목록을 비우지 않는다.
     await user.keyboard("{Escape}");
-    const traceRow = screen.getByText("tr_001").closest("tr");
-    await waitFor(() => {
-      expect(document.querySelector(".trace-drawer")).toHaveAttribute(
-        "aria-hidden",
-        "true",
-      );
-      expect(traceRow).toHaveFocus();
-    });
+    expect(
+      screen.getByRole("complementary", { name: "Trace 상세" }),
+    ).toBeVisible();
   });
 
   it("uses the V2 four-field Traces toolbar while retaining relative-period API bounds", async () => {
     const user = userEvent.setup();
-    render(<App />);
+    renderTraces();
 
     await user.click(screen.getByRole("button", { name: "Traces" }));
     const search = await screen.findByRole("searchbox", { name: "검색" });
@@ -349,7 +356,7 @@ describe("V2 presentation", () => {
 
     await user.selectOptions(period, "24h");
     await user.click(within(form).getByRole("button", { name: "적용" }));
-    await waitFor(() => expect(api.getTraces).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(api.getTraces).toHaveBeenCalledTimes(2));
     const query = api.getTraces.mock.calls.at(-1)?.[0];
     expect(query).toEqual(
       expect.objectContaining({
@@ -365,6 +372,7 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
     await user.click(screen.getByRole("button", { name: "Scores" }));
     await screen.findByRole("button", { name: "+ New Score" });
     await user.click(screen.getByRole("button", { name: "+ New Score" }));
@@ -384,7 +392,8 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Annotation Queues" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    await user.click(screen.getByRole("button", { name: "Queues" }));
     await user.click(await screen.findByRole("button", { name: "+ New Queue" }));
     await user.type(screen.getByRole("textbox", { name: "이름" }), "릴리스 검토");
     await user.click(screen.getByRole("button", { name: "생성" }));
@@ -396,7 +405,7 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Setting" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     await user.type(
       screen.getByRole("textbox", { name: "계속하려면 RESET 입력" }),
       "RESET",
@@ -432,7 +441,7 @@ describe("V2 presentation", () => {
       .mockRejectedValueOnce(new Error("write failed"));
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Evaluation" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
     await user.click(
       await screen.findByRole("button", { name: /Youth policy/ }),
     );
@@ -474,21 +483,241 @@ describe("V2 presentation", () => {
     ]);
   });
 
-  it("opens the V2 evaluation detail and keeps its two source tabs", async () => {
+  it("Evaluate는 세그먼트 넷이고 dataset context는 그 위에 남는다", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Evaluation" }));
+    await user.click(screen.getByRole("button", { name: "Evaluate" }));
+    // 기본 세그먼트는 Examples이고, dataset을 고르기 전에는 목록이 그 자리에 온다.
+    expect(screen.getByRole("button", { name: "Examples" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await user.click(
       await screen.findByRole("button", { name: /Youth policy/ }),
     );
+
+    // 고른 dataset은 세그먼트를 옮겨도 계속 보인다 — 이중 구조를 편 이유다.
+    const context = await screen.findByRole("region", { name: "Dataset" });
+    expect(within(context).getByText("Youth policy")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Experiments" }));
+    expect(screen.getByRole("button", { name: "Experiments" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     expect(
-      await screen.findByRole("tab", { name: "Examples" }),
-    ).toHaveAttribute("aria-selected", "true");
-    await user.click(screen.getByRole("tab", { name: "Experiments" }));
-    expect(screen.getByRole("tab", { name: "Experiments" })).toHaveAttribute(
-      "aria-selected",
+      within(
+        await screen.findByRole("region", { name: "Dataset" }),
+      ).getByText("Youth policy"),
+    ).toBeVisible();
+
+    // context bar에서 다른 dataset으로 돌아갈 수 있다.
+    await user.click(screen.getByRole("button", { name: "Dataset 바꾸기" }));
+    expect(
+      await screen.findByRole("button", { name: /Youth policy/ }),
+    ).toBeVisible();
+  });
+
+  it("테마는 light와 dark 둘뿐이고 고른 값이 남는다", async () => {
+    const user = userEvent.setup();
+    localStorage.clear();
+    render(<App />);
+
+    const theme = screen.getByRole("group", { name: "테마" });
+    // 고른 적이 없으면 OS 설정을 따른다. test 환경은 light다.
+    expect(within(theme).getByRole("button", { name: "라이트" })).toHaveAttribute(
+      "aria-pressed",
       "true",
     );
+    expect(within(theme).queryByRole("button", { name: "시스템" })).toBeNull();
+
+    await user.click(within(theme).getByRole("button", { name: "다크" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("langfeather.theme")).toBe("dark");
+  });
+
+  describe("Traces 3분할", () => {
+    it("넓은 화면에서는 detail이 dialog가 아니라 목록 옆 pane이다", async () => {
+      setViewportMatches(true);
+      renderTraces();
+
+      // 비어 있는 두 칸을 보여주지 않는다 — 첫 trace가 자동 선택된다.
+      await waitFor(() =>
+        expect(new URLSearchParams(window.location.search).get("trace")).toBe(
+          "tr_001",
+        ),
+      );
+      const pane = await screen.findByRole("complementary", {
+        name: "Trace 상세",
+      });
+      expect(pane).toBeVisible();
+      expect(pane).not.toHaveAttribute("aria-modal");
+      // pane은 닫는 것이 아니라 자리를 차지한다.
+      expect(
+        within(pane).queryByRole("button", { name: "상세 닫기" }),
+      ).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Policy answer" })).toBeNull();
+    });
+
+    it("넓은 화면의 목록은 표가 아니라 name과 메타를 담은 카드다", async () => {
+      setViewportMatches(true);
+      renderTraces();
+
+      // 기획서 05절 스케치의 왼쪽 단. 표는 280–360px에 들어가지 않는다.
+      const list = await screen.findByRole("region", { name: "Trace 목록" });
+      expect(within(list).queryByRole("table")).toBeNull();
+      const card = within(list).getByRole("button", { name: /Policy answer/ });
+      // 표에는 없던 trace name이 제목이고, 메타 줄에 시각·지연·obs 수가 온다.
+      expect(within(card).getByText("Policy answer")).toBeVisible();
+      expect(within(card).getByText(/1\.00s/)).toBeVisible();
+      expect(within(card).getByText(/Tokens 1,374/)).toBeVisible();
+      expect(within(card).getByText(/First token 2\.96s/)).toBeVisible();
+      // 스케치의 카드는 두 줄이다. ID는 펼쳤을 때만 나온다.
+      expect(within(card).queryByText("tr_001")).toBeNull();
+      // 선택은 그대로 남는다 — 카드로 바꾸며 bulk action을 잃지 않는다.
+      expect(
+        within(card).getByRole("checkbox", { name: "tr_001 선택" }),
+      ).toBeVisible();
+    });
+
+    it("없는 token과 first token을 0으로 꾸미지 않는다", async () => {
+      api.getTraces.mockResolvedValue({
+        items: [
+          {
+            ...trace,
+            total_tokens: null,
+            time_to_first_token_us: null,
+          },
+        ],
+        next_cursor: null,
+        total_count: 1,
+      });
+      setViewportMatches(true);
+      renderTraces();
+
+      const list = await screen.findByRole("region", { name: "Trace 목록" });
+      const card = within(list).getByRole("button", { name: /Policy answer/ });
+      expect(within(card).queryByText(/Tokens/)).toBeNull();
+      expect(within(card).queryByText(/First token/)).toBeNull();
+    });
+
+    it("bulk action은 목록 안 선택 바에 있고 카드를 가리지 않는다", async () => {
+      const user = userEvent.setup();
+      setViewportMatches(true);
+      renderTraces();
+
+      const list = await screen.findByRole("region", { name: "Trace 목록" });
+      // 선택 전에는 action이 없다.
+      expect(screen.queryByRole("button", { name: "Queue에 추가" })).toBeNull();
+
+      await user.click(
+        within(list).getByRole("checkbox", { name: "모든 trace 선택" }),
+      );
+      // 목록 안이지 page header가 아니다 — header에 두면 340px 단에서 잘렸다.
+      expect(
+        within(list).getByRole("button", { name: "Queue에 추가" }),
+      ).toBeVisible();
+      expect(
+        within(list).getByRole("button", { name: "Dataset에 추가" }),
+      ).toBeVisible();
+      expect(within(list).getByText("1개 선택")).toBeVisible();
+    });
+
+    it("카드를 하나씩 펼쳐 input/output을 목록에서 바로 읽는다", async () => {
+      const user = userEvent.setup();
+      api.getTraces.mockResolvedValue({
+        items: [
+          {
+            ...trace,
+            input_preview: "human: 청년 정책 알려줘",
+            output_preview: "ai: 지원 조건을 확인하세요.",
+          },
+        ],
+        next_cursor: null,
+        total_count: 1,
+      });
+      setViewportMatches(true);
+      renderTraces();
+
+      const list = await screen.findByRole("region", { name: "Trace 목록" });
+      const toggle = within(list).getByRole("button", {
+        name: "tr_001 미리보기",
+      });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      expect(within(list).queryByText("청년 정책 알려줘")).toBeNull();
+
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      expect(within(list).getByText("청년 정책 알려줘")).toBeVisible();
+      expect(within(list).getByText("지원 조건을 확인하세요.")).toBeVisible();
+      expect(within(list).queryByText("tr_001")).toBeNull();
+      expect(within(list).queryByText(/^human:/)).toBeNull();
+      expect(within(list).queryByText(/^ai:/)).toBeNull();
+
+      // 펼쳐도 카드 선택으로 새지 않는다.
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("목록을 접으면 다시 펼 버튼만 남는다", async () => {
+      const user = userEvent.setup();
+      setViewportMatches(true);
+      renderTraces();
+
+      await screen.findByRole("region", { name: "Trace 목록" });
+      const collapse = screen.getByRole("button", { name: "목록 접기" });
+      expect(collapse).toHaveAttribute("aria-expanded", "true");
+
+      await user.click(collapse);
+      // 되돌릴 버튼이 남아야 한다. 폭을 0으로 줄이면 이것까지 사라진다.
+      const expand = screen.getByRole("button", { name: "목록 펼치기" });
+      expect(expand).toHaveAttribute("aria-expanded", "false");
+
+      await user.click(expand);
+      expect(
+        screen.getByRole("button", { name: "목록 접기" }),
+      ).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("좁은 화면에서는 표로 돌아가 열 순서와 정렬을 계속 쓴다", async () => {
+      setViewportMatches(false);
+      renderTraces();
+
+      const list = await screen.findByRole("region", { name: "Trace 목록" });
+      expect(within(list).getByRole("table")).toBeVisible();
+    });
+
+    it("좁은 화면에서는 drawer 대신 단 전환으로 목록/그래프/검사기를 오간다", async () => {
+      const user = userEvent.setup();
+      renderTraces();
+
+      const paneSwitch = await screen.findByRole("navigation", {
+        name: "단 전환",
+      });
+      // 처음에는 목록 단이고, 고를 trace가 없으면 나머지 단은 못 간다.
+      expect(
+        within(paneSwitch).getByRole("button", { name: "목록" }),
+      ).toHaveAttribute("aria-current", "true");
+
+      // 자동 선택은 좁은 화면에서도 일어난다 — 단 전환이 목록을 가리지 않는다.
+      await waitFor(() =>
+        expect(new URLSearchParams(window.location.search).get("trace")).toBe(
+          "tr_001",
+        ),
+      );
+
+      await user.click(
+        within(paneSwitch).getByRole("button", { name: "실행 흐름" }),
+      );
+      const pane = await screen.findByRole("complementary", {
+        name: "Trace 상세",
+      });
+      expect(pane).not.toHaveAttribute("aria-modal");
+      // 단이지 dialog가 아니므로 닫기 버튼이 없다.
+      expect(
+        within(pane).queryByRole("button", { name: "상세 닫기" }),
+      ).toBeNull();
+    });
   });
 });

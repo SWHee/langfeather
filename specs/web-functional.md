@@ -14,14 +14,74 @@ data 의미는 `specs/data-contract.md`가 우선한다.
 
 - 제품명은 `LangFeather`다.
 - 사용자는 local collector를 혼자 사용하는 Python 개발자다.
-- top-level 기능은 Overview, Traces, Annotation Queues, Scores, Evaluation, Local
-  Data 여섯 개다.
-- 기본 진입 기능은 Overview다.
+- top-level 기능은 Overview, Traces, Evaluate, Settings 네 개다.
+- 기본 진입 기능은 Overview다. 기획서 04절은 Traces를 기본으로 적었지만, 써 보고
+  나서 기간 추이를 먼저 보고 들어가는 쪽으로 되돌렸다. 되돌리는 비용은 `url.ts`의
+  `DEFAULT_VIEW` 한 곳이다.
+- 네 기능이 흡수하는 화면은 다음과 같다. 화면의 기능 자체는 바뀌지 않고 어디에서
+  접근하는지만 바뀐다.
+
+| top-level | 흡수하는 화면 | 내부 구성 |
+| --- | --- | --- |
+| Traces | Traces | 목록, 실행 graph, payload (3분할) |
+| Overview | Overview | 기간 filter, chart board, 최근 trace |
+| Evaluate | Evaluation, Annotation Queues, Scores | Examples / Experiments / Queues / Scores 세그먼트 |
+| Settings | Local Data | 백업, 초기화 |
+
+- Evaluate의 세그먼트는 넷이다. dataset 안에 다시 탭을 두면 같은 여정이 두 겹으로
+  갈라지므로, Examples와 Experiments를 세그먼트로 올린다. 어느 dataset을 보고
+  있는지는 상단의 dataset context bar가 계속 알리고, 거기서 다른 dataset으로
+  바꾼다. dataset을 고르기 전에는 그 자리에 dataset 목록이 온다.
+- dataset을 가로지르는 experiment 목록은 지금 없는 표면이므로 이 재편에 포함하지
+  않는다. Experiments 세그먼트도 선택된 dataset의 experiment만 보여준다.
+  재편은 되돌릴 수 있어야 하고, 되돌릴 때 신규 기능이 함께 사라지면 안 된다.
 - server-side evaluator 실행, login, RBAC, multi-project 전환 UI를 추가하지 않는다.
 - raw payload를 자동 redact, truncate, summarize, sample하지 않는다.
 - UI는 callback/runtime evidence가 없는 graph edge를 만들어내지 않는다.
+- 목록에 payload를 보여줄 때는 값만 남긴다. 서버가 보내는 preview는 JSON을 그대로
+  직렬화한 구조가 아니라 원본에서 마지막 message content를 우선 읽은 한 줄 요약이다.
+  원문은 검사기의 Input/Output 탭에 그대로 있으므로 목록에서 접어도 잃는 정보가 없다.
+  message 구조가 아니면 일반 JSON leaf 값을 순서대로 보여준다. metadata는 예외다 —
+  거기서는 key 자체가 정보다.
 - 사용자에게 보이는 주요 문구는 Korean-first를 유지하되 기술 명칭과 API field는
   필요에 따라 영어를 쓸 수 있다.
+- 사용자는 light와 dark theme을 전환할 수 있다. 아래 "theme 전환"을 따른다.
+
+### 언어 전환
+
+- 상단 bar 오른쪽, theme 전환 옆에 언어 전환 control을 둔다. 둘 다 "내용"이 아니라
+  "보는 방식"에 대한 설정이므로 한 묶음이다.
+- 선택지는 한국어와 English 둘이고 기본은 한국어다. 저장 위치와 실패 시 동작은
+  `web-interaction-contract.md`의 "client 저장 state"를 따른다.
+- **기술 용어는 번역하지 않는다.** trace, observation, session, dataset, example,
+  experiment, evaluator, score, annotation, queue, retriever, tool, chain,
+  runnable, payload, input/output, metadata, revision, snapshot, latency, p95,
+  kind, status는 한국어 문장 안에서도 영어 원어로 둔다. API field와 SDK 함수와의
+  연결이 끊기면 디버깅 도구로서 쓸모가 없다.
+- **번역하는 것**은 사용자가 행동하거나 상태를 이해하기 위한 문구다. 버튼 동사,
+  상태 문구, 오류 메시지, 확인 대화의 설명, 빈 화면 안내, 화면 제목.
+- **사용자 데이터는 어느 쪽도 아니다.** trace name, session ID, dataset 이름,
+  JSON payload, evaluator key는 언어를 바꿔도 손대지 않는다. 화면에 보이는 값과
+  저장된 값이 달라지는 순간 디버깅 도구로서 신뢰를 잃는다.
+- 영어 라벨은 한국어보다 길다("완료" 2자 -> "Complete" 8자). 버튼, 표 header, 탭에
+  고정 px 폭을 쓰지 않는다.
+- 번역이 없는 문구는 한국어로 남는다. 화면이 깨지는 것보다 낫다.
+
+### theme 전환
+
+- 상단 bar 오른쪽에 theme 전환 control을 둔다. 어느 기능에서도 화면을 옮기지 않고
+  전환할 수 있다. 값이 둘뿐이므로 목록을 여는 select가 아니라 두 값을 모두 보여주는
+  전환 control을 쓴다. 언어 전환도 같다.
+- 선택지는 `light`와 `dark` 둘이다. 고른 적이 없으면 `prefers-color-scheme`으로
+  첫 값을 정한다. 셋 중 하나를 고르게 하면 `system`이 무엇으로 보일지 고르기 전에는
+  알 수 없어, 값이 둘뿐인 전환보다 판단이 한 단계 더 든다.
+- 선택은 기기에 저장되어 새로고침과 탭 이동 뒤에도 유지된다. 저장 위치와 실패 시
+  동작은 `web-interaction-contract.md`의 "client 저장 state"를 따른다.
+- theme은 색만 바꾼다. 기능, 문구, layout, 컬럼 폭, 표의 정보량은 바뀌지 않는다.
+- 두 theme 모두에서 text는 배경 대비 4.5:1, chart series와 상태 표시는 3:1을
+  만족한다. 눈으로 확인하지 않고 `make check-contrast`로 검증한다.
+- 색만으로 의미를 전달하는 표시를 새로 만들지 않는다. dark에서 색이 눌려도 상태를
+  읽을 수 있어야 한다.
 
 ### 표 공통 동작
 
@@ -100,6 +160,11 @@ state를 제공한다.
 - loading, filtered/unfiltered empty, error, retry 상태를 구분한다.
 - 컬럼 순서/폭 조절, 정렬은 "표 공통 동작"을 따른다. 수집 시각 컬럼은 상대 시간이
   아니라 `MM/DD H:MM AM/PM` 형식의 정확한 시각을 보여준다.
+- 넓은 화면의 trace 카드에는 provider가 제공한 trace 전체 token 합계와 trace 시작
+  기준 first token 시간을 값이 있을 때만 보여준다. 누락된 값은 0으로 채우지 않는다.
+- trace 카드를 펼치면 ID를 반복하지 않고 input/output message의 앞부분만 한 줄로
+  보여준다. `human:`과 `ai:` 역할 접두어는 걷어내며 전체 원문은 오른쪽 detail에서
+  확인한다.
 
 ### 선택과 deep link
 
@@ -112,8 +177,24 @@ state를 제공한다.
 - trace가 session에 속하면 detail header에 해당 session 안에서의 위치를
   `N / M`(N번째 trace, 총 M개)으로 보여주고, 이전/다음 버튼으로 같은 session의
   다른 trace로 이동한다. session이 없으면 `1 / 1`이며 이동 버튼은 비활성이다.
-- detail popup은 왼쪽 가장자리를 드래그해 420px에서 1300px까지 폭을 조절할 수
-  있다.
+- 넓은 화면에서는 detail이 목록을 덮지 않는다. 목록과 detail이 좌우로 자리를
+  나누고, 그 안에서 실행 graph와 payload가 다시 좌우로 나뉘어 **목록 / graph /
+  payload 3분할**이 된다. 디버깅은 목록과 상세를 계속 오가는 작업이라 덮으면
+  맥락이 끊긴다.
+- 목록은 280–360px이다. 이 화면의 주인공은 목록이 아니라 실행 증거이므로 남는
+  폭은 graph와 payload가 나눠 갖는다. 목록을 접으면 graph와 payload가 화면을 다
+  쓰고, 접고 펴는 동안 폭이 흐른다.
+- 3분할의 두 단 사이에는 고랑을 두고 오른쪽 단도 하나의 판으로 그린다. 두 단의
+  폭은 사용자가 조절하지 않는다 — 범위가 이미 좁아 조절할 여지가 없고, 경계에
+  걸린 handle은 무엇을 끄는지 알 수 없었다.
+- **좁은 화면에서도 detail은 목록을 덮지 않는다.** 3분할 대신 목록 / 실행 흐름 /
+  검사기 세 단을 하나씩 보여주고 상단에 단 전환 control을 둔다. 덮으면 맥락이
+  끊기는 것은 넓은 화면과 같다. trace를 고르면 실행 흐름 단으로 넘어간다.
+- 어느 폭에서도 detail은 dialog가 아니다. 닫을 것이 없으므로 닫기 버튼을 두지
+  않고, 목록으로 돌아가는 길은 단 전환이다.
+- `trace`가 지정되지 않았다면 목록의 첫 trace를 자동으로 선택한다. 기본 진입이
+  Traces인 이유가 방금 돌린 실행을 보기 위해서다. 좁은 화면에서도 목록 단에
+  머무르므로 자동 선택이 목록을 가리지 않는다.
 
 ### detail
 
@@ -158,6 +239,55 @@ state를 제공한다.
 - 실패 payload가 structured diagnostic이면 error type, message, 마지막 traceback
   frame을 요약하되 전체 raw error도 계속 접근 가능해야 한다.
 - payload가 매우 길어도 browser main thread를 불필요하게 막지 않아야 한다.
+
+### Retrieval view
+
+`kind`가 `retriever`인 observation은 일반 JSON tree 대신 검색 결과를 읽는 화면을
+보여준다. RAG 디버깅의 질문은 "어떤 문서가 몇 점으로 검색됐고, 그중 무엇이 실제로
+답변에 쓰였나"인데 JSON을 펼쳐서는 답이 나오지 않는다. 저장된 payload를 다르게
+그리는 것뿐이고 SDK, 서버, API, DB schema는 바뀌지 않는다.
+
+- output이 array면 각 항목을 rank 순서대로 문서 카드로 보여준다. rank는 array
+  순서다.
+- 카드는 본문 snippet을 보여주고, score와 source는 payload에 있을 때만 보여준다.
+  없는 값을 추정해서 채우지 않는다.
+- 문서 본문은 `page_content`, `text`, `content` 중 있는 것을 쓰고, 항목이 문자열
+  자체면 그 문자열을 쓴다. 어느 것도 아니면 그 항목은 카드로 만들지 않는다.
+- score는 `score`, `relevance_score`, `metadata.score` 중 있는 것을 쓴다.
+  source는 `metadata.source`, `metadata.file_path`, `id` 중 있는 것을 쓴다.
+- 같은 trace 안에서 이 observation보다 뒤에 실행된 `llm` observation의 input에
+  문서 본문이 포함되어 있으면 "답변에 사용됨" 배지를 붙인다. 판정은 문자열
+  대조이며, **대조할 하류 llm input을 얻지 못하면 어떤 카드에도 배지를 붙이지
+  않는다.** 근거 없이 추론하지 않는다.
+- 배지를 붙일 수 있을 때만 "N건 중 M건이 답변에 사용됨" 요약 한 줄을 보여준다.
+- output이 array가 아니거나 카드로 만들 항목이 없으면 일반 JSON tree로 되돌린다.
+- 원문 JSON은 `Input`/`Output` 탭에서 계속 볼 수 있어야 한다. 다르게 그리는
+  것이지 가리는 것이 아니다.
+- 문서 본문 중 하류 llm input에 그대로 실린 구간은 하이라이트한다. 대조로 확인한
+  만큼만 칠하고, 어림잡아 넓히지 않는다.
+
+### graph 상세 수준
+
+- runtime graph는 요약과 전체를 전환할 수 있다. 요약은 root의 직계와 dispatch만
+  그리고, 전체는 모든 observation을 그린다.
+- LangGraph 앱에서 실제 `llm`과 `tool` 실행은 node보다 깊이 있다. 전체로 바꿀 수
+  없으면 그 payload를 아예 선택할 수 없고 kind별 renderer에 닿지 못한다.
+- 기본은 요약이다. 처음 열었을 때 실행 흐름이 한눈에 들어와야 한다.
+
+### kind별 renderer
+
+`retriever` 외에 `llm`과 `tool`도 전용 renderer를 가진다. Retrieval view와 같은
+원칙이다 — 저장된 payload를 다르게 그릴 뿐이고, 읽어낼 수 없으면 일반 JSON tree로
+되돌리며, 원문은 `Input`/`Output` 탭에서 계속 볼 수 있다.
+
+- `llm`: prompt를 message 역할별로 나눠 보여준다. 역할은 `system`, `human`,
+  `ai`, `tool`이며 payload의 message type에서 읽는다. content가 block 배열이면
+  text block만 이어 붙인다. 응답 text와 token 수(input/output/total)를 함께
+  보여준다. token 수는 payload에 있을 때만 보여준다.
+- `tool`: 호출을 `name(arg=value, ...)` 시그니처 한 줄로 보여주고 반환값을 그
+  아래에 둔다. 반환값이 JSON 문자열이면 파싱해서 보여주되 파싱에 실패하면
+  문자열 그대로 둔다.
+- 어느 쪽도 값을 추정해 채우지 않는다. 없는 token 수를 0으로 표시하지 않는다.
 
 ### trace action
 

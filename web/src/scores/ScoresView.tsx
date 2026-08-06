@@ -33,6 +33,7 @@ import {
   type ReorderableColumnDef,
   useReorderableColumns,
 } from "../components";
+import { useT } from "../i18n/context";
 
 type LoadState = "loading" | "success" | "error";
 
@@ -127,6 +128,7 @@ function payload(form: FormState): ScoreCreateRequest {
 }
 
 export function ScoresView() {
+  const t = useT();
   const [scores, setScores] = useState<ScoreConfig[]>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState("");
@@ -268,9 +270,9 @@ export function ScoresView() {
         <input
           className="search"
           type="search"
-          aria-label="Score 검색"
+          aria-label={t("Score 검색")}
           value={search}
-          placeholder="Score 검색"
+          placeholder={t("Score 검색")}
           onChange={(event) => setSearch(event.target.value)}
         />
         {selectedIds.length ? (
@@ -298,21 +300,21 @@ export function ScoresView() {
             </button>
           </div>
         ) : null}
-        <span className="count">{visible.length}개</span>
+        <span className="count">{t("{n}개", {n: visible.length})}</span>
       </div>
       {mutationError && !formOpen ? (
-        <p className="mutation-status is-error">{mutationError}</p>
+        <p className="mutation-status is-error">{t(mutationError)}</p>
       ) : null}
       <div className="table-shell">
         {state === "loading" ? (
-          <LoadingBlock label="Scores를 불러오는 중…" />
+          <LoadingBlock label={t("Scores를 불러오는 중…")} />
         ) : state === "error" ? (
           <ErrorBlock
-            message={error}
+            message={t(error)}
             onRetry={() => setRetry((value) => value + 1)}
           />
         ) : visible.length === 0 ? (
-          <EmptyBlock>검색 결과가 없습니다.</EmptyBlock>
+          <EmptyBlock>{t("검색 결과가 없습니다.")}</EmptyBlock>
         ) : (
           <table>
             <SelectColGroup columns={columns} />
@@ -321,7 +323,7 @@ export function ScoresView() {
                 <th className="select-col">
                   <input
                     type="checkbox"
-                    aria-label="모든 score 선택"
+                    aria-label={t("모든 score 선택")}
                     checked={
                       visible.length > 0 &&
                       visible.every((score) =>
@@ -367,7 +369,7 @@ export function ScoresView() {
                     <span
                       className={`score-state${score.archived_at ? " is-archived" : ""}`}
                     >
-                      {score.archived_at ? "보관됨" : "사용 중"}
+                      {score.archived_at ? t("보관됨") : t("사용 중")}
                     </span>
                   ),
                   description: score.description ?? "",
@@ -382,7 +384,7 @@ export function ScoresView() {
                     <td className="select-col">
                       <input
                         type="checkbox"
-                        aria-label={`${score.name} 선택`}
+                        aria-label={t("{name} 선택", {name: score.name})}
                         checked={selectedIds.includes(score.score_config_id)}
                         onChange={(event) =>
                           setSelectedIds((ids) =>
@@ -415,7 +417,7 @@ export function ScoresView() {
       >
         <form className="lf-modal-body" onSubmit={(event) => void save(event)}>
           <label className="modal-field">
-            Score 이름
+            {t("Score 이름")}
             <input
               autoFocus
               required
@@ -423,11 +425,11 @@ export function ScoresView() {
               onChange={(event) =>
                 setForm({ ...form, name: event.target.value })
               }
-              placeholder="예: Success"
+              placeholder={t("예: Success")}
             />
           </label>
           <label className="modal-field">
-            설명
+            {t("설명")}
             <textarea
               value={form.description}
               onChange={(event) =>
@@ -436,7 +438,7 @@ export function ScoresView() {
             />
           </label>
           <label className="modal-field">
-            타입
+            {t("타입")}
             <select
               disabled={editing?.is_used}
               value={form.dataType}
@@ -456,12 +458,12 @@ export function ScoresView() {
             <ScoreConfigFields form={form} setForm={setForm} />
           ) : (
             <p className="field-note">
-              이미 사용된 score는 이름과 설명만 수정할 수 있습니다.
+              {t("이미 사용된 score는 이름과 설명만 수정할 수 있습니다.")}
             </p>
           )}
           {mutationError ? (
             <p className="mutation-status is-error" role="alert">
-              {mutationError}
+              {t(mutationError)}
             </p>
           ) : null}
           <div className="modal-actions">
@@ -471,30 +473,30 @@ export function ScoresView() {
               onClick={() => setFormOpen(false)}
               disabled={pending}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-primary"
               type="submit"
               disabled={pending}
             >
-              {pending ? "저장 중…" : editing ? "수정" : "Score 생성"}
+              {pending ? t("저장 중…") : editing ? t("수정") : t("Score 생성")}
             </button>
           </div>
         </form>
       </Modal>
       <Modal
         open={bulkConfirmOpen}
-        title={`Score를 삭제할까요? (${selectedIds.length})`}
+        title={t("Score를 삭제할까요? ({n})", {n: selectedIds.length})}
         onClose={() => {
           if (!bulkPending) setBulkConfirmOpen(false);
         }}
       >
         <div className="lf-modal-body">
           <p className="modal-copy">
-            아직 사용되지 않은 score는 영구 삭제됩니다. 이미 사용 중이거나
-            annotation이 있는 score는 기존 annotation의 의미를 보존하기 위해
-            대신 보관 처리됩니다.
+            {t(
+              "아직 사용되지 않은 score는 영구 삭제됩니다. 이미 사용 중이거나 annotation이 있는 score는 기존 annotation의 의미를 보존하기 위해 대신 보관 처리됩니다.",
+            )}
           </p>
           <div className="modal-actions">
             <button
@@ -503,7 +505,7 @@ export function ScoresView() {
               disabled={bulkPending}
               onClick={() => setBulkConfirmOpen(false)}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-danger"
@@ -511,7 +513,7 @@ export function ScoresView() {
               disabled={bulkPending}
               onClick={() => void removeOrArchiveBulk()}
             >
-              {bulkPending ? "처리 중…" : "Delete"}
+              {bulkPending ? t("처리 중…") : "Delete"}
             </button>
           </div>
         </div>
@@ -527,6 +529,7 @@ function ScoreConfigFields({
   form: FormState;
   setForm: Dispatch<SetStateAction<FormState>>;
 }) {
+  const t = useT();
   if (form.dataType === "boolean")
     return (
       <div className="two-fields">
@@ -564,7 +567,7 @@ function ScoreConfigFields({
           <input
             type="number"
             value={form.min}
-            placeholder="선택 사항"
+            placeholder={t("선택 사항")}
             onChange={(event) =>
               setForm((current) => ({ ...current, min: event.target.value }))
             }
@@ -575,7 +578,7 @@ function ScoreConfigFields({
           <input
             type="number"
             value={form.max}
-            placeholder="선택 사항"
+            placeholder={t("선택 사항")}
             onChange={(event) =>
               setForm((current) => ({ ...current, max: event.target.value }))
             }
@@ -586,7 +589,7 @@ function ScoreConfigFields({
   return (
     <div className="score-config">
       <label className="modal-field">
-        선택 방식
+        {t("선택 방식")}
         <select
           value={form.mode}
           onChange={(event) =>
@@ -604,7 +607,7 @@ function ScoreConfigFields({
         {form.options.map((option, index) => (
           <div className="option-row" key={`${index}-${option}`}>
             <input
-              aria-label="옵션"
+              aria-label={t("옵션")}
               value={option}
               onChange={(event) =>
                 setForm((current) => ({
@@ -618,7 +621,7 @@ function ScoreConfigFields({
             <button
               className="remove-option"
               type="button"
-              aria-label="옵션 삭제"
+              aria-label={t("옵션 삭제")}
               onClick={() =>
                 setForm((current) => ({
                   ...current,
@@ -643,7 +646,7 @@ function ScoreConfigFields({
           }))
         }
       >
-        + 옵션 추가
+        {t("+ 옵션 추가")}
       </button>
     </div>
   );

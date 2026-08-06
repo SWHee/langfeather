@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import colorsys
 import re
 import sys
 from pathlib import Path
@@ -22,6 +23,8 @@ AA_GRAPHIC = 3.0
 PAIRS: list[tuple[str, str, float]] = [
     ("ink", "surface", AA_TEXT),
     ("ink", "page", AA_TEXT),
+    ("ink-title", "surface", AA_TEXT),
+    ("ink-title", "page", AA_TEXT),
     ("muted", "surface", AA_TEXT),
     ("muted", "page", AA_TEXT),
     ("muted", "surface-alt", AA_TEXT),
@@ -32,6 +35,9 @@ PAIRS: list[tuple[str, str, float]] = [
     ("accent", "accent-soft", AA_TEXT),
     ("on-accent", "accent", AA_TEXT),
     ("on-accent", "accent-hover", AA_TEXT),
+    ("selection-ink", "selection-soft", AA_TEXT),
+    ("on-primary", "primary", AA_TEXT),
+    ("on-primary", "primary-hover", AA_TEXT),
     ("green", "surface", AA_TEXT),
     ("green", "green-soft", AA_TEXT),
     ("red", "surface", AA_TEXT),
@@ -52,9 +58,26 @@ PAIRS: list[tuple[str, str, float]] = [
 # mark는 logo 재현이 목적이라 대비 기준을 적용하지 않는다. text나 icon에 쓰지 않는다.
 EXEMPT = {"accent-mark"}
 
+# dark의 넓은 선택 면과 제목·주요 버튼은 brand hue를 띠지 않는 중성색이어야 한다.
+# saturation 12% 이하는 현재 slate 사다리의 아주 옅은 한기만 허용한다.
+DARK_NEUTRAL_TOKENS = {
+    "ink-title",
+    "selection-ink",
+    "selection-border",
+    "selection-soft",
+    "selection-faint",
+    "primary",
+    "primary-hover",
+}
+MAX_DARK_NEUTRAL_SATURATION = 0.12
 
-def read_tokens(css: str) -> dict[str, str]:
-    block = css[css.index(":root {") : css.index("}", css.index(":root {"))]
+
+THEMES = [("light", ":root {"), ("dark", ':root[data-theme="dark"] {')]
+
+
+def read_tokens(css: str, selector: str) -> dict[str, str]:
+    start = css.index(selector)
+    block = css[start : css.index("}", start)]
     return {
         name: " ".join(value.split())
         for name, value in re.findall(r"(--[\w-]+):\s*([^;]+);", block)
@@ -87,32 +110,60 @@ def ratio(foreground: str, background: str) -> float:
     return (lighter + 0.05) / (darker + 0.05)
 
 
+def saturation(hex_color: str) -> float:
+    raw = hex_color.lstrip("#")
+    red, green, blue = (int(raw[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    return colorsys.rgb_to_hls(red, green, blue)[2]
+
+
 def main() -> int:
-    tokens = read_tokens(STYLES.read_text(encoding="utf-8"))
+    css = STYLES.read_text(encoding="utf-8")
+    light = read_tokens(css, ":root {")
     failures: list[str] = []
+    checked = 0
 
-    for fg, bg, minimum in PAIRS:
-        foreground = resolve(f"--{fg}", tokens)
-        background = resolve(f"--{bg}", tokens)
-        if not (foreground.startswith("#") and background.startswith("#")):
-            failures.append(f"{fg} on {bg}: hex가 아니라 검사할 수 없다")
-            continue
-        value = ratio(foreground, background)
-        status = "ok" if value >= minimum else "FAIL"
-        print(f"  {fg:>10} on {bg:<12} {value:5.2f}:1  (>= {minimum}) {status}")
-        if value < minimum:
-            failures.append(f"{fg} on {bg}: {value:.2f}:1 < {minimum}")
+    for theme, selector in THEMES:
+        # dark는 semantic 층만 다시 정의하므로 light 위에 덮어쓴다.
+        tokens = light if theme == "light" else {**light, **read_tokens(css, selector)}
+        print(f"\n[{theme}]")
+        for fg, bg, minimum in PAIRS:
+            foreground = resolve(f"--{fg}", tokens)
+            background = resolve(f"--{bg}", tokens)
+            if not (foreground.startswith("#") and background.startswith("#")):
+                failures.append(f"[{theme}] {fg} on {bg}: hex가 아니라 검사할 수 없다")
+                continue
+            value = ratio(foreground, background)
+            status = "ok" if value >= minimum else "FAIL"
+            print(f"  {fg:>10} on {bg:<12} {value:5.2f}:1  (>= {minimum}) {status}")
+            checked += 1
+            if value < minimum:
+                failures.append(f"[{theme}] {fg} on {bg}: {value:.2f}:1 < {minimum}")
 
-    unchecked = {
-        name.lstrip("-")
-        for name in tokens
-        if not name.startswith("--c-")
-        and re.fullmatch(r"#[0-9a-fA-F]{6}", resolve(name, tokens) or "")
-    }
-    unchecked -= {fg for fg, _, _ in PAIRS} | {bg for _, bg, _ in PAIRS} | EXEMPT
-    if unchecked:
-        print(f"\n검사 대상에 없는 색 token: {', '.join(sorted(unchecked))}")
-        print("text로 쓰인다면 PAIRS에 추가한다.")
+        unchecked = {
+            name.lstrip("-")
+            for name in tokens
+            if not name.startswith("--c-")
+            and re.fullmatch(r"#[0-9a-fA-F]{6}", resolve(name, tokens) or "")
+        }
+        unchecked -= {fg for fg, _, _ in PAIRS} | {bg for _, bg, _ in PAIRS} | EXEMPT
+        if unchecked:
+            print(f"  검사 대상에 없는 색 token: {', '.join(sorted(unchecked))}")
+            print("  text로 쓰인다면 PAIRS에 추가한다.")
+
+        if theme == "dark":
+            for name in sorted(DARK_NEUTRAL_TOKENS):
+                color = resolve(f"--{name}", tokens)
+                value = saturation(color)
+                status = "ok" if value <= MAX_DARK_NEUTRAL_SATURATION else "FAIL"
+                print(
+                    f"  {name:>16} saturation {value * 100:4.1f}% "
+                    f"(<= {MAX_DARK_NEUTRAL_SATURATION * 100:.0f}%) {status}"
+                )
+                if value > MAX_DARK_NEUTRAL_SATURATION:
+                    failures.append(
+                        f"[dark] {name}: saturation {value * 100:.1f}% > "
+                        f"{MAX_DARK_NEUTRAL_SATURATION * 100:.0f}%"
+                    )
 
     if failures:
         print(f"\n{len(failures)}개 조합이 기준 미달이다:")
@@ -120,7 +171,7 @@ def main() -> int:
             print(f"  - {failure}")
         return 1
 
-    print(f"\n{len(PAIRS)}개 조합 전부 기준을 만족한다.")
+    print(f"\n{checked}개 조합 전부 기준을 만족한다.")
     return 0
 
 
