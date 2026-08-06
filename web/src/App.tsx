@@ -20,6 +20,7 @@ import {
   type EvaluationUrlState,
   type OverviewUrlState,
 } from "./url";
+import logo from "./assets/logo.png";
 import "./styles.css";
 
 /**
@@ -223,14 +224,7 @@ function AppShell() {
           onClick={() => selectView("overview")}
           aria-label={`${APP_TITLE} Overview 열기`}
         >
-          {/* 로고 원본 그대로 쓴다. path로 옮겨 그리면 형태가 어긋난다. */}
-          <img
-            className="lf-mark"
-            src="/langfeather-mark.png"
-            alt=""
-            width={48}
-            height={48}
-          />
+          <img className="lf-mark" src={logo} alt="" aria-hidden="true" />
           <span className="lf-wordmark">{APP_TITLE}</span>
         </button>
         <nav className="lf-nav" aria-label={t("주요 영역")}>

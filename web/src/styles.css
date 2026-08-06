@@ -351,11 +351,6 @@ textarea:focus-visible,
   object-fit: contain;
 }
 
-.lf-wordmark {
-  font-size: 20px;
-  line-height: 1;
-}
-
 /* glyph를 대신하는 SVG icon. 부모의 font-size와 color를 그대로 따른다. */
 .lf-svg-icon {
   width: 1em;
