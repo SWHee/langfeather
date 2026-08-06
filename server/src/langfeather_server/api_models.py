@@ -50,6 +50,8 @@ class TraceSummary(ApiModel):
     observation_count: int
     input_preview: str
     output_preview: str
+    total_tokens: int | None
+    time_to_first_token_us: int | None
 
 
 class TraceListResponse(ApiModel):

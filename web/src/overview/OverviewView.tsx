@@ -28,6 +28,8 @@ import {
   useReorderableColumns,
   type ReorderableColumnDef,
 } from "../components";
+import { useLocale, useT, type Translate } from "../i18n/context";
+import { previewText } from "../preview";
 import type { OverviewUrlState } from "../url";
 
 type ChartKey =
@@ -81,8 +83,8 @@ const RECENT_TRACE_SORT_VALUES: Record<
   status: (trace) => trace.status,
   started: (trace) => trace.started_at,
   trace_id: (trace) => trace.trace_id,
-  input: (trace) => trace.input_preview,
-  output: (trace) => trace.output_preview,
+  input: (trace) => previewText(trace.input_preview),
+  output: (trace) => previewText(trace.output_preview),
   latency: (trace) => trace.duration_us,
   count: (trace) => trace.observation_count,
 };
@@ -106,10 +108,10 @@ function overviewQuery(state: OverviewUrlState): DashboardQuery {
 
 function toolColor(name: string): string {
   const normalized = name.toLowerCase();
-  if (normalized === "retriever") return "#2c5c99";
-  if (normalized === "search") return "#c07a10";
-  if (normalized === "http") return "#5566d6";
-  return "#1d6b74";
+  if (normalized === "retriever") return "var(--blue)";
+  if (normalized === "search") return "var(--series-3)";
+  if (normalized === "http") return "var(--series-2)";
+  return "var(--accent)";
 }
 
 function specsFor(response: DashboardResponse): ChartSpec[] {
@@ -139,12 +141,12 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "Success",
-          color: "#0f7a52",
+          color: "var(--green)",
           values: values((bucket) => bucket.requests.completed),
         },
         {
           label: "Error",
-          color: "#c0392f",
+          color: "var(--red)",
           values: values((bucket) => bucket.requests.failed),
         },
       ],
@@ -156,7 +158,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "p50",
-          color: "#258590",
+          color: "var(--series-1)",
           values: values((bucket) =>
             bucket.latency_us.p50 === null
               ? null
@@ -165,7 +167,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
         },
         {
           label: "p95",
-          color: "#c07a10",
+          color: "var(--series-3)",
           values: values((bucket) =>
             bucket.latency_us.p95 === null
               ? null
@@ -174,7 +176,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
         },
         {
           label: "p99",
-          color: "#5566d6",
+          color: "var(--series-2)",
           values: values((bucket) =>
             bucket.latency_us.p99 === null
               ? null
@@ -191,7 +193,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "Error rate",
-          color: "#c0392f",
+          color: "var(--red)",
           values: values((bucket) =>
             bucket.error.rate === null ? null : bucket.error.rate * 100,
           ),
@@ -205,7 +207,7 @@ function specsFor(response: DashboardResponse): ChartSpec[] {
       series: [
         {
           label: "LLM",
-          color: "#258590",
+          color: "var(--series-1)",
           values: values((bucket) => bucket.llm_calls),
         },
       ],
@@ -243,19 +245,29 @@ function linePath(
   }, "");
 }
 
-function formatValue(value: number | null, spec: ChartSpec): string {
-  if (value === null) return "값 없음";
+function formatValue(
+  value: number | null,
+  spec: ChartSpec,
+  t: Translate,
+  locale: string,
+): string {
+  if (value === null) return t("값 없음");
   const raw = spec.decimals
     ? value.toFixed(spec.decimals)
-    : Math.round(value).toLocaleString("ko-KR");
-  return `${raw}${spec.unit}`;
+    : Math.round(value).toLocaleString(locale);
+  // 단위는 번역 대상이다. 영어에서는 "건"에 해당하는 접미어를 쓰지 않는다.
+  return `${raw}${t(spec.unit)}`;
 }
 
-function timelineLabel(value: string, detailed = false): string {
+function timelineLabel(
+  value: string,
+  locale: string,
+  detailed = false,
+): string {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return value;
   return new Intl.DateTimeFormat(
-    "ko-KR",
+    locale,
     detailed
       ? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }
       : { month: "numeric", day: "numeric" },
@@ -297,6 +309,8 @@ function ChartCard({
   onDragStart: () => void;
   onDrop: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [pointerY, setPointerY] = useState<number | null>(null);
   const all = spec.series
     .flatMap((series) => series.values)
@@ -361,15 +375,17 @@ function ChartCard({
       <div className="chart-frame">
         {all.length === 0 ? (
           <div className="chart-empty">
-            {spec.emptyMessage ??
-              `이 기간에 표시할 ${spec.title} 데이터가 없습니다.`}
+            {spec.emptyMessage !== undefined
+              ? t(spec.emptyMessage)
+              :
+              t("이 기간에 표시할 {title} 데이터가 없습니다.", {title: spec.title})}
           </div>
         ) : (
           <>
             <div className="chart-yaxis" aria-hidden="true">
               {[20, 40, 60, 80].map((line) => (
                 <span key={line} style={{ top: `${line}%` }}>
-                  {formatValue(max - (line / 100) * (max - min), spec)}
+                  {formatValue(max - (line / 100) * (max - min), spec, t, locale)}
                 </span>
               ))}
             </div>
@@ -377,7 +393,7 @@ function ChartCard({
               className="chart-area"
               tabIndex={0}
               role="img"
-              aria-label={`${spec.title} 시계열. 화살표 키로 시점 이동`}
+              aria-label={t("{title} 시계열. 화살표 키로 시점 이동", {title: spec.title})}
               onMouseMove={(event) => {
                 // clientX and getBoundingClientRect share one coordinate
                 // space; clientWidth does not follow any scaling applied to
@@ -424,13 +440,20 @@ function ChartCard({
                     className="chart-grid"
                   />
                 ))}
-                {spec.series.map((series) => (
+                {spec.series.map((series, index) => (
                   <path
                     key={series.label}
                     d={linePath(series.values, min, max)}
                     fill="none"
-                    stroke={series.color}
-                    strokeWidth="1.1"
+                    // stroke는 presentation attribute라 var()가 해석되지 않는다.
+                    // style로 넘겨야 token이 적용된다.
+                    style={{ stroke: series.color }}
+                    strokeWidth="2"
+                    // 색만으로 구분하지 않는다. 두 번째 series부터 파선을 섞어
+                    // 색을 구분하지 못해도 읽을 수 있게 한다.
+                    strokeDasharray={
+                      index === 0 ? undefined : index === 1 ? "6 4" : "2 3"
+                    }
                     vectorEffect="non-scaling-stroke"
                   />
                 ))}
@@ -457,13 +480,13 @@ function ChartCard({
                   }}
                 >
                   <span className="tooltip-time">
-                    {timelineLabel(focusedBucket.started_at, true)}
+                    {timelineLabel(focusedBucket.started_at, locale, true)}
                   </span>
                   {spec.series.map((series) => (
                     <span key={series.label} style={{ color: series.color }}>
                       ● <span className="tooltip-label">{series.label}</span>{" "}
                       <b>
-                        {formatValue(series.values[focus ?? 0] ?? null, spec)}
+                        {formatValue(series.values[focus ?? 0] ?? null, spec, t, locale)}
                       </b>
                       <br />
                     </span>
@@ -515,6 +538,8 @@ export function OverviewView({
   selectedTraceId: string | null;
   onOpenTrace: (traceId: string) => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [draft, setDraft] = useState(state);
   const recentColumns = useReorderableColumns(RECENT_TRACE_COLUMNS);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
@@ -746,8 +771,8 @@ export function OverviewView({
         card.classList.remove("chart-highlight");
         void card.offsetWidth;
         card.classList.add("chart-highlight");
-        const title = card.querySelector("h3")?.textContent ?? "선택한";
-        setChartAnnouncement(`${title} 차트로 이동`);
+        const title = card.querySelector("h3")?.textContent ?? "";
+        setChartAnnouncement(t("{title} 차트로 이동", {title}));
       },
       reducedMotion ? 0 : 260,
     );
@@ -761,19 +786,19 @@ export function OverviewView({
             <h1>Overview</h1>
           </div>
         </header>
-        <section className="filter-bar" aria-label="Overview 필터">
-          <span className="filter-label">그룹: 전체</span>
+        <section className="filter-bar" aria-label={t("Overview 필터")}>
+          <span className="filter-label">{t("그룹: 전체")}</span>
           <button
             className="lf-btn"
             type="button"
             aria-expanded={filtersOpen}
             onClick={() => setFiltersOpen((open) => !open)}
           >
-            필터
+            {t("필터")}
           </button>
           <span className="filter-spacer" />
           <div className="period-picker">
-            <div className="period-group" role="group" aria-label="조회 기간">
+            <div className="period-group" role="group" aria-label={t("조회 기간")}>
               {PERIOD_PRESETS.map((preset) => (
                 <button
                   key={preset.hours}
@@ -784,7 +809,7 @@ export function OverviewView({
                   }
                   onClick={() => quickPeriod(preset.hours)}
                 >
-                  {preset.label}
+                  {t(preset.label)}
                 </button>
               ))}
               <button
@@ -797,13 +822,13 @@ export function OverviewView({
                   setCustomOpen((open) => !open);
                 }}
               >
-                커스텀
+                {t("커스텀")}
               </button>
             </div>
             {customOpen ? (
               <div className="period-custom-popover">
                 <label>
-                  시작
+                  {t("시작")}
                   <input
                     type="datetime-local"
                     value={customFrom}
@@ -811,7 +836,7 @@ export function OverviewView({
                   />
                 </label>
                 <label>
-                  종료
+                  {t("종료")}
                   <input
                     type="datetime-local"
                     value={customTo}
@@ -823,7 +848,7 @@ export function OverviewView({
                   type="button"
                   onClick={applyCustomPeriod}
                 >
-                  적용
+                  {t("적용")}
                 </button>
               </div>
             ) : null}
@@ -832,7 +857,7 @@ export function OverviewView({
             <div className="overview-filter-popover">
               <div className="overview-filter-grid">
                 <label>
-                  검색
+                  {t("검색")}
                   <input
                     value={draft.query}
                     onChange={(event) =>
@@ -841,7 +866,7 @@ export function OverviewView({
                   />
                 </label>
                 <label>
-                  태그
+                  {t("태그")}
                   <input
                     value={draft.tag}
                     onChange={(event) =>
@@ -908,21 +933,28 @@ export function OverviewView({
               </div>
               <div className="popover-actions">
                 <button className="lf-btn" type="button" onClick={reset}>
-                  초기화
+                  {t("초기화")}
                 </button>
                 <button
                   className="lf-btn is-primary"
                   type="button"
                   onClick={apply}
                 >
-                  적용
+                  {t("적용")}
                 </button>
               </div>
             </div>
           ) : null}
         </section>
+        {dashboard ? (
+          <SummaryMetrics
+            totals={dashboard.totals}
+            t={t}
+            locale={locale}
+          />
+        ) : null}
         <section className="traffic-section" aria-label="Traffic charts">
-          <nav className="chart-navigator" aria-label="Traffic chart 바로가기">
+          <nav className="chart-navigator" aria-label={t("Chart 바로가기")}>
             {INITIAL_LAYOUT.map(({ id }) => (
               <button
                 key={id}
@@ -954,7 +986,7 @@ export function OverviewView({
             ) : dashboardError ? (
               <div className="traffic-card span-12">
                 <ErrorBlock
-                  message={dashboardError}
+                  message={t(dashboardError)}
                   onRetry={() => setRetry((value) => value + 1)}
                 />
               </div>
@@ -991,12 +1023,12 @@ export function OverviewView({
         <section className="recent-section" aria-labelledby="recent-title">
           <div className="trace-table-wrap">
             <header className="trace-table-head">
-              <h2 id="recent-title">최근 Trace</h2>
+              <h2 id="recent-title">{t("최근 Trace")}</h2>
             </header>
             {recentError ? (
-              <ErrorBlock message={recentError} />
+              <ErrorBlock message={t(recentError)} />
             ) : recent.length === 0 ? (
-              <EmptyBlock>조건에 맞는 Trace가 없습니다.</EmptyBlock>
+              <EmptyBlock>{t("조건에 맞는 Trace가 없습니다.")}</EmptyBlock>
             ) : (
               <table className="trace-table">
                 <colgroup>
@@ -1014,7 +1046,7 @@ export function OverviewView({
                         <ColumnHeaderCell
                           key={id}
                           id={id}
-                          label={def.label}
+                          label={t(def.label)}
                           align={def.align}
                           columns={recentColumns}
                         />
@@ -1026,10 +1058,10 @@ export function OverviewView({
                   {sortedRecent.map((trace) => {
                     const cell: Record<string, ReactNode> = {
                       status: <StatusDot status={trace.status} />,
-                      started: relativeTime(trace.started_at),
+                      started: relativeTime(trace.started_at, t),
                       trace_id: trace.trace_id,
-                      input: trace.input_preview,
-                      output: trace.output_preview,
+                      input: previewText(trace.input_preview),
+                      output: previewText(trace.output_preview),
                       latency: formatDuration(trace.duration_us),
                       count: trace.observation_count,
                     };
@@ -1048,7 +1080,7 @@ export function OverviewView({
                         key={trace.trace_id}
                         data-recent-trace-id={trace.trace_id}
                         role="button"
-                        aria-label={`${trace.trace_id} 상세 열기`}
+                        aria-label={t("{id} 상세 열기", {id: trace.trace_id})}
                         aria-selected={selectedTraceId === trace.trace_id}
                         onClick={(event) => {
                           recentTraceTrigger.current = event.currentTarget;
@@ -1090,10 +1122,61 @@ export function OverviewView({
   );
 }
 
+/**
+ * 기획서: "상단에 총 요청 · p95 · 오류율 · LLM 호출 4개 수치를 mono 큰 글씨로
+ * 먼저 보여주고, 그 아래 차트 보드를 둔다. 요약이 먼저, 상세가 나중이다."
+ *
+ * 기획서는 22px/600을 적었지만 Stage A가 정한 type scale에는 22px가 없고
+ * font-weight는 400/700만 쓴다. 24px/700으로 맞췄다.
+ */
+function SummaryMetrics({
+  totals,
+  t,
+  locale,
+}: {
+  totals: DashboardResponse["totals"];
+  t: Translate;
+  locale: string;
+}) {
+  const p95 = totals.latency_us.p95;
+  const items: Array<{ label: string; value: string }> = [
+    {
+      label: t("총 요청"),
+      value: totals.trace_count.toLocaleString(locale),
+    },
+    {
+      label: "p95",
+      value: p95 === null ? "—" : formatDuration(p95),
+    },
+    {
+      label: t("오류율"),
+      value:
+        totals.error.rate === null
+          ? "—"
+          : `${(totals.error.rate * 100).toFixed(2)}%`,
+    },
+    {
+      label: t("LLM 호출 수"),
+      value: totals.llm_calls.toLocaleString(locale),
+    },
+  ];
+  return (
+    <section className="summary-metrics" aria-label={t("요약 수치")}>
+      {items.map((item) => (
+        <article className="summary-metric" key={item.label}>
+          <span className="summary-metric-label">{item.label}</span>
+          <strong className="summary-metric-value">{item.value}</strong>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function LoadingChart() {
+  const t = useT();
   return (
     <p className="lf-state" role="status">
-      Traffic observatory를 불러오는 중…
+      {t("Overview를 불러오는 중…")}
     </p>
   );
 }

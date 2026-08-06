@@ -158,10 +158,100 @@ def _load_json(value: str) -> JsonValue:
 
 
 def _input_preview(value: JsonValue) -> str:
-    encoded = _dump_json(value)
-    if len(encoded) <= INPUT_PREVIEW_MAX_CHARS:
-        return encoded
-    return f"{encoded[: INPUT_PREVIEW_MAX_CHARS - 3]}..."
+    message = _last_message_preview(value)
+    preview = message if message is not None else _leaf_preview(value)
+    if len(preview) <= INPUT_PREVIEW_MAX_CHARS:
+        return preview
+    return f"{preview[: INPUT_PREVIEW_MAX_CHARS - 3]}..."
+
+
+def _last_message_preview(value: JsonValue) -> str | None:
+    messages: list[JsonValue] = []
+
+    def collect(item: JsonValue) -> None:
+        if isinstance(item, dict):
+            raw_messages = item.get("messages")
+            if isinstance(raw_messages, list):
+                messages.extend(raw_messages)
+            for child in item.values():
+                collect(child)
+        elif isinstance(item, list):
+            for child in item:
+                collect(child)
+
+    collect(value)
+    for message in reversed(messages):
+        if not isinstance(message, dict):
+            continue
+        fields = message.get("fields")
+        source = fields if isinstance(fields, dict) else message
+        content = _message_content(source.get("content"))
+        if content is None:
+            continue
+        role = source.get("type") or source.get("role")
+        if not isinstance(role, str):
+            type_name = message.get("__type__")
+            if isinstance(type_name, str):
+                lowered = type_name.lower()
+                if "humanmessage" in lowered:
+                    role = "human"
+                elif "aimessage" in lowered:
+                    role = "ai"
+                elif "systemmessage" in lowered:
+                    role = "system"
+                elif "toolmessage" in lowered:
+                    role = "tool"
+        normalized_role = "ai" if role == "assistant" else role
+        return (
+            f"{normalized_role}: {content}"
+            if isinstance(normalized_role, str) and normalized_role
+            else content
+        )
+    return None
+
+
+def _message_content(value: JsonValue | None) -> str | None:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    if not isinstance(value, list):
+        return None
+    parts: list[str] = []
+    for block in value:
+        if isinstance(block, str) and block.strip():
+            parts.append(block.strip())
+        elif isinstance(block, dict):
+            text = block.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+    return " ".join(parts) or None
+
+
+def _leaf_preview(value: JsonValue) -> str:
+    values: list[str] = []
+
+    def collect(item: JsonValue) -> None:
+        if item is None:
+            return
+        if isinstance(item, str):
+            if item.strip():
+                values.append(item.strip())
+            return
+        if isinstance(item, bool):
+            values.append(str(item).lower())
+            return
+        if isinstance(item, (int, float)):
+            values.append(str(item))
+            return
+        if isinstance(item, list):
+            for child in item:
+                collect(child)
+            return
+        for child in item.values():
+            collect(child)
+
+    collect(value)
+    return " · ".join(values) if values else _dump_json(value)
 
 
 def _new_id(prefix: str) -> str:
@@ -399,7 +489,12 @@ def _observation_row(observation: ObservationContract) -> ObservationRow:
     )
 
 
-def _trace_summary(row: TraceRow) -> TraceSummary:
+def _trace_summary(
+    row: TraceRow,
+    *,
+    total_tokens: int | None = None,
+    time_to_first_token_us: int | None = None,
+) -> TraceSummary:
     return TraceSummary(
         trace_id=row.trace_id,
         name=row.name,
@@ -413,9 +508,68 @@ def _trace_summary(row: TraceRow) -> TraceSummary:
         environment=row.environment,
         tags=cast(list[str], _load_json(row.tags_json)),
         observation_count=row.observation_count,
-        input_preview=row.input_preview,
+        input_preview=_input_preview(_load_json(row.input_json)),
         output_preview=_input_preview(_load_json(row.output_json)),
+        total_tokens=total_tokens,
+        time_to_first_token_us=time_to_first_token_us,
     )
+
+
+def _trace_summaries(session: Session, rows: Sequence[TraceRow]) -> list[TraceSummary]:
+    if not rows:
+        return []
+    by_trace: dict[str, list[tuple[str, int | None, str]]] = defaultdict(list)
+    observation_rows = session.execute(
+        select(
+            ObservationRow.trace_id,
+            ObservationRow.started_at,
+            ObservationRow.time_to_first_token_us,
+            ObservationRow.usage_json,
+        ).where(
+            ObservationRow.trace_id.in_([row.trace_id for row in rows]),
+            ObservationRow.kind == "llm",
+        )
+    ).all()
+    for observation in observation_rows:
+        by_trace[observation.trace_id].append(
+            (
+                observation.started_at,
+                observation.time_to_first_token_us,
+                observation.usage_json,
+            )
+        )
+
+    summaries: list[TraceSummary] = []
+    for row in rows:
+        llm_rows = by_trace[row.trace_id]
+        token_values: list[int] = []
+        complete_tokens = bool(llm_rows)
+        first_token_values: list[int] = []
+        trace_started_at = _parse_timestamp(row.started_at)
+        for started_at, ttft_us, usage_json in llm_rows:
+            usage = _load_json(usage_json)
+            total = usage.get("total_tokens") if isinstance(usage, dict) else None
+            if isinstance(total, int) and not isinstance(total, bool):
+                token_values.append(total)
+            else:
+                complete_tokens = False
+            if ttft_us is not None:
+                token_at = _parse_timestamp(started_at) + timedelta(
+                    microseconds=ttft_us
+                )
+                first_token_values.append(
+                    max(0, int((token_at - trace_started_at).total_seconds() * 1_000_000))
+                )
+        summaries.append(
+            _trace_summary(
+                row,
+                total_tokens=sum(token_values) if complete_tokens else None,
+                time_to_first_token_us=(
+                    min(first_token_values) if first_token_values else None
+                ),
+            )
+        )
+    return summaries
 
 
 def _observation_summary(row: ObservationRow) -> ObservationSummary:
@@ -951,7 +1105,7 @@ class TraceRepository:
                     .limit(limit)
                 ).all()
                 return TraceListPage(
-                    items=[_trace_summary(row) for row in page_rows],
+                    items=_trace_summaries(session, page_rows),
                     next_cursor=None,
                     total_count=total_count,
                 )
@@ -984,7 +1138,7 @@ class TraceRepository:
                     )
                 )
             return TraceListPage(
-                items=[_trace_summary(row) for row in page_rows],
+                items=_trace_summaries(session, page_rows),
                 next_cursor=next_cursor,
                 total_count=total_count,
             )
@@ -1392,7 +1546,14 @@ class TraceRepository:
                 ).first()
             summary = _trace_summary(trace)
             return TraceDetail(
-                **summary.model_dump(exclude={"input_preview", "output_preview"}),
+                **summary.model_dump(
+                    exclude={
+                        "input_preview",
+                        "output_preview",
+                        "total_tokens",
+                        "time_to_first_token_us",
+                    }
+                ),
                 observations=[
                     _observation_summary(observation) for observation in observations
                 ],

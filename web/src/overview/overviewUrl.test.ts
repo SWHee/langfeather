@@ -36,10 +36,10 @@ describe("Overview URL state", () => {
     };
     replaceAppUrlState({
       view: "overview",
+      section: "examples",
       overview,
       evaluation: {
         datasetId: null,
-        tab: "compare",
         experimentIds: [],
         metricKeys: [],
         caseId: null,

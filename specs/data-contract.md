@@ -68,6 +68,12 @@ list cursor는 `(started_at, trace_id)`를 담은 opaque token이다. filter나 
 client는 cursor를 버리고 첫 page부터 다시 시작한다. detail은 summary만 주고 payload는
 lazy-load한다.
 
+trace 목록 item의 `input_preview`와 `output_preview`는 저장된 원본 payload에서 마지막
+message content를 우선 읽은 한 줄 요약이다. 원본 payload는 변경하지 않는다. 목록 item은
+모든 LLM observation에 provider `total_tokens`가 있을 때만 합계를 `total_tokens`로 주고,
+실제 token callback이 있으면 trace 시작부터 가장 이른 first token까지의 시간을
+`time_to_first_token_us`로 준다. 없는 값은 `null`이며 추정하지 않는다.
+
 ## Overview API
 
 ```text

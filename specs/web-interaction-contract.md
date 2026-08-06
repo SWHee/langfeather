@@ -6,7 +6,8 @@
 
 | 소유 기능 | URL key | 값 |
 | --- | --- | --- |
-| shell | `view` | `overview`, `traces`, `queues`, `scores`, `datasets`, `data` |
+| shell | `view` | `traces`, `insights`, `evaluate`, `settings` |
+| Evaluate | `section` | `examples`, `experiments`, `queues`, `scores`; `examples`는 생략 가능 |
 | Traces | `trace` | selected trace ID 또는 없음 |
 | Overview | `overview_from` | ISO timestamp |
 | Overview | `overview_to` | ISO timestamp |
@@ -21,12 +22,19 @@
 | Overview | `overview_scores` | comma-separated ordered score IDs, 최대 4개 |
 | Overview | `overview_tools` | comma-separated ordered tool names |
 | Evaluation | `dataset` | dataset ID |
-| Evaluation | `tab` | `experiments`, `examples`(`compare`도 값으로 허용되지만 UI는 `examples`가 아니면 항상 `experiments`로 취급한다) |
 | Evaluation | `experiments` | comma-separated ordered experiment IDs |
 | Evaluation | `metrics` | comma-separated evaluator keys |
 | Evaluation | `case` | dataset example ID |
 
-- URL에 `view`가 없거나 허용되지 않은 값이면 Overview를 연다.
+- URL에 `view`가 없거나 허용되지 않은 값이면 Traces를 연다.
+- 재편 이전 `view` 값은 새 값으로 옮겨 읽는다. 이미 공유된 link를 깨지 않기 위해서다.
+  `overview` -> `insights`, `data` -> `settings`, `queues`/`scores`/`datasets` ->
+  `evaluate`이고 이때 `section`이 각각 `queues`/`scores`/`examples`가 된다.
+  재편 이전 `tab` 값도 같은 방식으로 옮겨 읽는다 — `examples`는 `examples`,
+  `experiments`와 `compare`는 `experiments` 세그먼트가 된다. `section`이 함께
+  있으면 `section`이 이긴다. URL을 다시 쓸 때는 항상 새 값으로만 쓴다.
+- Overview의 filter key는 `overview_` 접두어를 유지한다. tab 이름만 바뀌었을 뿐
+  state의 소유자는 같은 화면이고, 접두어를 바꾸면 공유된 link가 전부 깨진다.
 - Overview filter, Traces filter, Evaluation state는 서로 빌리거나 동기화하지 않는다.
 - URL write는 LangFeather가 소유한 key만 교체하고 다른 query parameter는 보존한다.
 - state 변화는 history를 무한히 쌓지 않도록 replace semantics를 사용할 수 있다.
@@ -34,6 +42,24 @@
   정리한다.
 - trace를 Evaluation에서 열었다가 돌아와도 dataset/experiment/metric/case state가
   유지되어야 한다.
+
+## client 저장 state
+
+URL이 아니라 브라우저에 저장하는 state다. 링크로 공유되지 않는다.
+
+| 소유 기능 | 저장 key | 값 |
+| --- | --- | --- |
+| shell | `langfeather.theme` | `light`, `dark` |
+| shell | `langfeather.language` | `ko`, `en` |
+
+- theme은 navigation state가 아니라 기기 취향이므로 URL에 넣지 않는다. 링크를 받은
+  사람의 theme을 링크가 덮어쓰지 않아야 한다.
+- 저장된 값이 없거나 허용되지 않은 값이면 `prefers-color-scheme`으로 첫 값을 정한다.
+  예전에 저장된 `system`도 여기로 떨어진다.
+- 고른 뒤에는 OS 설정과 무관하게 고정한다. 선택지가 둘뿐이라 "따라가는" 상태가 없다.
+- localStorage를 쓸 수 없는 환경(비공개 모드 등)에서도 UI는 동작해야 한다. 저장에
+  실패하면 그 세션 동안만 선택을 유지하고 오류를 표시하지 않는다.
+- 첫 paint 전에 theme이 적용되어 light에서 dark로 번쩍이지 않아야 한다.
 
 ## async read 규칙
 

@@ -41,6 +41,7 @@ import {
   ErrorBlock,
   IconArrowLeft,
   IconArrowRight,
+  IconChevronDown,
   IconClose,
   IconMore,
   LoadingBlock,
@@ -64,6 +65,10 @@ import {
   runtimeKindLabel,
 } from "../graph/runtimeGraph";
 import { ObservationPayloadPanel } from "./ObservationPayloadPanel";
+import { useLocale, useT, type Translate } from "../i18n/context";
+import {previewText} from "../preview";
+import { flattenText } from "./retrieval";
+import { useSplitLayout } from "./useSplitLayout";
 
 type TraceFilters = {
   query: string;
@@ -104,11 +109,15 @@ const TRACE_SORT_VALUES: Record<
   status: (trace) => trace.status,
   started: (trace) => trace.started_at,
   trace_id: (trace) => trace.trace_id,
-  input: (trace) => trace.input_preview,
-  output: (trace) => trace.output_preview,
+  input: (trace) => previewText(trace.input_preview),
+  output: (trace) => previewText(trace.output_preview),
   latency: (trace) => trace.duration_us,
   count: (trace) => trace.observation_count,
 };
+
+function traceCardPreviewText(raw: string): string {
+  return previewText(raw).replace(/^(?:human|ai):\s*/, "");
+}
 
 function relativePeriodRange(period: TraceFilters["period"]) {
   const hours = period === "24h" ? 24 : period === "30d" ? 24 * 30 : 24 * 7;
@@ -154,6 +163,7 @@ function scoreValueFor(
   config: ScoreConfig,
   current: AnnotationValue | null | undefined,
   setValue: (value: AnnotationValue | null) => void,
+  t: Translate,
 ) {
   if (config.data_type === "boolean") {
     return (
@@ -179,7 +189,7 @@ function scoreValueFor(
     return (
       <input
         className="annotation-number"
-        aria-label={`${config.name} 값`}
+        aria-label={t("{name} 값", {name: config.name})}
         type="number"
         min={config.number_min ?? undefined}
         max={config.number_max ?? undefined}
@@ -235,6 +245,9 @@ export function TracesView({
   onSelectTrace: (traceId: string) => void;
   onClearTrace: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
+  const split = useSplitLayout();
   const [draft, setDraft] = useState<TraceFilters>(EMPTY_FILTERS);
   const [filters, setFilters] = useState<TraceFilters>(EMPTY_FILTERS);
   const [traces, setTraces] = useState<TraceListItem[]>([]);
@@ -264,6 +277,9 @@ export function TracesView({
   >("idle");
   const [payloadError, setPayloadError] = useState("");
   const [payloadRetry, setPayloadRetry] = useState(0);
+  const [downstreamLlmInput, setDownstreamLlmInput] = useState<string | null>(
+    null,
+  );
   const [action, setAction] = useState<ActionPanel>(null);
   const [targetPanel, setTargetPanel] = useState<TargetPanel>(null);
   const [queues, setQueues] = useState<Array<{ id: string; name: string }>>([]);
@@ -279,15 +295,20 @@ export function TracesView({
   const [savingAnnotations, setSavingAnnotations] = useState(false);
   const [bulkDelete, setBulkDelete] = useState(false);
   const [bulkPending, setBulkPending] = useState(false);
-  const [drawerWidth, setDrawerWidth] = useState(950);
+  const [listCollapsed, setListCollapsed] = useState(false);
+  // 3분할에서만 쓰는 필터 접기. 좁은 화면은 목록 단이 화면 전체라 늘 펼친다.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // 카드마다 따로 펼친다. 여러 개를 나란히 펴 놓고 비교할 수 있어야 한다.
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  // 좁은 화면은 3분할 대신 단을 하나씩 보여준다. drawer로 덮지 않는다.
+  const [stackedPane, setStackedPane] = useState<
+    "list" | "graph" | "inspector"
+  >("list");
   const [scorePickerOpen, setScorePickerOpen] = useState(false);
   const [pickerScoreIds, setPickerScoreIds] = useState<string[]>([]);
   const [activeScoreIds, setActiveScoreIds] = useState<string[]>([]);
-  const triggerRef = useRef<HTMLTableRowElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const lastTraceIdRef = useRef<string | null>(null);
-  const drawerResize = useRef<{ startX: number; startWidth: number } | null>(
-    null,
-  );
   const scorePickerRef = useRef<HTMLDivElement | null>(null);
   const closeTargetPanel = useCallback(() => {
     setTargetPanel(null);
@@ -408,10 +429,34 @@ export function TracesView({
       .catch((error: unknown) => {
         if (isAbort(error)) return;
         setPayloadState("error");
-        setPayloadError("선택한 관측값 payload를 불러오지 못했습니다.");
+        setPayloadError("선택한 observation payload를 불러오지 못했습니다.");
       });
     return () => controller.abort();
   }, [observationId, payloadRetry]);
+
+  // retriever 문서가 답변에 실렸는지 대조하려면 하류 llm의 input이 필요하다.
+  // 그 observation은 선택되지 않았으므로 payload가 없다. retriever를 볼 때만
+  // 한 건 더 가져온다. 실패하면 null로 두고 배지를 붙이지 않는다.
+  useEffect(() => {
+    const target =
+      observation?.kind === "retriever" && detail !== null
+        ? detail.observations
+            .filter(
+              (item) =>
+                item.kind === "llm" && item.sequence > observation.sequence,
+            )
+            .sort((left, right) => left.sequence - right.sequence)[0]
+        : undefined;
+    if (target === undefined) {
+      deferState(() => setDownstreamLlmInput(null));
+      return;
+    }
+    const controller = new AbortController();
+    void getObservation(target.observation_id, controller.signal)
+      .then((response) => setDownstreamLlmInput(flattenText(response.input)))
+      .catch(() => setDownstreamLlmInput(null));
+    return () => controller.abort();
+  }, [observation, detail]);
 
   useEffect(() => {
     if (selectedTraceId !== null) {
@@ -419,7 +464,7 @@ export function TracesView({
       return;
     }
     const fallback = Array.from(
-      document.querySelectorAll<HTMLTableRowElement>("[data-trace-id]"),
+      document.querySelectorAll<HTMLElement>("[data-trace-id]"),
     ).find((row) => row.dataset.traceId === lastTraceIdRef.current);
     const trigger = triggerRef.current ?? fallback;
     trigger?.focus();
@@ -477,27 +522,15 @@ export function TracesView({
     targetPanel,
   ]);
 
+  // 비어 있는 단을 보여주지 않는다. 좁은 화면도 목록 단에 머무르므로 자동 선택이
+  // 목록을 가리지 않는다. 닫기 버튼이 없어 이 effect가 되돌이표가 되지 않는다.
   useEffect(() => {
-    const move = (event: PointerEvent) => {
-      const current = drawerResize.current;
-      if (!current) return;
-      setDrawerWidth(
-        Math.max(
-          525,
-          Math.min(1625, current.startWidth + current.startX - event.clientX),
-        ),
-      );
-    };
-    const end = () => {
-      drawerResize.current = null;
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-    };
-  }, []);
+    if (selectedTraceId !== null) return;
+    if (listState !== "success") return;
+    const first = sortedTraces[0];
+    if (first === undefined) return;
+    onSelectTrace(first.trace_id);
+  }, [selectedTraceId, listState, sortedTraces, onSelectTrace]);
 
   useEffect(() => {
     if (!scorePickerOpen) return;
@@ -528,7 +561,7 @@ export function TracesView({
   const totalPages = Math.max(1, Math.ceil(totalCount / TRACES_PAGE_SIZE));
   const toggleAll = (checked: boolean) =>
     setSelectedIds(checked ? traces.map((trace) => trace.trace_id) : []);
-  const openTrace = (trace: TraceListItem, row: HTMLTableRowElement) => {
+  const openTrace = (trace: TraceListItem, row: HTMLElement) => {
     triggerRef.current = row;
     lastTraceIdRef.current = trace.trace_id;
     onSelectTrace(trace.trace_id);
@@ -558,7 +591,12 @@ export function TracesView({
           traceIds.map((traceId) => addTraceToDataset(targetId, traceId)),
         );
       setMutationStatus(
-        `${traceIds.length}개 trace를 ${targetPanel === "queue" ? "queue" : "dataset"}에 추가했습니다.`,
+        t(
+          targetPanel === "queue"
+            ? "{n}개 trace를 queue에 추가했습니다."
+            : "{n}개 trace를 dataset에 추가했습니다.",
+          {n: traceIds.length},
+        ),
       );
       closeTargetPanel();
     } catch {
@@ -642,60 +680,81 @@ export function TracesView({
     traces.every((trace) => selectedIds.includes(trace.trace_id));
 
   return (
-    <main className="page traces-page" id="lf-main" tabIndex={-1}>
+    <main
+      className={`page traces-page${split ? " is-split" : " is-stacked"}${
+        split && listCollapsed ? " is-list-collapsed" : ""
+      }`}
+      data-pane={split ? undefined : stackedPane}
+      id="lf-main"
+      tabIndex={-1}
+    >
+      {!split ? (
+        <nav className="pane-switch" aria-label={t("단 전환")}>
+          {(
+            [
+              ["list", t("목록")],
+              ["graph", t("실행 흐름")],
+              ["inspector", t("검사기")],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-current={stackedPane === id}
+              disabled={id !== "list" && selectedTraceId === null}
+              onClick={() => setStackedPane(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+      <div className="traces-pane-list">
       <header className="page-head traces-head">
-        <div>
-          <h1>Traces</h1>
-        </div>
+        <h1>Traces</h1>
         <div className="list-actions">
-          {selectedIds.length ? (
-            <div className="bulk-actions">
-              <button
-                className="lf-btn"
-                type="button"
-                onClick={() => void openTargets("queue")}
-              >
-                Add to queue
-              </button>
-              <button
-                className="lf-btn"
-                type="button"
-                onClick={() => void openTargets("dataset")}
-              >
-                Add to dataset
-              </button>
-              <button
-                className="lf-btn is-danger"
-                type="button"
-                onClick={() => setBulkDelete(true)}
-              >
-                Delete ({selectedIds.length})
-              </button>
-            </div>
-          ) : null}
           <span className="result">
-            {listState === "success" ? `${totalCount}건` : ""}
+            {listState === "success" ? t("{n}건", {n: totalCount}) : ""}
           </span>
+          {/* 목록 단을 접는다. 경계에 걸친 22px 조각은 무엇을 접는지 알 수
+              없었고 bulk action과 겹쳤다. 라벨을 달아 헤더 안에 둔다. */}
+          {split ? (
+            <button
+              className="list-collapse lf-btn"
+              type="button"
+              aria-expanded={!listCollapsed}
+              aria-label={listCollapsed ? t("목록 펼치기") : t("목록 접기")}
+              onClick={() => setListCollapsed((value) => !value)}
+            >
+              <span aria-hidden="true">{listCollapsed ? "›" : "‹"}</span>
+              <span className="list-collapse-label" aria-hidden="true">
+                {listCollapsed ? t("목록 펼치기") : t("목록 접기")}
+              </span>
+            </button>
+          ) : null}
         </div>
       </header>
       <form
-        className="filter-panel"
+        // 3분할의 목록 단은 280–360px이다. 기획서 스케치가 그 자리에 입력
+        // 하나만 그린 이유이며, 5개 field를 세로로 쌓으면 목록이 화면 밖으로
+        // 밀린다. 접어도 값은 그대로 제출된다.
+        className={`filter-panel${split && !filtersOpen ? " is-collapsed" : ""}`}
         onSubmit={applyFilters}
         onReset={resetFilters}
       >
         <label className="field">
-          <span>검색</span>
+          <span>{t("검색")}</span>
           <input
             type="search"
             value={draft.query}
-            placeholder="Trace ID 또는 input 검색"
+            placeholder={t("Trace ID 또는 input 검색")}
             onChange={(event) =>
               setDraft({ ...draft, query: event.target.value })
             }
           />
         </label>
         <label className="field">
-          <span>상태</span>
+          <span>{t("상태")}</span>
           <select
             value={draft.status}
             onChange={(event) =>
@@ -705,14 +764,14 @@ export function TracesView({
               })
             }
           >
-            <option value="">전체</option>
-            <option value="completed">성공</option>
-            <option value="failed">실패</option>
-            <option value="cancelled">취소</option>
+            <option value="">{t("전체")}</option>
+            <option value="completed">{t("성공")}</option>
+            <option value="failed">{t("실패")}</option>
+            <option value="cancelled">{t("취소")}</option>
           </select>
         </label>
         <label className="field">
-          <span>기간</span>
+          <span>{t("기간")}</span>
           <select
             value={draft.period}
             onChange={(event) => {
@@ -732,16 +791,16 @@ export function TracesView({
               }
             }}
           >
-            <option value="7d">최근 7일</option>
-            <option value="24h">24시간</option>
-            <option value="30d">30일</option>
-            <option value="custom">커스텀</option>
+            <option value="7d">{t("최근 7일")}</option>
+            <option value="24h">{t("24시간")}</option>
+            <option value="30d">{t("30일")}</option>
+            <option value="custom">{t("커스텀")}</option>
           </select>
         </label>
         {draft.period === "custom" ? (
           <>
             <label className="field">
-              <span>시작</span>
+              <span>{t("시작")}</span>
               <input
                 type="datetime-local"
                 value={toLocalInput(draft.from)}
@@ -754,7 +813,7 @@ export function TracesView({
               />
             </label>
             <label className="field">
-              <span>종료</span>
+              <span>{t("종료")}</span>
               <input
                 type="datetime-local"
                 value={toLocalInput(draft.to)}
@@ -769,43 +828,219 @@ export function TracesView({
           </>
         ) : null}
         <label className="field">
-          <span>태그</span>
+          <span>{t("태그")}</span>
           <input
             value={draft.tag}
-            placeholder="태그"
+            placeholder={t("태그")}
             onChange={(event) =>
               setDraft({ ...draft, tag: event.target.value })
             }
           />
         </label>
-        <button className="lf-btn is-primary" type="submit">
-          적용
-        </button>
-        <button className="lf-btn" type="reset">
-          초기화
-        </button>
+        <div className="filter-actions">
+          {split ? (
+            <button
+              className="lf-btn filter-toggle"
+              type="button"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              {filtersOpen ? t("필터 접기") : t("필터")}
+            </button>
+          ) : null}
+          <button className="lf-btn is-primary" type="submit">
+            {t("적용")}
+          </button>
+          <button className="lf-btn" type="reset">
+            {t("초기화")}
+          </button>
+        </div>
       </form>
       {mutationError ? (
         <p className="mutation-status is-error" role="alert">
-          {mutationError}
+          {t(mutationError)}
         </p>
       ) : mutationStatus ? (
         <p className="mutation-status" role="status">
-          {mutationStatus}
+          {t(mutationStatus)}
         </p>
       ) : null}
-      <section className="trace-list" aria-label="Trace 목록">
+      <section className="trace-list" aria-label={t("Trace 목록")}>
         {listState === "loading" ? (
-          <LoadingBlock label="Trace 목록을 불러오는 중…" />
+          <LoadingBlock label={t("Trace 목록을 불러오는 중…")} />
         ) : listState === "error" ? (
           <ErrorBlock
-            message={listError}
+            message={t(listError)}
             onRetry={() => setListRetry((value) => value + 1)}
           />
         ) : traces.length === 0 ? (
-          <EmptyBlock>조건에 맞는 Trace가 없습니다.</EmptyBlock>
+          <EmptyBlock>{t("조건에 맞는 Trace가 없습니다.")}</EmptyBlock>
         ) : (
           <>
+            {/*
+              기획서 05절 스케치의 왼쪽 단은 카드 목록이다. 3분할에서 목록은
+              280–360px으로 묶여 있어 7열 표가 들어갈 자리가 없다. 좁은 화면은
+              목록 단이 화면 전체를 쓰므로 표를 그대로 둔다 — 열 순서·폭·정렬은
+              acceptance 계약이고 그 폭에서만 실제로 쓸 수 있다.
+            */}
+            {/*
+              선택 바. bulk action은 page header에 있었는데 목록 단이 340px라
+              버튼 라벨이 세로로 쪼개지고 옆 pane에 가렸다. 선택은 목록에
+              대한 일이므로 목록 안, 카드 바로 위에 둔다.
+            */}
+            <div className="list-select">
+              {split ? (
+                <label className="list-select-all">
+                  <input
+                    type="checkbox"
+                    aria-label={t("모든 trace 선택")}
+                    checked={selectedAll}
+                    onChange={(event) => toggleAll(event.target.checked)}
+                  />
+                  <span>{t("전체 선택")}</span>
+                </label>
+              ) : null}
+              {selectedIds.length ? (
+                <>
+                  <span className="list-select-count">
+                    {t("{n}개 선택", {n: selectedIds.length})}
+                  </span>
+                  <div className="bulk-actions">
+                    <button
+                      className="lf-btn"
+                      type="button"
+                      onClick={() => void openTargets("queue")}
+                    >
+                      {t("Queue에 추가")}
+                    </button>
+                    <button
+                      className="lf-btn"
+                      type="button"
+                      onClick={() => void openTargets("dataset")}
+                    >
+                      {t("Dataset에 추가")}
+                    </button>
+                    <button
+                      className="lf-btn is-danger"
+                      type="button"
+                      onClick={() => setBulkDelete(true)}
+                    >
+                      {t("삭제")}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+            {split ? (
+              <>
+                <ol className="trace-cards">
+                  {sortedTraces.map((trace) => (
+                    <li key={trace.trace_id}>
+                      <div
+                        className={`trace-card${selectedTraceId === trace.trace_id ? " is-selected" : ""}`}
+                        role="button"
+                        tabIndex={0}
+                        data-trace-id={trace.trace_id}
+                        aria-pressed={selectedTraceId === trace.trace_id}
+                        onClick={(event) => {
+                          // checkbox와 펼치기 버튼은 카드 선택이 아니다.
+                          if (
+                            (event.target as HTMLElement).closest(
+                              "input, button",
+                            )
+                          )
+                            return;
+                          openTrace(trace, event.currentTarget);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openTrace(trace, event.currentTarget);
+                          }
+                        }}
+                      >
+                        {/* 왼쪽 선택 · 가운데 정보 · 오른쪽 펼치기. 세 몫이
+                            각자 열을 가져야 이름과 메타가 같은 선에서 시작한다. */}
+                        <input
+                          className="trace-card-check"
+                          type="checkbox"
+                          aria-label={t("{id} 선택", {id: trace.trace_id})}
+                          checked={selectedIds.includes(trace.trace_id)}
+                          onChange={(event) =>
+                            setSelectedIds((ids) =>
+                              event.target.checked
+                                ? [...ids, trace.trace_id]
+                                : ids.filter((id) => id !== trace.trace_id),
+                            )
+                          }
+                        />
+                        <div className="trace-card-main">
+                          <div className="trace-card-title">
+                            <StatusDot status={trace.status} />
+                            <strong>{trace.name}</strong>
+                          </div>
+                          <p className="trace-card-meta">
+                            {formatClockTime(trace.started_at)}
+                            {" · "}
+                            {formatDuration(trace.duration_us)}
+                            {" · "}
+                            {t("{n} obs", {n: trace.observation_count})}
+                          </p>
+                          {trace.total_tokens !== null ||
+                          trace.time_to_first_token_us !== null ? (
+                            <p className="trace-card-usage">
+                              {trace.total_tokens !== null ? (
+                                <span>
+                                  Tokens{" "}
+                                  {new Intl.NumberFormat(locale).format(
+                                    trace.total_tokens,
+                                  )}
+                                </span>
+                              ) : null}
+                              {trace.time_to_first_token_us !== null ? (
+                                <span>
+                                  First token{" "}
+                                  {formatDuration(
+                                    trace.time_to_first_token_us,
+                                  )}
+                                </span>
+                              ) : null}
+                            </p>
+                          ) : null}
+                        </div>
+                        <button
+                          className="trace-card-toggle"
+                          type="button"
+                          aria-expanded={expandedIds.includes(trace.trace_id)}
+                          aria-label={t("{id} 미리보기", {
+                            id: trace.trace_id,
+                          })}
+                          onClick={() =>
+                            setExpandedIds((ids) =>
+                              ids.includes(trace.trace_id)
+                                ? ids.filter((id) => id !== trace.trace_id)
+                                : [...ids, trace.trace_id],
+                            )
+                          }
+                        >
+                          <IconChevronDown />
+                        </button>
+                        {expandedIds.includes(trace.trace_id) ? (
+                          // 목록에서 바로 읽는 요약. 오른쪽 상세를 열지 않고도
+                          // 질문과 답변의 앞부분을 빠르게 확인한다.
+                          <dl className="trace-card-preview">
+                            <dt>input</dt>
+                            <dd>{traceCardPreviewText(trace.input_preview)}</dd>
+                            <dt>output</dt>
+                            <dd>{traceCardPreviewText(trace.output_preview)}</dd>
+                          </dl>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : (
             <table>
               <SelectColGroup columns={columns} />
               <thead>
@@ -813,7 +1048,7 @@ export function TracesView({
                   <th className="select-col">
                     <input
                       type="checkbox"
-                      aria-label="모든 trace 선택"
+                      aria-label={t("모든 trace 선택")}
                       checked={selectedAll}
                       onChange={(event) => toggleAll(event.target.checked)}
                     />
@@ -824,7 +1059,7 @@ export function TracesView({
                       <ColumnHeaderCell
                         key={id}
                         id={id}
-                        label={def.label}
+                        label={t(def.label)}
                         align={def.align}
                         columns={columns}
                       />
@@ -838,8 +1073,8 @@ export function TracesView({
                     status: <StatusDot status={trace.status} />,
                     started: formatClockTime(trace.started_at),
                     trace_id: trace.trace_id,
-                    input: trace.input_preview,
-                    output: trace.output_preview,
+                    input: previewText(trace.input_preview),
+                    output: previewText(trace.output_preview),
                     latency: formatDuration(trace.duration_us),
                     count: trace.observation_count,
                   };
@@ -866,13 +1101,14 @@ export function TracesView({
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           openTrace(trace, event.currentTarget);
+                          if (!split) setStackedPane("graph");
                         }
                       }}
                     >
                       <td className="select-col">
                         <input
                           type="checkbox"
-                          aria-label={`${trace.trace_id} 선택`}
+                          aria-label={t("{id} 선택", {id: trace.trace_id})}
                           checked={selectedIds.includes(trace.trace_id)}
                           onChange={(event) =>
                             setSelectedIds((ids) =>
@@ -893,23 +1129,24 @@ export function TracesView({
                 })}
               </tbody>
             </table>
+            )}
             {totalCount > 0 ? (
               <Pagination page={page} totalPages={totalPages} onChange={setPage} />
             ) : null}
           </>
         )}
       </section>
+      </div>
       <div
         className={`trace-scrim${selectedTraceId ? " is-open" : ""}`}
         onClick={onClearTrace}
       />
       <aside
-        className={`trace-drawer${selectedTraceId ? " is-open" : ""}`}
-        style={{ "--drawer-width": `${drawerWidth}px` } as CSSProperties}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="drawerTitle"
-        aria-hidden={selectedTraceId === null}
+        className="trace-drawer is-open"
+        // 넓은 화면은 3분할, 좁은 화면은 단 전환이다. 어느 쪽도 목록을 덮지
+        // 않으므로 dialog가 아니다.
+        role="complementary"
+        aria-label={t("Trace 상세")}
       >
         <DrawerContent
           detail={detail}
@@ -923,6 +1160,7 @@ export function TracesView({
           observation={observation}
           payloadState={payloadState}
           payloadError={payloadError}
+          downstreamLlmInput={downstreamLlmInput}
           retryPayload={() => setPayloadRetry((value) => value + 1)}
           memo={memo}
           setMemo={setMemo}
@@ -949,13 +1187,6 @@ export function TracesView({
             setActiveScoreIds((ids) => ids.filter((value) => value !== id));
             setAnnotationValues((values) => ({ ...values, [id]: null }));
           }}
-          onResizeStart={(event) => {
-            drawerResize.current = {
-              startX: event.clientX,
-              startWidth: drawerWidth,
-            };
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
           saving={savingAnnotations}
           onSave={() => void saveAnnotations()}
           action={action}
@@ -964,6 +1195,7 @@ export function TracesView({
           onNavigate={onSelectTrace}
           onTargets={(panel) => void openTargets(panel)}
           onDelete={() => void deleteSelectedTrace()}
+          asPane
         />
       </aside>
       <Modal
@@ -975,19 +1207,19 @@ export function TracesView({
           {targetLoading ? (
             <LoadingBlock />
           ) : mutationError ? (
-            <ErrorBlock message={mutationError} />
+            <ErrorBlock message={t(mutationError)} />
           ) : (
             <>
               <p className="modal-copy">
-                선택한 Trace를 추가할 대상을 고르세요.
+                {t("선택한 Trace를 추가할 대상을 고르세요.")}
               </p>
               <label className="modal-field">
-                대상
+                {t("대상")}
                 <select
                   value={targetId}
                   onChange={(event) => setTargetId(event.target.value)}
                 >
-                  <option value="">선택</option>
+                  <option value="">{t("선택")}</option>
                   {targetPanel === "queue"
                     ? queues.map((queue) => (
                         <option key={queue.id} value={queue.id}>
@@ -1012,7 +1244,7 @@ export function TracesView({
               type="button"
               onClick={closeTargetPanel}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-primary"
@@ -1020,22 +1252,23 @@ export function TracesView({
               disabled={!targetId || targetLoading}
               onClick={() => void addToTarget()}
             >
-              추가
+              {t("추가")}
             </button>
           </div>
         </div>
       </Modal>
       <Modal
         open={bulkDelete}
-        title="선택한 trace를 삭제할까요?"
+        title={t("선택한 trace를 삭제할까요?")}
         onClose={() => {
           if (!bulkPending) setBulkDelete(false);
         }}
       >
         <div className="lf-modal-body">
           <p className="modal-copy">
-            {selectedIds.length}개 trace와 연결된 observations, annotations도
-            삭제됩니다.
+            {t("{n}개 trace와 연결된 observations, annotations도 삭제됩니다.", {
+              n: selectedIds.length,
+            })}
           </p>
           <div className="modal-actions">
             <button
@@ -1044,7 +1277,7 @@ export function TracesView({
               disabled={bulkPending}
               onClick={() => setBulkDelete(false)}
             >
-              취소
+              {t("취소")}
             </button>
             <button
               className="lf-btn is-danger"
@@ -1052,7 +1285,7 @@ export function TracesView({
               disabled={bulkPending}
               onClick={() => void deleteBulk()}
             >
-              {bulkPending ? "삭제 중…" : "삭제"}
+              {bulkPending ? t("삭제 중…") : t("삭제")}
             </button>
           </div>
         </div>
@@ -1081,6 +1314,9 @@ export function OverviewTraceDrawer({
   >("idle");
   const [payloadError, setPayloadError] = useState("");
   const [payloadRetry, setPayloadRetry] = useState(0);
+  const [downstreamLlmInput, setDownstreamLlmInput] = useState<string | null>(
+    null,
+  );
   const [drawerWidth, setDrawerWidth] = useState(950);
   const [annotationValues, setAnnotationValues] = useState<
     Record<string, AnnotationValue | null>
@@ -1199,10 +1435,34 @@ export function OverviewTraceDrawer({
       .catch((error: unknown) => {
         if (isAbort(error)) return;
         setPayloadState("error");
-        setPayloadError("선택한 관측값 payload를 불러오지 못했습니다.");
+        setPayloadError("선택한 observation payload를 불러오지 못했습니다.");
       });
     return () => controller.abort();
   }, [observationId, payloadRetry]);
+
+  // retriever 문서가 답변에 실렸는지 대조하려면 하류 llm의 input이 필요하다.
+  // 그 observation은 선택되지 않았으므로 payload가 없다. retriever를 볼 때만
+  // 한 건 더 가져온다. 실패하면 null로 두고 배지를 붙이지 않는다.
+  useEffect(() => {
+    const target =
+      observation?.kind === "retriever" && detail !== null
+        ? detail.observations
+            .filter(
+              (item) =>
+                item.kind === "llm" && item.sequence > observation.sequence,
+            )
+            .sort((left, right) => left.sequence - right.sequence)[0]
+        : undefined;
+    if (target === undefined) {
+      deferState(() => setDownstreamLlmInput(null));
+      return;
+    }
+    const controller = new AbortController();
+    void getObservation(target.observation_id, controller.signal)
+      .then((response) => setDownstreamLlmInput(flattenText(response.input)))
+      .catch(() => setDownstreamLlmInput(null));
+    return () => controller.abort();
+  }, [observation, detail]);
 
   useEffect(() => {
     if (!selectedTraceId) return;
@@ -1261,6 +1521,7 @@ export function OverviewTraceDrawer({
           observation={observation}
           payloadState={payloadState}
           payloadError={payloadError}
+          downstreamLlmInput={downstreamLlmInput}
           retryPayload={() => setPayloadRetry((value) => value + 1)}
           memo={memo}
           setMemo={setMemo}
@@ -1345,6 +1606,8 @@ function DrawerContent({
   onTargets,
   onDelete,
   readOnly = false,
+  asPane = false,
+  downstreamLlmInput = null,
 }: {
   detail: TraceDetail | null;
   detailState: "idle" | "loading" | "success" | "error";
@@ -1372,7 +1635,8 @@ function DrawerContent({
   onTogglePickerScore: (id: string, checked: boolean) => void;
   onAddPickerScores: () => void;
   onRemoveScore: (id: string) => void;
-  onResizeStart: (event: ReactPointerEvent<HTMLSpanElement>) => void;
+  /** 넘기지 않으면 폭 조절 handle을 그리지 않는다. 단(pane)에는 조절할 폭이 없다. */
+  onResizeStart?: (event: ReactPointerEvent<HTMLSpanElement>) => void;
   saving: boolean;
   saveError?: string;
   onSave: () => void;
@@ -1383,7 +1647,13 @@ function DrawerContent({
   onTargets: (panel: TargetPanel) => void;
   onDelete: () => void;
   readOnly?: boolean;
+  /** 목록을 덮지 않는 단이면 true. 닫을 것이 없으므로 닫기 버튼을 두지 않는다. */
+  asPane?: boolean;
+  /** retriever 문서의 "사용됨" 대조에만 쓴다. null이면 대조하지 않는다. */
+  downstreamLlmInput?: string | null;
 }) {
+  const t = useT();
+  const locale = useLocale();
   if (!selectedTraceId) return null;
   const traceTitle = detail?.name ?? currentTrace?.name ?? "Trace detail";
   const displayedScores =
@@ -1392,11 +1662,13 @@ function DrawerContent({
     ) ?? [];
   return (
     <>
-      <span
-        className="drawer-resize"
-        onPointerDown={onResizeStart}
-        aria-hidden="true"
-      />
+      {onResizeStart ? (
+        <span
+          className="drawer-resize"
+          onPointerDown={onResizeStart}
+          aria-hidden="true"
+        />
+      ) : null}
       <header className="drawer-head">
         <div className="drawer-title">
           <h2 id="drawerTitle">{traceTitle}</h2>
@@ -1407,7 +1679,7 @@ function DrawerContent({
             <button
               className="lf-icon-btn"
               type="button"
-              aria-label="이전 요청"
+              aria-label={t("이전 요청")}
               disabled={!detail?.previous_trace_id}
               onClick={() =>
                 detail?.previous_trace_id &&
@@ -1424,7 +1696,7 @@ function DrawerContent({
             <button
               className="lf-icon-btn"
               type="button"
-              aria-label="다음 요청"
+              aria-label={t("다음 요청")}
               disabled={!detail?.next_trace_id}
               onClick={() =>
                 detail?.next_trace_id && onNavigate(detail.next_trace_id)
@@ -1437,21 +1709,23 @@ function DrawerContent({
             <button
               className="lf-icon-btn"
               type="button"
-              aria-label="Trace 작업"
+              aria-label={t("Trace 작업")}
               aria-expanded={action !== null}
               onClick={() => setAction(action === "menu" ? null : "menu")}
             >
               <IconMore />
             </button>
           ) : null}
-          <button
-            className="lf-icon-btn"
-            type="button"
-            aria-label="상세 닫기"
-            onClick={onClose}
-          >
-            <IconClose />
-          </button>
+          {!asPane ? (
+            <button
+              className="lf-icon-btn"
+              type="button"
+              aria-label={t("상세 닫기")}
+              onClick={onClose}
+            >
+              <IconClose />
+            </button>
+          ) : null}
           {!readOnly && action === "menu" ? (
             <div className="action-menu">
               <button type="button" onClick={() => onTargets("queue")}>
@@ -1471,21 +1745,21 @@ function DrawerContent({
           ) : null}
           {!readOnly && action === "delete" ? (
             <div className="confirm-popover">
-              <p>이 trace와 연결된 observations, annotations를 삭제합니다.</p>
+              <p>{t("이 trace와 연결된 observations, annotations를 삭제합니다.")}</p>
               <div className="popover-actions">
                 <button
                   className="lf-btn"
                   type="button"
                   onClick={() => setAction(null)}
                 >
-                  취소
+                  {t("취소")}
                 </button>
                 <button
                   className="lf-btn is-danger"
                   type="button"
                   onClick={onDelete}
                 >
-                  삭제
+                  {t("삭제")}
                 </button>
               </div>
             </div>
@@ -1494,14 +1768,16 @@ function DrawerContent({
       </header>
       <div className="drawer-body">
         {detailState === "loading" ? (
-          <LoadingBlock label="Trace 상세를 불러오는 중…" />
+          <LoadingBlock label={t("Trace 상세를 불러오는 중…")} />
         ) : detailState === "error" ? (
-          <ErrorBlock message={detailError} onRetry={detailRetry} />
-        ) : detail ? (
+          <ErrorBlock message={t(detailError)} onRetry={detailRetry} />
+        ) : detail === null ? (
+          <EmptyBlock>{t("목록에서 trace를 고르세요.")}</EmptyBlock>
+        ) : (
           <>
             <div className="detail-grid">
               <section className="detail-card">
-                <h3>실행 흐름</h3>
+                <h3>{t("실행 흐름")}</h3>
                 <RuntimeGraphView
                   observations={detail.observations}
                   selectedObservationId={observationId}
@@ -1531,28 +1807,31 @@ function DrawerContent({
                 </h3>
                 <div className="io-panel">
                   {payloadState === "loading" ? (
-                    <LoadingBlock label="Payload를 불러오는 중…" />
+                    <LoadingBlock label={t("Payload를 불러오는 중…")} />
                   ) : payloadState === "error" ? (
-                    <ErrorBlock message={payloadError} onRetry={retryPayload} />
+                    <ErrorBlock message={t(payloadError)} onRetry={retryPayload} />
                   ) : payloadState === "success" && observation ? (
-                    <ObservationPayloadPanel observation={observation} />
+                    <ObservationPayloadPanel
+                      observation={observation}
+                      downstreamLlmInput={downstreamLlmInput}
+                    />
                   ) : (
-                    <EmptyBlock>그래프에서 관측값을 선택하세요.</EmptyBlock>
+                    <EmptyBlock>{t("그래프에서 observation을 선택하세요.")}</EmptyBlock>
                   )}
                 </div>
               </section>
             </div>
             <div className="trace-meta">
               <div>
-                <span>상태</span>
+                <span>{t("상태")}</span>
                 <b>{detail.status}</b>
               </div>
               <div>
-                <span>시작</span>
-                <b>{formatDateTime(detail.started_at)}</b>
+                <span>{t("시작")}</span>
+                <b>{formatDateTime(detail.started_at, locale)}</b>
               </div>
               <div>
-                <span>지연</span>
+                <span>{t("지연")}</span>
                 <b>{formatDuration(detail.duration_us)}</b>
               </div>
               <div>
@@ -1592,7 +1871,7 @@ function DrawerContent({
                       config.archived_at === null &&
                       !activeScoreIds.includes(config.score_config_id),
                   ).length === 0 ? (
-                    <p className="annotation-empty">추가할 score가 없습니다.</p>
+                    <p className="annotation-empty">{t("추가할 score가 없습니다.")}</p>
                   ) : (
                     detail.score_configs
                       .filter(
@@ -1629,14 +1908,14 @@ function DrawerContent({
                       onClick={onAddPickerScores}
                       disabled={pickerScoreIds.length === 0}
                     >
-                      추가
+                      {t("추가")}
                     </button>
                   </div>
                 </div>
               ) : null}
               <div className="annotation-list">
                 {displayedScores.length === 0 ? (
-                  <p className="annotation-empty">추가된 score가 없습니다.</p>
+                  <p className="annotation-empty">{t("추가된 score가 없습니다.")}</p>
                 ) : (
                   displayedScores.map((config) => (
                     <article
@@ -1651,7 +1930,7 @@ function DrawerContent({
                         <button
                           className="remove-score"
                           type="button"
-                          aria-label={`${config.name} 제거`}
+                          aria-label={t("{name} 제거", {name: config.name})}
                           onClick={() => onRemoveScore(config.score_config_id)}
                         >
                           <IconClose />
@@ -1665,6 +1944,7 @@ function DrawerContent({
                             ...values,
                             [config.score_config_id]: value,
                           })),
+                        t,
                       )}
                     </article>
                   ))
@@ -1675,25 +1955,26 @@ function DrawerContent({
                 <textarea
                   value={memo}
                   onChange={(event) => setMemo(event.target.value)}
-                  placeholder="검토 메모"
+                  placeholder={t("검토 메모")}
                 />
               </label>
               <footer className="annotation-footer">
-                {saveError ? <span className="annotation-error">{saveError}</span> : null}
+                {saveError ? (
+                  <span className="annotation-error">{t(saveError)}</span>
+                ) : null}
                 <button
                   className="lf-btn is-primary"
                   type="button"
                   disabled={saving}
                   onClick={onSave}
                 >
-                  {saving ? "저장 중…" : "저장"}
+                  {saving ? t("저장 중…") : t("저장")}
                 </button>
               </footer>
             </section>
           </>
-        ) : null}
+        )}
       </div>
     </>
   );
 }
-
