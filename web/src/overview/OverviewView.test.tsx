@@ -361,9 +361,31 @@ describe("Overview polling", () => {
       expect(api.getDashboard).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(30_000);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
       expect(api.getDashboard).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not stack polls while a slow request is still in flight", async () => {
+    vi.useFakeTimers();
+    try {
+      // 응답이 영영 오지 않는 요청. 매 주기마다 abort하고 다시 쏘면 화면은
+      // 영영 갱신되지 않으므로, 기다리는 동안은 주기를 건너뛰어야 한다.
+      api.getDashboard.mockReturnValue(new Promise(() => undefined));
+      renderOverview({ state: { range: "24h" } });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(api.getDashboard).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000 * 3);
+      });
+      expect(api.getDashboard).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }

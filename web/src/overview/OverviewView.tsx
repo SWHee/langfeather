@@ -291,8 +291,8 @@ const PERIOD_PRESETS: ReadonlyArray<{
   { range: "30d", label: "30일" },
 ];
 
-/** polling 주기. 초 단위로 두드릴 정도는 아니고, 얼어붙지도 않을 정도. */
-const POLL_INTERVAL_MS = 30_000;
+/** polling 주기. 흘러가는 걸 눈으로 볼 수 있을 만큼 짧게. */
+const POLL_INTERVAL_MS = 5_000;
 
 function ChartCard({
   spec,
@@ -562,6 +562,10 @@ export function OverviewView({
   // 받아 30초마다 재조회한다. URL이나 history는 건드리지 않는다.
   const [tick, setTick] = useState(0);
   const hasDashboardRef = useRef(false);
+  // tick이 바뀌면 effect가 다시 돌면서 이전 요청을 abort한다. 주기가 요청보다
+  // 짧으면 매번 abort만 하다 영영 갱신되지 않으므로, 아직 응답을 기다리는
+  // 동안은 tick을 올리지 않는다. 실효 주기는 max(주기, 응답 시간)이 된다.
+  const inFlightRef = useRef(false);
   const editing = true;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [layout, setLayout] = useState(INITIAL_LAYOUT);
@@ -569,8 +573,14 @@ export function OverviewView({
   const [chartAnnouncement, setChartAnnouncement] = useState("");
   const [sharedFocus, setSharedFocus] = useState<number | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
-  const [customFrom, setCustomFrom] = useState(() => toLocalInput(state.from));
-  const [customTo, setCustomTo] = useState(() => toLocalInput(state.to));
+  // 커스텀 입력칸은 저장된 from/to가 아니라 조회와 같은 창을 프리필한다. 상대
+  // range에서 저장값은 마지막 preset 클릭 시점이라 시간이 지나면 낡는다.
+  const [customFrom, setCustomFrom] = useState(() =>
+    toLocalInput(resolveOverviewWindow(state).from),
+  );
+  const [customTo, setCustomTo] = useState(() =>
+    toLocalInput(resolveOverviewWindow(state).to),
+  );
   const boardRef = useRef<HTMLDivElement>(null);
   const chartHighlightTimer = useRef<number | null>(null);
   const recentTraceTrigger = useRef<HTMLTableRowElement | null>(null);
@@ -592,11 +602,12 @@ export function OverviewView({
     deferState(() => {
       if (controller.signal.aborted) return;
       // 이미 그려진 대시보드가 있으면(=polling 재조회) loading 화면으로 갈아
-      // 끼우지 않는다. 30초마다 전체 보드가 깜빡이면 그 자체가 방해다.
+      // 끼우지 않는다. 주기마다 전체 보드가 깜빡이면 그 자체가 방해다.
       setLoading(!hasDashboardRef.current);
       setDashboardError(null);
       setSharedFocus(null);
     });
+    inFlightRef.current = true;
     void getDashboard(overviewQuery(state, bounds), controller.signal)
       .then((response) => {
         hasDashboardRef.current = true;
@@ -610,7 +621,10 @@ export function OverviewView({
         hasDashboardRef.current = false;
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        // abort된 요청은 이미 다음 요청이 깃발을 세운 뒤이므로 내리지 않는다.
+        if (controller.signal.aborted) return;
+        inFlightRef.current = false;
+        setLoading(false);
       });
     return () => controller.abort();
   }, [state, retry, tick]);
@@ -645,6 +659,7 @@ export function OverviewView({
   useEffect(() => {
     if (state.range === null) return;
     const id = window.setInterval(() => {
+      if (inFlightRef.current) return;
       setTick((value) => value + 1);
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(id);
@@ -830,8 +845,9 @@ export function OverviewView({
                 aria-pressed={state.range === null}
                 aria-expanded={customOpen}
                 onClick={() => {
-                  setCustomFrom(toLocalInput(state.from));
-                  setCustomTo(toLocalInput(state.to));
+                  const bounds = resolveOverviewWindow(state);
+                  setCustomFrom(toLocalInput(bounds.from));
+                  setCustomTo(toLocalInput(bounds.to));
                   setCustomOpen((open) => !open);
                 }}
               >
