@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -8,6 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { OverviewUrlState } from "../url";
 import { OverviewView } from "./OverviewView";
 
 const api = vi.hoisted(() => ({
@@ -19,24 +21,30 @@ vi.mock("../api/client", () => api);
 
 const scrollIntoView = vi.fn();
 
-function renderOverview() {
+const BASE_STATE: OverviewUrlState = {
+  from: "2026-08-01T00:00:00.000Z",
+  to: "2026-08-02T00:00:00.000Z",
+  range: null,
+  timezone: "UTC",
+  bucket: "day",
+  query: "",
+  tag: "",
+  sessionId: "",
+  release: "",
+  environment: "",
+  userId: "",
+  scoreIds: [],
+  toolNames: [],
+};
+
+function renderOverview(overrides?: {
+  state?: Partial<OverviewUrlState>;
+  onChange?: (state: OverviewUrlState) => void;
+}) {
   return render(
     <OverviewView
-      state={{
-        from: "2026-08-01T00:00:00.000Z",
-        to: "2026-08-02T00:00:00.000Z",
-        timezone: "UTC",
-        bucket: "day",
-        query: "",
-        tag: "",
-        sessionId: "",
-        release: "",
-        environment: "",
-        userId: "",
-        scoreIds: [],
-        toolNames: [],
-      }}
-      onChange={() => undefined}
+      state={{ ...BASE_STATE, ...overrides?.state }}
+      onChange={overrides?.onChange ?? (() => undefined)}
       selectedTraceId={null}
       onOpenTrace={() => undefined}
     />,
@@ -324,5 +332,40 @@ describe("Overview Tool Calls chart", () => {
     expect(card.querySelector("svg")).not.toBeNull();
     expect(document.body.textContent).not.toContain("grep");
     expect(document.body.textContent).not.toContain("__others__");
+  });
+});
+
+describe("Overview period presets", () => {
+  it("switches to relative range mode when a preset is clicked", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderOverview({ onChange });
+
+    await user.click(await screen.findByRole("button", { name: "1시간" }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ range: "1h" }),
+    );
+  });
+});
+
+describe("Overview polling", () => {
+  it("refetches the dashboard after the poll interval elapses in range mode", async () => {
+    vi.useFakeTimers();
+    try {
+      renderOverview({ state: { range: "24h" } });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(api.getDashboard).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(api.getDashboard).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

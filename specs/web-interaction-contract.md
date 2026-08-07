@@ -11,6 +11,7 @@
 | Traces | `trace` | selected trace ID 또는 없음 |
 | Overview | `overview_from` | ISO timestamp |
 | Overview | `overview_to` | ISO timestamp |
+| Overview | `overview_range` | `1h`, `24h`, `7d`, `30d` |
 | Overview | `overview_timezone` | IANA timezone |
 | Overview | `overview_bucket` | `hour`, `day`, `week`, `month`; `auto`는 생략 가능 |
 | Overview | `overview_query` | text query |
@@ -35,6 +36,11 @@
   있으면 `section`이 이긴다. URL을 다시 쓸 때는 항상 새 값으로만 쓴다.
 - Overview의 filter key는 `overview_` 접두어를 유지한다. tab 이름만 바뀌었을 뿐
   state의 소유자는 같은 화면이고, 접두어를 바꾸면 공유된 link가 전부 깨진다.
+- `overview_range`가 있으면 `overview_from`/`overview_to`는 쓰지 않으며, 조회
+  시점의 now 기준으로 창을 다시 계산한다 — 그래야 URL을 다시 열거나 polling이
+  재조회할 때마다 구간이 최신으로 움직인다. 절대 범위(커스텀)를 고르면
+  `overview_range`가 사라지고 기존 `overview_from`/`overview_to` 모드로
+  돌아간다.
 - Overview filter, Traces filter, Evaluation state는 서로 빌리거나 동기화하지 않는다.
 - URL write는 LangFeather가 소유한 key만 교체하고 다른 query parameter는 보존한다.
 - state 변화는 history를 무한히 쌓지 않도록 replace semantics를 사용할 수 있다.

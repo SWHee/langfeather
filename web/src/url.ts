@@ -13,9 +13,38 @@ export type EvaluateSection =
   | "queues"
   | "scores";
 
+/**
+ * 상대 시간 범위. `null`은 절대 구간(deep-link, 과거 특정 구간 조사)이고 그 동작은
+ * 그대로 얼어붙어 있어야 한다 — 의도한 동작이다.
+ */
+export type OverviewRange = "1h" | "24h" | "7d" | "30d";
+
+/** range -> 폭(시간). 여기 한 곳에서만 정의한다. */
+const OVERVIEW_RANGE_HOURS: Record<OverviewRange, number> = {
+  "1h": 1,
+  "24h": 24,
+  "7d": 24 * 7,
+  "30d": 24 * 30,
+};
+
+const OVERVIEW_RANGES: readonly OverviewRange[] = ["1h", "24h", "7d", "30d"];
+
+function windowForRange(
+  range: OverviewRange,
+  now: Date,
+): { from: string; to: string } {
+  return {
+    from: new Date(
+      now.getTime() - OVERVIEW_RANGE_HOURS[range] * 60 * 60 * 1_000,
+    ).toISOString(),
+    to: now.toISOString(),
+  };
+}
+
 export type OverviewUrlState = {
   from: string;
   to: string;
+  range: OverviewRange | null;
   timezone: string;
   bucket: DashboardBucket;
   query: string;
@@ -120,9 +149,10 @@ function localTimezone(): string {
 }
 
 export function defaultOverviewUrlState(now = new Date()): OverviewUrlState {
+  const range: OverviewRange = "7d";
   return {
-    from: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000).toISOString(),
-    to: now.toISOString(),
+    range,
+    ...windowForRange(range, now),
     timezone: localTimezone(),
     bucket: "auto",
     query: "",
@@ -138,9 +168,17 @@ export function defaultOverviewUrlState(now = new Date()): OverviewUrlState {
 
 function readOverviewUrlState(params: URLSearchParams): OverviewUrlState {
   const defaults = defaultOverviewUrlState();
+  const rangeParam = params.get("overview_range");
+  const range =
+    rangeParam !== null &&
+    OVERVIEW_RANGES.includes(rangeParam as OverviewRange)
+      ? (rangeParam as OverviewRange)
+      : null;
+  const resolved = range !== null ? windowForRange(range, new Date()) : null;
   return {
-    from: params.get("overview_from") ?? defaults.from,
-    to: params.get("overview_to") ?? defaults.to,
+    range,
+    from: resolved?.from ?? (params.get("overview_from") ?? defaults.from),
+    to: resolved?.to ?? (params.get("overview_to") ?? defaults.to),
     timezone: params.get("overview_timezone") ?? defaults.timezone,
     bucket: oneOf(
       params.get("overview_bucket"),
@@ -200,6 +238,7 @@ export function replaceAppUrlState(state: AppUrlState): void {
     "section",
     "overview_from",
     "overview_to",
+    "overview_range",
     "overview_timezone",
     "overview_bucket",
     "overview_query",
@@ -225,8 +264,12 @@ export function replaceAppUrlState(state: AppUrlState): void {
     params.set("section", state.section);
   }
   const overview = state.overview;
-  params.set("overview_from", overview.from);
-  params.set("overview_to", overview.to);
+  if (overview.range !== null) {
+    params.set("overview_range", overview.range);
+  } else {
+    params.set("overview_from", overview.from);
+    params.set("overview_to", overview.to);
+  }
   params.set("overview_timezone", overview.timezone);
   if (overview.bucket !== "auto")
     params.set("overview_bucket", overview.bucket);
@@ -258,4 +301,17 @@ export function replaceAppUrlState(state: AppUrlState): void {
   }
 
   window.history.replaceState(window.history.state, "", url);
+}
+
+/**
+ * 조회 시점에 실제로 쓸 창을 계산한다. `range`가 있으면 매 호출마다 `now` 기준으로
+ * 새로 계산해 polling이 fetch할 때마다 최신 구간을 가리키게 한다. `range`가
+ * `null`이면 절대 구간이므로 저장된 from/to를 그대로 돌려준다.
+ */
+export function resolveOverviewWindow(
+  state: OverviewUrlState,
+  now = new Date(),
+): { from: string; to: string } {
+  if (state.range === null) return { from: state.from, to: state.to };
+  return windowForRange(state.range, now);
 }
