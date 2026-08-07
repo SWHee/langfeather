@@ -40,7 +40,8 @@
   시점의 now 기준으로 창을 다시 계산한다 — 그래야 URL을 다시 열거나 polling이
   재조회할 때마다 구간이 최신으로 움직인다. 절대 범위(커스텀)를 고르면
   `overview_range`가 사라지고 기존 `overview_from`/`overview_to` 모드로
-  돌아간다.
+  돌아간다. 셋 다 없는 URL은 기본 상대 범위(`7d`)로 읽는다 — 아무 것도 적히지
+  않은 첫 진입은 흐르는 대시보드여야 한다.
 - Overview filter, Traces filter, Evaluation state는 서로 빌리거나 동기화하지 않는다.
 - URL write는 LangFeather가 소유한 key만 교체하고 다른 query parameter는 보존한다.
 - state 변화는 history를 무한히 쌓지 않도록 replace semantics를 사용할 수 있다.

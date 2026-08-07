@@ -95,6 +95,10 @@ describe("Overview URL state", () => {
     expect(overview.to).toBe("2026-07-02T00:00:00.000Z");
   });
 
+  it("opens a bare URL in the default relative range so the board flows", () => {
+    expect(readAppUrlState("?view=overview").overview.range).toBe("7d");
+  });
+
   it("resolveOverviewWindow computes the window from a passed-in now per range and passes through absolute state untouched", () => {
     const now = new Date("2026-08-01T00:00:00.000Z");
     const base = defaultOverviewUrlState(now);

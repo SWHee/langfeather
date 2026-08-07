@@ -169,11 +169,17 @@ export function defaultOverviewUrlState(now = new Date()): OverviewUrlState {
 function readOverviewUrlState(params: URLSearchParams): OverviewUrlState {
   const defaults = defaultOverviewUrlState();
   const rangeParam = params.get("overview_range");
+  // 절대 구간은 명시적으로 적힌 from/to가 있을 때만이다. 아무 것도 없는 첫
+  // 방문은 기본 상대 범위로 열려야 흐르는 대시보드가 된다.
+  const absolute =
+    params.get("overview_from") !== null || params.get("overview_to") !== null;
   const range =
     rangeParam !== null &&
     OVERVIEW_RANGES.includes(rangeParam as OverviewRange)
       ? (rangeParam as OverviewRange)
-      : null;
+      : absolute
+        ? null
+        : defaults.range;
   const resolved = range !== null ? windowForRange(range, new Date()) : null;
   return {
     range,
