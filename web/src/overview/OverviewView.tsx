@@ -291,7 +291,20 @@ const PERIOD_PRESETS: ReadonlyArray<{
   { range: "30d", label: "30일" },
 ];
 
-/** polling 주기. 흘러가는 걸 눈으로 볼 수 있을 만큼 짧게. */
+/**
+ * polling 주기. 흘러가는 걸 눈으로 볼 수 있을 만큼 짧게, 모든 범위에 같은 값을
+ * 쓴다.
+ *
+ * ponytail: 범위와 무관하게 5초 고정. 5초마다 /dashboard와 /traces가 함께
+ * 나가는데, /dashboard 집계(server repository.dashboard)는 구간 내 trace를 전부
+ * 읽어 Python에서 버킷팅하므로 비용이 구간 내 trace 수에 비례한다. 30일 범위에
+ * trace가 쌓이면 5초마다 30일치 풀스캔이 된다 — 정작 일 단위 버킷이라 화면에
+ * 보이는 변화는 거의 없는데도. 실제로 버거워지면 순서는 (1) 집계를 SQL GROUP
+ * BY로 내린다(근본), (2) 그래도 모자라면 tick을 둘로 쪼개 차트만 범위별로
+ * 늦추고 최근 목록은 5초를 유지한다. 지금 이 상수만 범위별로 바꾸면 사용자가
+ * 실제로 보고 싶어 하는 최근 목록까지 같이 느려진다 — tick을 공유하기 때문이다.
+ * 같은 이유로 실효 주기는 max(5초, /dashboard 응답 시간)이다.
+ */
 const POLL_INTERVAL_MS = 5_000;
 
 function ChartCard({
