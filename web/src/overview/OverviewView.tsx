@@ -30,7 +30,11 @@ import {
 } from "../components";
 import { useLocale, useT, type Translate } from "../i18n/context";
 import { previewText } from "../preview";
-import type { OverviewUrlState } from "../url";
+import {
+  resolveOverviewWindow,
+  type OverviewRange,
+  type OverviewUrlState,
+} from "../url";
 
 type ChartKey =
   "traceCount" | "latency" | "errorRate" | "llmCalls" | "toolCalls";
@@ -89,10 +93,13 @@ const RECENT_TRACE_SORT_VALUES: Record<
   count: (trace) => trace.observation_count,
 };
 
-function overviewQuery(state: OverviewUrlState): DashboardQuery {
+function overviewQuery(
+  state: OverviewUrlState,
+  bounds: { from: string; to: string },
+): DashboardQuery {
   return {
-    from: state.from,
-    to: state.to,
+    from: bounds.from,
+    to: bounds.to,
     timezone: state.timezone,
     bucket: state.bucket,
     query: state.query || undefined,
@@ -274,19 +281,31 @@ function timelineLabel(
   ).format(date);
 }
 
-const PERIOD_PRESETS: ReadonlyArray<{ hours: number; label: string }> = [
-  { hours: 1, label: "1시간" },
-  { hours: 24, label: "24시간" },
-  { hours: 24 * 7, label: "최근 7일" },
-  { hours: 24 * 30, label: "30일" },
+const PERIOD_PRESETS: ReadonlyArray<{
+  range: OverviewRange;
+  label: string;
+}> = [
+  { range: "1h", label: "1시간" },
+  { range: "24h", label: "24시간" },
+  { range: "7d", label: "최근 7일" },
+  { range: "30d", label: "30일" },
 ];
 
-function activePeriodHours(state: OverviewUrlState): number | null {
-  const from = new Date(state.from).valueOf();
-  const to = new Date(state.to).valueOf();
-  if (Number.isNaN(from) || Number.isNaN(to)) return null;
-  return (to - from) / (60 * 60 * 1_000);
-}
+/**
+ * polling 주기. 흘러가는 걸 눈으로 볼 수 있을 만큼 짧게, 모든 범위에 같은 값을
+ * 쓴다.
+ *
+ * ponytail: 범위와 무관하게 5초 고정. 5초마다 /dashboard와 /traces가 함께
+ * 나가는데, /dashboard 집계(server repository.dashboard)는 구간 내 trace를 전부
+ * 읽어 Python에서 버킷팅하므로 비용이 구간 내 trace 수에 비례한다. 30일 범위에
+ * trace가 쌓이면 5초마다 30일치 풀스캔이 된다 — 정작 일 단위 버킷이라 화면에
+ * 보이는 변화는 거의 없는데도. 실제로 버거워지면 순서는 (1) 집계를 SQL GROUP
+ * BY로 내린다(근본), (2) 그래도 모자라면 tick을 둘로 쪼개 차트만 범위별로
+ * 늦추고 최근 목록은 5초를 유지한다. 지금 이 상수만 범위별로 바꾸면 사용자가
+ * 실제로 보고 싶어 하는 최근 목록까지 같이 느려진다 — tick을 공유하기 때문이다.
+ * 같은 이유로 실효 주기는 max(5초, /dashboard 응답 시간)이다.
+ */
+const POLL_INTERVAL_MS = 5_000;
 
 function ChartCard({
   spec,
@@ -552,6 +571,14 @@ export function OverviewView({
     [recent, recentColumns.sort],
   );
   const [recentError, setRecentError] = useState<string | null>(null);
+  // 상대 range일 때만 도는 polling tick. 두 fetch effect가 이 값을 의존성으로
+  // 받아 30초마다 재조회한다. URL이나 history는 건드리지 않는다.
+  const [tick, setTick] = useState(0);
+  const hasDashboardRef = useRef(false);
+  // tick이 바뀌면 effect가 다시 돌면서 이전 요청을 abort한다. 주기가 요청보다
+  // 짧으면 매번 abort만 하다 영영 갱신되지 않으므로, 아직 응답을 기다리는
+  // 동안은 tick을 올리지 않는다. 실효 주기는 max(주기, 응답 시간)이 된다.
+  const inFlightRef = useRef(false);
   const editing = true;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [layout, setLayout] = useState(INITIAL_LAYOUT);
@@ -559,8 +586,14 @@ export function OverviewView({
   const [chartAnnouncement, setChartAnnouncement] = useState("");
   const [sharedFocus, setSharedFocus] = useState<number | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
-  const [customFrom, setCustomFrom] = useState(() => toLocalInput(state.from));
-  const [customTo, setCustomTo] = useState(() => toLocalInput(state.to));
+  // 커스텀 입력칸은 저장된 from/to가 아니라 조회와 같은 창을 프리필한다. 상대
+  // range에서 저장값은 마지막 preset 클릭 시점이라 시간이 지나면 낡는다.
+  const [customFrom, setCustomFrom] = useState(() =>
+    toLocalInput(resolveOverviewWindow(state).from),
+  );
+  const [customTo, setCustomTo] = useState(() =>
+    toLocalInput(resolveOverviewWindow(state).to),
+  );
   const boardRef = useRef<HTMLDivElement>(null);
   const chartHighlightTimer = useRef<number | null>(null);
   const recentTraceTrigger = useRef<HTMLTableRowElement | null>(null);
@@ -578,28 +611,40 @@ export function OverviewView({
 
   useEffect(() => {
     const controller = new AbortController();
+    const bounds = resolveOverviewWindow(state);
     deferState(() => {
       if (controller.signal.aborted) return;
-      setLoading(true);
+      // 이미 그려진 대시보드가 있으면(=polling 재조회) loading 화면으로 갈아
+      // 끼우지 않는다. 주기마다 전체 보드가 깜빡이면 그 자체가 방해다.
+      setLoading(!hasDashboardRef.current);
       setDashboardError(null);
       setSharedFocus(null);
     });
-    void getDashboard(overviewQuery(state), controller.signal)
-      .then((response) => setDashboard(response))
+    inFlightRef.current = true;
+    void getDashboard(overviewQuery(state, bounds), controller.signal)
+      .then((response) => {
+        hasDashboardRef.current = true;
+        setDashboard(response);
+      })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
         setDashboardError("Overview 데이터를 불러오지 못했습니다.");
         setDashboard(null);
+        hasDashboardRef.current = false;
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        // abort된 요청은 이미 다음 요청이 깃발을 세운 뒤이므로 내리지 않는다.
+        if (controller.signal.aborted) return;
+        inFlightRef.current = false;
+        setLoading(false);
       });
     return () => controller.abort();
-  }, [state, retry]);
+  }, [state, retry, tick]);
 
   useEffect(() => {
     const controller = new AbortController();
+    const bounds = resolveOverviewWindow(state);
     deferState(() => {
       if (!controller.signal.aborted) setRecentError(null);
     });
@@ -609,8 +654,8 @@ export function OverviewView({
         query: state.query || undefined,
         tag: state.tag || undefined,
         session_id: state.sessionId || undefined,
-        from: state.from,
-        to: state.to,
+        from: bounds.from,
+        to: bounds.to,
       },
       controller.signal,
     )
@@ -622,7 +667,16 @@ export function OverviewView({
         setRecentError("최근 Trace를 불러오지 못했습니다.");
       });
     return () => controller.abort();
-  }, [state]);
+  }, [state, tick]);
+
+  useEffect(() => {
+    if (state.range === null) return;
+    const id = window.setInterval(() => {
+      if (inFlightRef.current) return;
+      setTick((value) => value + 1);
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [state.range]);
 
   useEffect(() => {
     const move = (event: PointerEvent) => {
@@ -680,12 +734,6 @@ export function OverviewView({
     () => (dashboard ? specsFor(dashboard) : []),
     [dashboard],
   );
-  const activePeriodState = useMemo(() => activePeriodHours(state), [state]);
-  const matchesPreset =
-    activePeriodState !== null &&
-    PERIOD_PRESETS.some(
-      (preset) => Math.abs(activePeriodState - preset.hours) < 0.01,
-    );
   const byId = useMemo(
     () => new Map(specs.map((spec) => [spec.id, spec])),
     [specs],
@@ -695,13 +743,9 @@ export function OverviewView({
     onChange(draft);
     setFiltersOpen(false);
   };
-  const quickPeriod = (hours: number) => {
-    const now = new Date();
-    const next = {
-      ...draft,
-      from: new Date(now.valueOf() - hours * 60 * 60 * 1_000).toISOString(),
-      to: now.toISOString(),
-    };
+  const quickPeriod = (range: OverviewRange) => {
+    const bounds = resolveOverviewWindow({ ...draft, range });
+    const next: OverviewUrlState = { ...draft, range, ...bounds };
     setDraft(next);
     onChange(next);
     setCustomOpen(false);
@@ -710,17 +754,17 @@ export function OverviewView({
     const from = fromLocalInput(customFrom);
     const to = fromLocalInput(customTo);
     if (!from || !to) return;
-    const next = { ...draft, from, to };
+    const next: OverviewUrlState = { ...draft, range: null, from, to };
     setDraft(next);
     onChange(next);
     setCustomOpen(false);
   };
   const reset = () => {
-    const now = new Date();
+    const bounds = resolveOverviewWindow({ ...state, range: "7d" });
     const next: OverviewUrlState = {
       ...state,
-      from: new Date(now.valueOf() - 7 * 24 * 60 * 60 * 1_000).toISOString(),
-      to: now.toISOString(),
+      range: "7d",
+      ...bounds,
       bucket: "auto",
       query: "",
       tag: "",
@@ -801,24 +845,22 @@ export function OverviewView({
             <div className="period-group" role="group" aria-label={t("조회 기간")}>
               {PERIOD_PRESETS.map((preset) => (
                 <button
-                  key={preset.hours}
+                  key={preset.range}
                   type="button"
-                  aria-pressed={
-                    activePeriodState !== null &&
-                    Math.abs(activePeriodState - preset.hours) < 0.01
-                  }
-                  onClick={() => quickPeriod(preset.hours)}
+                  aria-pressed={state.range === preset.range}
+                  onClick={() => quickPeriod(preset.range)}
                 >
                   {t(preset.label)}
                 </button>
               ))}
               <button
                 type="button"
-                aria-pressed={!matchesPreset}
+                aria-pressed={state.range === null}
                 aria-expanded={customOpen}
                 onClick={() => {
-                  setCustomFrom(toLocalInput(state.from));
-                  setCustomTo(toLocalInput(state.to));
+                  const bounds = resolveOverviewWindow(state);
+                  setCustomFrom(toLocalInput(bounds.from));
+                  setCustomTo(toLocalInput(bounds.to));
                   setCustomOpen((open) => !open);
                 }}
               >
